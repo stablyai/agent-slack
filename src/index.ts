@@ -432,11 +432,17 @@ function toThreadListMessage(m: CompactSlackMessage): Omit<
   return rest;
 }
 
-const msgCmd = program
-  .command("msg")
-  .description("Read Slack messages (token-efficient JSON)");
+const messageCmd = program
+  .command("message")
+  .description("Read/write Slack messages (token-efficient JSON)");
 
-msgCmd
+// Back-compat alias
+program
+  .command("msg", { hidden: true })
+  .description("Alias for `message`")
+  .action(() => messageCmd.help());
+
+messageCmd
   .command("get", { isDefault: true })
   .description("Fetch a single Slack message (with thread summary if any)")
   .argument("<target>", "Slack message URL, #channel, or channel ID")
@@ -463,7 +469,7 @@ msgCmd
     }
   });
 
-msgCmd
+messageCmd
   .command("list")
   .description("Fetch the full thread for a Slack message URL")
   .argument("<target>", "Slack message URL, #channel, or channel ID")
@@ -519,26 +525,7 @@ function inferExt(file: {
   return m ? m[1]!.toLowerCase() : null;
 }
 
-program
-  .command("thread")
-  .description("Fetch all messages in a thread for a Slack message URL")
-  .argument("<slack-url>", "Slack message URL")
-  .option(
-    "--max-body-chars <n>",
-    "Max content characters to include (default 8000, -1 for unlimited)",
-    "8000",
-  )
-  .action(async (slackUrl, options) => {
-    try {
-      // Back-compat alias for `msg list`
-      await handleMsgList(slackUrl, options);
-    } catch (err: any) {
-      console.error(err?.message || String(err));
-      process.exitCode = 1;
-    }
-  });
-
-program
+messageCmd
   .command("reply")
   .description("Reply in the same thread as a Slack message URL")
   .argument("<slack-url>", "Slack message URL")
@@ -563,7 +550,7 @@ program
     }
   });
 
-program
+messageCmd
   .command("react")
   .description("Add an emoji reaction to a Slack message URL")
   .argument("<slack-url>", "Slack message URL")
@@ -589,7 +576,7 @@ program
 const canvasCmd = program.command("canvas").description("Work with Slack canvases");
 
 canvasCmd
-  .command("get", { isDefault: true })
+  .command("get")
   .description("Fetch a Slack canvas and convert it to Markdown")
   .argument("<canvas>", "Slack canvas URL (…/docs/…/F…) or canvas id (F…)")
   .option(

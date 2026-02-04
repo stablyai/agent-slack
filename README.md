@@ -24,11 +24,11 @@ agent-slack
     import-chrome
     parse-curl
 
-  msg
-    get   <target>    # default: agent-slack msg <target>
+  message
+    get   <target>
     list  <target>    # full thread for a message/thread
-
-  thread <slack-url>  # alias for: msg list <slack-url>
+    reply <slack-url> <text>
+    react <slack-url> <emoji>
 
   search
     all      <query>  # default: search all
@@ -36,10 +36,7 @@ agent-slack
     files    <query>
 
   canvas
-    get <canvas-url-or-id>   # default: canvas get
-
-  reply <slack-url> <text>
-  react <slack-url> <emoji>
+    get <canvas-url-or-id>
   doctor
 ```
 
@@ -108,10 +105,10 @@ agent-slack doctor
 
 ```bash
 # Single message (+ thread summary if threaded)
-agent-slack msg "https://workspace.slack.com/archives/C123/p1700000000000000"
+agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000"
 
 # Full thread for a message
-agent-slack msg list "https://workspace.slack.com/archives/C123/p1700000000000000"
+agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
 ```
 
 ### Targets: URL or channel
@@ -125,16 +122,16 @@ Examples:
 
 ```bash
 # Get a single message by channel + ts
-agent-slack msg get "#general" --ts "1770165109.628379"
+agent-slack message get "#general" --ts "1770165109.628379"
 
 # List a full thread by channel + thread root ts
-agent-slack msg list "#general" --thread-ts "1770165109.000001"
+agent-slack message list "#general" --thread-ts "1770165109.000001"
 ```
 
 If you have multiple workspaces configured and you use a channel **name** (`#channel` / `channel`), you must pass `--workspace` (or set `SLACK_WORKSPACE_URL`):
 
 ```bash
-agent-slack msg get "#general" --workspace "https://stablygroup.slack.com" --ts "1770165109.628379"
+agent-slack message get "#general" --workspace "https://stablygroup.slack.com" --ts "1770165109.628379"
 ```
 
 ## Files (snippets/images/attachments)
