@@ -1,0 +1,27 @@
+.DS_Store
+node_modules
+.env
+.env.*
+design.doc
+
+# bun
+bun.lockb
+
+# build
+dist
+release
+
+# local
+.cache
+.tmp
+.tmp-downloads
+tmp_pyenv
+
+# npm postinstall
+bin/native/
+
+# npm artifacts/logs
+*.tgz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
