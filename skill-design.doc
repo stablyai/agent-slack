@@ -1,0 +1,81 @@
+# Skill design: `agent-slack` (Codex + Claude Code)
+
+Last reviewed: 2026-02-04
+
+## Goal
+
+Ship an installable “skill” that teaches an AI coding agent how to use the `agent-slack` CLI reliably:
+
+- read Slack permalinks + threads
+- download and reference attachments by local path
+- search messages/files with guardrails for multi-workspace
+- draft and send replies / reactions
+
+## What a “skill” is (shared core)
+
+A skill is a folder containing a required `SKILL.md`.
+
+`SKILL.md` begins with YAML frontmatter. The only universally required fields are:
+
+- `name`: short, stable identifier (e.g. `agent-slack`)
+- `description`: trigger text (should include “Use when…” phrases and concrete triggers)
+
+Everything else in frontmatter should be treated as **product-specific**. To maximize portability across tools, keep frontmatter minimal unless you explicitly need product behavior.
+
+## Codex CLI expectations (OpenAI)
+
+Key points (from Codex docs):
+
+- Codex discovers skills under `~/.agents/skills` and `./.agents/skills`.
+- Codex uses only `name` + `description` from `SKILL.md` for matching/triggering.
+- Extra frontmatter keys are tolerated but may be ignored.
+- Optional: `agents/openai.yaml` can provide UI-facing metadata (display name, default prompt, etc.).
+
+Docs:
+
+- https://developers.openai.com/codex/skills
+- https://developers.openai.com/codex/skills#create-a-new-skill
+
+## Claude Code expectations (Anthropic)
+
+Key points (from Claude Code docs):
+
+- Claude Code discovers skills under `~/.claude/skills` and `./.claude/skills`.
+- Skills are folder-based with a `SKILL.md` and YAML frontmatter.
+- Claude Code supports additional frontmatter fields (e.g. tool allowlists) that are **Claude-specific**.
+
+Docs:
+
+- https://docs.claude.com/en/docs/claude-code/skills
+
+## Compatibility strategy (recommended)
+
+To support **both Codex and Claude Code** without brittleness:
+
+1. **Keep `SKILL.md` frontmatter portable**
+   - Always include `name` and `description`.
+   - Avoid product-specific frontmatter like `allowed-tools` unless you are willing to maintain separate variants.
+
+2. **Keep `SKILL.md` short and procedural**
+   - “Default assumption: the agent is already smart.”
+   - Put only the reliable workflows + a small command atlas in `SKILL.md`.
+   - Move the long-form command reference, output shapes, and edge cases into `references/` files.
+
+3. **Prefer stable inputs**
+   - Prefer Slack permalinks (URLs) over channel-name targeting.
+   - When channel names are used, require an explicit workspace (`--workspace` or `SLACK_WORKSPACE_URL`) to avoid cross-workspace mistakes.
+
+4. **Make installation frictionless**
+   - Even if the source of truth lives in `skills/agent-slack/` (for packaging), provide a single command to install into both discovery locations:
+     - `~/.agents/skills/agent-slack` (Codex)
+     - `~/.claude/skills/agent-slack` (Claude Code)
+
+## Repo layout recommendation (this repo)
+
+Use `skills/agent-slack/` as the **source-of-truth** because:
+
+- it is already shipped in the npm package (`package.json#files` includes `skills`)
+- it’s a clean, product-agnostic distribution format
+
+Then provide an installer script that copies the skill into both tool discovery paths.
+

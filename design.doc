@@ -1,0 +1,263 @@
+# agent-slack CLI design
+
+## Guiding principles
+
+- Token efficient by default: compact JSON, minimal duplication, prune null/empty fields.
+- Deterministic + machine-readable output: JSON only.
+- “Just works” auth: automatically reuse Slack Desktop creds when possible; fallback strategies when not.
+- Prefer stable primitives for agents: read message(s), fetch thread(s), download artifacts, reply/react.
+
+## Current commands (implemented)
+
+### `auth`
+
+- `auth whoami`
+  - Shows configured workspaces and which auth sources are available.
+- `auth test`
+  - Calls `auth.test` to verify credentials work.
+- `auth import-desktop`
+  - Extracts Slack Desktop browser-style creds (`xoxc` + `d` cookie) and saves them.
+- `auth import-chrome`
+  - Extracts creds from Chrome profile data and saves them.
+
+### `message`
+
+`message` is the main read/write entrypoint and always returns token-efficient JSON.
+
+- `message get <target>`
+  - Returns a **single** message only.
+  - If the message participates in a thread, includes:
+    - `message.thread_ts` (thread root ts)
+    - `thread: { ts, length }` (summary only; no thread messages)
+  - Auto-downloads attached files for that message and returns absolute paths in `message.files[].path`.
+  - Options:
+    - `--include-reactions`: include reactions in compact form.
+
+- `message list <target>`
+  - Returns the **full thread** for the URL’s message.
+  - Output shape:
+    - `{ messages: [...] }` (no redundant `channel_id` / `thread_ts` per message)
+  - Auto-downloads attached files across all thread messages and returns absolute paths.
+  - Options:
+    - `--include-reactions`: include reactions in compact form on each message.
+
+### `message reply` / `message react`
+
+- `message send <target> <text>`
+  - Sends a message, doing “the right thing” based on `<target>`:
+    - If `<target>` is a Slack message URL: replies in that message’s thread.
+    - Otherwise: posts to the channel/DM identified by `<target>`.
+  - `<target>` can be:
+    - Slack message URL, OR
+    - `#name` / `name` / channel id (`C...`/`G...`/`D...`).
+  - Options:
+    - `--workspace <url>` (required if `#name` is ambiguous across multiple workspaces)
+    - `--thread-ts <seconds>.<micros>` (post into an existing thread)
+  - Notes:
+    - `--thread-ts` applies only when posting to a channel target (not when `<target>` is already a message URL).
+
+- `message react add <target> <emoji>`
+  - Adds an emoji reaction to the referenced message.
+- `message react remove <target> <emoji>`
+  - Removes an emoji reaction from the referenced message.
+
+Reaction targets:
+
+- `<target>` uses the same union input as `message get/list`:
+  - Slack message URL, OR
+  - `#channel` / `channel-id` with `--ts <seconds>.<micros>` (and `--workspace` if ambiguous).
+
+#### Targets (union input)
+
+`<target>` can be either:
+
+- Slack message URL: `https://workspace.slack.com/archives/<channel>/p<digits>[?thread_ts=...]`
+- Channel reference (requires flags):
+  - Channel ID: `C…` / `G…` / `D…`
+  - Channel name: `#general` (or bare `general`)
+
+When using a channel reference, you must also pass:
+
+- For `message get`: `--ts <seconds>.<micros>` (and optionally `--thread-ts` for permalinks)
+- For `message list`: `--thread-ts <seconds>.<micros>` (or `--ts` to resolve a message to its thread)
+
+If you have multiple workspaces configured and use `#channel` or a channel ID, pass `--workspace https://…slack.com` to disambiguate.
+
+##### Ambiguity policy (multiple workspaces)
+
+- If more than one workspace is configured and a target uses a channel **name** (`#general` / `general`), the CLI requires `--workspace` (or `SLACK_WORKSPACE_URL`) and will error if omitted.
+- Channel IDs (`C...`/`G...`/`D...`) do not require `--workspace` (but will still use the workspace chosen by auth/defaults for API calls).
+
+### `canvas`
+
+- `canvas get <canvas-url-or-id>`
+  - Fetches a Slack canvas (Canvas IDs typically look like file IDs starting with `F...`).
+  - Downloads the canvas HTML export and converts it to Markdown.
+  - Output shape:
+    - `canvas: { id, title?, markdown }`
+
+### `search`
+
+Searches across Slack messages and/or files using Slack’s server-side search APIs, then post-processes results into token-efficient output.
+
+- `search all <query>` (default = `search all`)
+- `search messages <query>`
+- `search files <query>`
+
+Filters:
+
+- `--channel <#name|name|id>...` (repeatable)
+- `--user <@name|name|U...>`
+- `--after YYYY-MM-DD`
+- `--before YYYY-MM-DD`
+- `--content-type any|text|image|snippet|file`
+
+Behavior:
+
+- If `--channel` is provided, search scans `conversations.history` for those channels and filters locally (reliable even when Slack’s search API returns no results).
+- Otherwise it attempts Slack server-side search (`search.messages` / `search.files`).
+- Message results are returned as compact messages and attachments are downloaded so agents get local paths.
+- File results are downloaded to the agent temp downloads dir and returned as absolute paths.
+
+Output:
+
+- `search messages|all` returns `messages: [...]` (compact messages without redundant `channel_id`/`thread_ts`)
+- `search files|all` returns `files: [...]` with local `path` + minimal metadata.
+
+Ambiguity:
+
+- If `--channel` uses channel names and multiple workspaces are configured, require `--workspace` (or `SLACK_WORKSPACE_URL`) to avoid accidentally searching the wrong workspace.
+
+### `user`
+
+Users are frequently needed for agent workflows (attribution, routing, filtering). Provide token-efficient endpoints for listing and fetching user profile metadata.
+
+Commands:
+
+- `user list [options]`
+  - Lists users for the workspace (`users.list`), paginated.
+  - Options:
+    - `--workspace <url>` (required if you have multiple workspaces)
+    - `--limit <n>` (default 200, max 1000)
+    - `--cursor <cursor>` (optional; advanced pagination)
+    - `--include-bots` (include bot users; default false)
+  - Output:
+    - `{ users: [...], next_cursor? }`
+
+- `user get <user> [options]`
+  - Fetches a single user (`users.info`).
+  - `<user>` can be:
+    - user ID (`U...`), or
+    - `@handle` / `handle` (resolved via `users.list` scan)
+  - Options:
+    - `--workspace <url>` (required if ambiguous)
+  - Output (compact, but “useful for agents”):
+    - `user: { id, name, real_name?, display_name?, email?, is_bot?, deleted?, tz?, title? }`
+
+Notes:
+
+- Email requires appropriate Slack scopes and may be omitted; output should prune missing fields.
+- When resolving `handle`→`U...`, prefer cached user mapping in-memory for the command; do not persist.
+
+### `search ai` (not implemented)
+
+Slack’s “AI search” APIs live under `assistant.search.*`.
+
+This is intentionally **not implemented yet** in `agent-slack` because the current “Slack Desktop creds” auth flow (browser-style `xoxc` + `xoxd`) commonly fails with `method_not_supported_for_token_type` / `not_allowed_token_type` on these endpoints.
+
+Keep this design here as a future direction if/when we add a different auth strategy and/or explicit capability gating.
+
+Relevant Slack methods:
+
+- `assistant.search.info` (capability discovery)
+- `assistant.search.context` (retrieve contextually relevant messages/files)
+
+Commands:
+
+- `search ai info [--workspace <url>]`
+  - Calls `assistant.search.info` and returns capabilities (if any).
+  - Writes a per-workspace cache entry (see “State/caching”).
+
+- `search ai context <query> [options]`
+  - Options:
+    - `--workspace <url>` (required if ambiguous)
+    - `--context-channel <#name|name|id>` (mapped to `context_channel_id`)
+    - `--content-types messages,files` (default: messages)
+    - `--channel-types public_channel,private_channel,mpim,im` (default: public_channel)
+    - `--limit <n>` (Slack allows up to 20)
+    - `--cursor <cursor>` (pagination)
+    - `--action-token <token>` (optional; some workspaces may require it)
+  - Output (token efficient):
+    - `messages: [...]` and/or `files: [...]` (downloaded to local paths), plus `next_cursor` when present.
+
+Fallback behavior:
+
+- If `assistant.search.*` is unavailable (`feature_not_enabled`, `method_not_supported_for_token_type`, `missing_scope`, etc.), `search ai context` should either:
+  - return a structured `{ error: "unavailable", fallback: "search ..." }`, or
+  - transparently fall back to existing `search messages/files` (configurable).
+
+State/caching (needed because not all accounts support this):
+
+- Cache per-workspace capability results (from `assistant.search.info` or from “known unavailable” errors):
+  - `available: boolean`
+  - `checked_at: ISO string`
+  - `error?: string` (last failure)
+  - optionally a TTL (e.g. 24h) before re-checking
+- Location: credentials store keyed by `workspace_url` (non-secret, safe to store in JSON).
+
+Implementation status:
+
+- Not currently implemented. With the current “browser auth” approach (Slack Desktop `xoxc` + `d` cookie), `assistant.search.*` may reject the token type (e.g. `not_allowed_token_type`). Revisit after we support an auth method compatible with these endpoints (or a Slack-supported agent token flow).
+
+## Output shapes (stable-ish)
+
+### Message (compact)
+
+```json
+{
+  "message": {
+    "channel_id": "C…",
+    "ts": "1234.5678",
+    "thread_ts": "1234.0000",
+    "author": { "user_id": "U…", "bot_id": "B…" },
+    "content": "…",
+    "files": [{ "mimetype": "image/png", "mode": "hosted", "path": "/abs/path.png" }]
+  }
+}
+```
+
+### Reactions (optional)
+
+When `--include-reactions` is enabled, messages may include:
+
+```json
+{
+  "reactions": [
+    { "name": "rocket", "users": ["U123", "U456"] }
+  ]
+}
+```
+
+Notes:
+- Slack does not reliably provide per-reaction timestamps in message payloads; omit `ts` unless a future API provides it.
+- `count` is omitted since it typically equals `users.length`.
+
+### Thread summary (for `message get`)
+
+```json
+{
+  "thread": { "ts": "1234.0000", "length": 7 }
+}
+```
+
+### Thread listing (for `message list`)
+
+```json
+{
+  "messages": [ /* compact messages */ ]
+}
+```
+
+## Planned commands (next)
+
+- `file get <slack-file-url-or-id>` (explicit file download)

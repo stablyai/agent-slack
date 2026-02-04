@@ -25,17 +25,25 @@ function have(command) {
 }
 
 function isMuslLinux() {
-  if (process.platform !== "linux") return false;
+  if (process.platform !== "linux") {
+    return false;
+  }
   try {
     const out = childProcess.spawnSync("ldd", ["--version"], { encoding: "utf8" });
-    if (out.stdout && /musl/i.test(out.stdout)) return true;
-    if (out.stderr && /musl/i.test(out.stderr)) return true;
+    if (out.stdout && /musl/i.test(out.stdout)) {
+      return true;
+    }
+    if (out.stderr && /musl/i.test(out.stderr)) {
+      return true;
+    }
   } catch {
     // ignore
   }
   try {
     const libEntries = fs.readdirSync("/lib");
-    if (libEntries.some((n) => n.startsWith("ld-musl-"))) return true;
+    if (libEntries.some((n) => n.startsWith("ld-musl-"))) {
+      return true;
+    }
   } catch {
     // ignore
   }
@@ -43,15 +51,25 @@ function isMuslLinux() {
 }
 
 function resolveAssetName() {
-  const platform = process.platform;
-  const arch = process.arch;
+  const { platform } = process;
+  const { arch } = process;
 
   const plat =
-    platform === "darwin" ? "darwin" : platform === "linux" ? "linux" : platform === "win32" ? "windows" : null;
-  if (!plat) throw new Error(`unsupported platform: ${platform}`);
+    platform === "darwin"
+      ? "darwin"
+      : platform === "linux"
+        ? "linux"
+        : platform === "win32"
+          ? "windows"
+          : null;
+  if (!plat) {
+    throw new Error(`unsupported platform: ${platform}`);
+  }
 
   const a = arch === "x64" ? "x64" : arch === "arm64" ? "arm64" : null;
-  if (!a) throw new Error(`unsupported architecture: ${arch}`);
+  if (!a) {
+    throw new Error(`unsupported architecture: ${arch}`);
+  }
 
   const muslSuffix = plat === "linux" && isMuslLinux() ? "-musl" : "";
   const exeSuffix = plat === "windows" ? ".exe" : "";
@@ -61,21 +79,29 @@ function resolveAssetName() {
 function getPackageVersion() {
   const pkgPath = path.join(__dirname, "..", "package.json");
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-  if (!pkg.version) throw new Error("package.json missing version");
+  if (!pkg.version) {
+    throw new Error("package.json missing version");
+  }
   return String(pkg.version);
 }
 
 function getRepo() {
   const envRepo = process.env.AGENT_SLACK_REPO;
-  if (envRepo) return envRepo;
+  if (envRepo) {
+    return envRepo;
+  }
 
   const pkgPath = path.join(__dirname, "..", "package.json");
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-  if (typeof pkg.repository === "string") return pkg.repository;
+  if (typeof pkg.repository === "string") {
+    return pkg.repository;
+  }
   if (pkg.repository && typeof pkg.repository.url === "string") {
     const url = pkg.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
     const match = url.match(/github\.com\/([^/]+\/[^/]+)$/);
-    if (match) return match[1];
+    if (match) {
+      return match[1];
+    }
   }
 
   return "nwparker/agent-slack";

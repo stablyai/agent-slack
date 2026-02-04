@@ -1,0 +1,39 @@
+# Output + downloads (reference)
+
+## Output format
+
+All commands print JSON to stdout.
+
+- Empty values are pruned (`null`, `[]`, `{}` are removed where possible).
+- `auth whoami` redacts secrets in its output.
+
+## Message shapes (high-level)
+
+- `message get` returns:
+  - `message: { ... }`
+  - `thread?: { ts, length }` (summary only; present when threaded)
+
+- `message list` returns:
+  - `messages: [ ... ]` (the full thread)
+  - Messages are compact and omit redundant fields on each item where possible.
+
+Use `--max-body-chars` to cap message bodies for token budget control.
+
+## Search shapes (high-level)
+
+- `search messages|all` returns `messages: [ ... ]`
+- `search files|all` returns `files: [ ... ]`
+
+Use `--max-content-chars` (messages) and `--limit` to control size.
+
+## Attachment downloads
+
+Attachments are downloaded to an agent-friendly temp directory and returned as absolute paths in output.
+
+Default download root:
+
+- `~/.agent-slack/tmp/downloads/`
+
+If `XDG_RUNTIME_DIR` is set, downloads live under:
+
+- `$XDG_RUNTIME_DIR/agent-slack/tmp/downloads/`

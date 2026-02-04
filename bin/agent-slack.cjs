@@ -11,17 +11,25 @@ function die(message) {
 }
 
 function isMuslLinux() {
-  if (process.platform !== "linux") return false;
+  if (process.platform !== "linux") {
+    return false;
+  }
   try {
     const out = childProcess.spawnSync("ldd", ["--version"], { encoding: "utf8" });
-    if (out.stdout && /musl/i.test(out.stdout)) return true;
-    if (out.stderr && /musl/i.test(out.stderr)) return true;
+    if (out.stdout && /musl/i.test(out.stdout)) {
+      return true;
+    }
+    if (out.stderr && /musl/i.test(out.stderr)) {
+      return true;
+    }
   } catch {
     // ignore
   }
   try {
     const libEntries = fs.readdirSync("/lib");
-    if (libEntries.some((n) => n.startsWith("ld-musl-"))) return true;
+    if (libEntries.some((n) => n.startsWith("ld-musl-"))) {
+      return true;
+    }
   } catch {
     // ignore
   }
@@ -29,15 +37,25 @@ function isMuslLinux() {
 }
 
 function resolveAssetName() {
-  const platform = process.platform;
-  const arch = process.arch;
+  const { platform } = process;
+  const { arch } = process;
 
   const plat =
-    platform === "darwin" ? "darwin" : platform === "linux" ? "linux" : platform === "win32" ? "windows" : null;
-  if (!plat) die(`unsupported platform: ${platform}`);
+    platform === "darwin"
+      ? "darwin"
+      : platform === "linux"
+        ? "linux"
+        : platform === "win32"
+          ? "windows"
+          : null;
+  if (!plat) {
+    die(`unsupported platform: ${platform}`);
+  }
 
   const a = arch === "x64" ? "x64" : arch === "arm64" ? "arm64" : null;
-  if (!a) die(`unsupported architecture: ${arch}`);
+  if (!a) {
+    die(`unsupported architecture: ${arch}`);
+  }
 
   const muslSuffix = plat === "linux" && isMuslLinux() ? "-musl" : "";
   const exeSuffix = plat === "windows" ? ".exe" : "";
@@ -66,8 +84,12 @@ function main() {
   }
 
   const result = childProcess.spawnSync(binPath, process.argv.slice(2), { stdio: "inherit" });
-  if (typeof result.status === "number") process.exit(result.status);
-  if (result.error) die(result.error.message);
+  if (typeof result.status === "number") {
+    process.exit(result.status);
+  }
+  if (result.error) {
+    die(result.error.message);
+  }
   process.exit(1);
 }
 

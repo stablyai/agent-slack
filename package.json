@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "description": "Slack automation CLI for AI agents",
   "license": "MIT",
-  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nwparker/agent-slack.git"
+  },
   "bin": {
     "agent-slack": "./bin/agent-slack.cjs"
   },
@@ -16,29 +19,28 @@
     "LICENSE",
     "install.sh"
   ],
+  "type": "module",
   "scripts": {
     "clean": "rm -rf dist",
     "build": "bun build src/index.ts --outdir dist --target=bun --sourcemap",
     "prepack": "bun run build",
     "dev": "bun run src/index.ts",
     "postinstall": "node ./scripts/postinstall.cjs",
+    "prepare": "simple-git-hooks",
     "build:release": "sh ./scripts/build-release-assets.sh",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nwparker/agent-slack.git"
+    "lint": "oxlint .",
+    "lintf": "oxlint --fix .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check ."
   },
   "dependencies": {
     "@slack/web-api": "^7.9.3",
     "classic-level": "^3.0.0",
     "commander": "^14.0.1",
+    "node-emoji": "^2.2.0",
     "turndown": "^7.2.0",
     "turndown-plugin-gfm": "^1.0.2",
     "zod": "^4.1.5"
@@ -47,7 +49,15 @@
     "@types/node": "^22.13.5",
     "@types/turndown": "^5.0.6",
     "bun-types": "^1.3.8",
-    "prettier": "^3.5.1",
+    "oxfmt": "^0.28.0",
+    "oxlint": "^1.43.0",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "^5.8.2"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bun run lintf && bun run format && git add -A"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

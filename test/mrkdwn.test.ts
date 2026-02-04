@@ -6,15 +6,15 @@ describe("slackMrkdwnToMarkdown", () => {
     expect(slackMrkdwnToMarkdown("See <https://example.com|this>.")).toBe(
       "See [this](https://example.com).",
     );
-    expect(slackMrkdwnToMarkdown("See <https://example.com>.")).toBe(
-      "See https://example.com.",
-    );
+    expect(slackMrkdwnToMarkdown("See <https://example.com>.")).toBe("See https://example.com.");
   });
 
   test("converts user and channel mentions", () => {
-    expect(slackMrkdwnToMarkdown("Hi <@U12345> in <#C1|general>")).toBe(
-      "Hi @U12345 in #general",
-    );
+    expect(slackMrkdwnToMarkdown("Hi <@U12345> in <#C1|general>")).toBe("Hi @U12345 in #general");
     expect(slackMrkdwnToMarkdown("Hi <@U12345|nick>")).toBe("Hi @nick");
+  });
+
+  test("converts :emoji: shortcodes to unicode", () => {
+    expect(slackMrkdwnToMarkdown("Ship it :rocket:")).toBe("Ship it 🚀");
   });
 });

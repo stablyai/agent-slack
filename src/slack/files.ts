@@ -2,22 +2,24 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import type { SlackAuth } from "./client.ts";
 import { existsSync } from "node:fs";
+import { getUserAgent } from "../lib/version.ts";
 
-export async function downloadSlackFile(
-  auth: SlackAuth,
-  url: string,
-  destDir: string,
-  preferredName?: string,
-  options?: { allowHtml?: boolean },
-): Promise<string> {
+export async function downloadSlackFile(input: {
+  auth: SlackAuth;
+  url: string;
+  destDir: string;
+  preferredName?: string;
+  options?: { allowHtml?: boolean };
+}): Promise<string> {
+  const { auth, url, destDir, preferredName, options } = input;
   const absDir = resolve(destDir);
   await mkdir(absDir, { recursive: true });
-  const name = sanitizeFilename(
-    preferredName || basename(new URL(url).pathname) || "file",
-  );
+  const name = sanitizeFilename(preferredName || basename(new URL(url).pathname) || "file");
   const path = join(absDir, name);
 
-  if (existsSync(path)) return path;
+  if (existsSync(path)) {
+    return path;
+  }
 
   const headers: Record<string, string> = {};
   if (auth.auth_type === "standard") {
@@ -26,11 +28,13 @@ export async function downloadSlackFile(
     headers.Authorization = `Bearer ${auth.xoxc_token}`;
     headers.Cookie = `d=${encodeURIComponent(auth.xoxd_cookie)}`;
     headers.Referer = "https://app.slack.com/";
-    headers["User-Agent"] = "agent-slack/0.1.0";
+    headers["User-Agent"] = getUserAgent();
   }
 
   const resp = await fetch(url, { headers });
-  if (!resp.ok) throw new Error(`Failed to download file (${resp.status})`);
+  if (!resp.ok) {
+    throw new Error(`Failed to download file (${resp.status})`);
+  }
   const contentType = resp.headers.get("content-type") || "";
   if (!options?.allowHtml && contentType.includes("text/html")) {
     const text = await resp.text();
@@ -46,5 +50,5 @@ export async function downloadSlackFile(
 }
 
 function sanitizeFilename(name: string): string {
-  return name.replace(/[\\\/<>:"|?*]/g, "_");
+  return name.replace(/[\\/<>:"|?*]/g, "_");
 }

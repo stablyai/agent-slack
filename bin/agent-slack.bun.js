@@ -11,4 +11,3 @@ if (existsSync(distEntrypoint)) {
 } else {
   await import("../src/index.ts");
 }
-
