@@ -1,10 +1,31 @@
+<p align="center">
+  <a href="https://stably.ai">
+    <img src="https://public-artifacts.stably.ai/logo-white-with-bg.png" height="96" alt="Stably">
+  </a>
+</p>
+
+<h3 align="center">
+  <a href="https://stably.ai">Stably</a>
+</h3>
+
+<p align="center">
+  Code. Ship. <s>Test.</s>
+</p>
+
+<p align="center">
+  <a href="https://docs.stably.ai/"><strong>Documentation</strong></a> ·
+  <a href="https://stably.ai/"><strong>Homepage</strong></a>
+</p>
+<br/>
+
 # agent-slack
 
 Slack automation CLI for AI agents (TypeScript + Bun).
 
-Guiding principle: 
-  * **token-efficient output by default** (compact JSON, minimal duplication, and empty/null fields pruned) so LLMs can consume results cheaply.
-  * **zero-config auth** -- Auth just works if you have the Slack Desktop (with fallbacks available)
+Guiding principle:
+
+- **token-efficient output by default** (compact JSON, minimal duplication, and empty/null fields pruned) so LLMs can consume results cheaply.
+- **zero-config auth** -- Auth just works if you have Slack Desktop (with fallbacks available). No Python dependency.
 
 ## At a glance
 
@@ -18,29 +39,32 @@ Guiding principle:
 
 ```text
 agent-slack
-  auth
-    status
-    import-desktop
-    import-chrome
-    parse-curl
-
-  message
-    get   <target>
-    list  <target>    # full thread for a message/thread
-    reply <slack-url> <text>
-    react <slack-url> <emoji>
-
-  search
-    all      <query>  # default: search all
-    messages <query>
-    files    <query>
-
-  canvas
-    get <canvas-url-or-id>
-  doctor
+├── auth
+│   ├── whoami
+│   ├── test
+│   ├── import-desktop
+│   ├── import-chrome
+│   └── parse-curl
+├── message
+│   ├── get   <target>             # fetch 1 message (+ thread summary)
+│   ├── list  <target>             # fetch full thread
+│   ├── send  <target> <text>      # send / reply (does the right thing)
+│   └── react
+│       ├── add    <target> <emoji>
+│       └── remove <target> <emoji>
+├── user
+│   ├── list
+│   └── get <user>
+├── search
+│   ├── all      <query>           # messages + files
+│   ├── messages <query>
+│   └── files    <query>
+├── canvas
+│   └── get <canvas-url-or-id>     # canvas → markdown
 ```
 
 Notes:
+
 - Output is **always JSON** and aggressively pruned (`null`/empty fields removed).
 - Attached files are auto-downloaded and returned as absolute local paths.
 
@@ -62,14 +86,7 @@ Run via:
 agent-slack --help
 ```
 
-For local development:
-
-```bash
-bun install
-bun run dev -- --help
-node ./bin/agent-slack.cjs --help
-bun ./bin/agent-slack.bun.js --help
-```
+For development and publishing, see `CONTRIBUTING.md`.
 
 ## Authentication (no fancy setup)
 
@@ -81,9 +98,10 @@ On macOS, authentication happens automatically:
 You can also run manual imports:
 
 ```bash
+agent-slack auth whoami
 agent-slack auth import-desktop
 agent-slack auth import-chrome
-agent-slack doctor
+agent-slack auth test
 ```
 
 Alternatively, set env vars:
@@ -91,14 +109,14 @@ Alternatively, set env vars:
 ```bash
 export SLACK_TOKEN="xoxc-..."      # browser token
 export SLACK_COOKIE_D="xoxd-..."   # cookie d
-agent-slack doctor
+agent-slack auth test
 ```
 
 Or use a standard Slack token (xoxb/xoxp):
 
 ```bash
 export SLACK_TOKEN="xoxb-..."
-agent-slack doctor
+agent-slack auth test
 ```
 
 ## Read messages / threads
@@ -111,9 +129,16 @@ agent-slack message get "https://workspace.slack.com/archives/C123/p170000000000
 agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
 ```
 
+Optional:
+
+```bash
+# Include reactions + which users reacted
+agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000" --include-reactions
+```
+
 ### Targets: URL or channel
 
-`msg get` / `msg list` accept either a Slack message URL or a channel reference:
+`message get` / `message list` accept either a Slack message URL or a channel reference:
 
 - URL: `https://workspace.slack.com/archives/<channel>/p<digits>[?thread_ts=...]`
 - Channel: `#general` (or bare `general`) or a channel ID like `C0123...`
@@ -136,15 +161,21 @@ agent-slack message get "#general" --workspace "https://stablygroup.slack.com" -
 
 ## Files (snippets/images/attachments)
 
-`msg` auto-downloads attached files to an agent-friendly temp directory and returns absolute paths in `message.files[].path`:
+`message get/list` auto-download attached files to an agent-friendly temp directory and return absolute paths in `message.files[].path`:
 
 - macOS default: `~/.agent-slack/tmp/downloads/`
 
 Agents can read those paths directly (e.g. snippets as `.txt`, images as `.png`).
 
-## Codex skill
+## Agent skills (Codex + Claude Code)
 
-This repo ships a Codex skill at `skills/agent-slack/SKILL.md` (install via your skill installer workflow).
+This repo ships an agent skill at `skills/agent-slack/`.
+
+Install it into common discovery locations:
+
+```bash
+bash ./scripts/install-skill.sh
+```
 
 ## Fetch a Canvas as Markdown
 
@@ -167,5 +198,19 @@ agent-slack search files "playwright" --content-type snippet --limit 10
 ```
 
 Tips:
+
 - For reliable results, include `--channel ...` (channel-scoped search scans history/files and filters locally).
 - Use `--workspace https://...slack.com` when using `#channel` names across multiple workspaces.
+
+<!-- AI search (assistant.search.*) is described in design.doc but not currently implemented. -->
+
+## Users
+
+```bash
+# List users (email requires appropriate Slack scopes; fields are pruned if missing)
+agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq .
+
+# Get one user by id or handle
+agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
+agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
+```

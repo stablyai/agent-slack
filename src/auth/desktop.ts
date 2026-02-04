@@ -1,3 +1,5 @@
+// Desktop auth extraction approach inspired by:
+// - slacktokens: https://github.com/hraftery/slacktokens
 import { cp, mkdir, rm, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { execFileSync, execSync } from "node:child_process";
@@ -15,23 +17,29 @@ export type DesktopExtracted = {
   source: { leveldb_path: string; cookies_path: string };
 };
 
-const SLACK_SUPPORT_DIR = join(
-  homedir(),
-  "Library",
-  "Application Support",
-  "Slack",
-);
+const SLACK_SUPPORT_DIR = join(homedir(), "Library", "Application Support", "Slack");
 const LEVELDB_DIR = join(SLACK_SUPPORT_DIR, "Local Storage", "leveldb");
 const COOKIES_DB = join(SLACK_SUPPORT_DIR, "Cookies");
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toDesktopTeam(value: unknown): DesktopTeam | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const url = typeof value.url === "string" ? value.url : null;
+  const token = typeof value.token === "string" ? value.token : null;
+  if (!url || !token) {
+    return null;
+  }
+  const name = typeof value.name === "string" ? value.name : undefined;
+  return { url, name, token };
+}
+
 async function snapshotLevelDb(srcDir: string): Promise<string> {
-  const base = join(
-    homedir(),
-    ".config",
-    "agent-slack",
-    "cache",
-    "leveldb-snapshots",
-  );
+  const base = join(homedir(), ".config", "agent-slack", "cache", "leveldb-snapshots");
   const dest = join(base, `${Date.now()}`);
   await mkdir(base, { recursive: true });
   // Hacky but fast on macOS: copy-on-write clone. Falls back to normal copy.
@@ -50,22 +58,25 @@ async function snapshotLevelDb(srcDir: string): Promise<string> {
   return dest;
 }
 
-function parseLocalConfig(raw: Buffer): any {
-  if (!raw || raw.length === 0) throw new Error("localConfig is empty");
+function parseLocalConfig(raw: Buffer): unknown {
+  if (!raw || raw.length === 0) {
+    throw new Error("localConfig is empty");
+  }
 
-  const first = raw[0];
-  const data =
-    first === 0x00 || first === 0x01 || first === 0x02 ? raw.subarray(1) : raw;
+  const [first] = raw;
+  const data = first === 0x00 || first === 0x01 || first === 0x02 ? raw.subarray(1) : raw;
 
   let nulCount = 0;
-  for (const b of data) if (b === 0) nulCount++;
+  for (const b of data) {
+    if (b === 0) {
+      nulCount++;
+    }
+  }
 
   const encodings: BufferEncoding[] =
-    nulCount > data.length / 4
-      ? (["utf16le", "utf8"] as const)
-      : (["utf8", "utf16le"] as const);
+    nulCount > data.length / 4 ? (["utf16le", "utf8"] as const) : (["utf8", "utf16le"] as const);
 
-  let lastErr: any;
+  let lastErr: unknown;
   for (const enc of encodings) {
     try {
       const text = data.toString(enc);
@@ -92,11 +103,10 @@ function parseLocalConfig(raw: Buffer): any {
   throw lastErr || new Error("localConfig not parseable");
 }
 
-async function extractTeamsFromSlackLevelDb(
-  leveldbDir: string,
-): Promise<DesktopTeam[]> {
-  if (!existsSync(leveldbDir))
+async function extractTeamsFromSlackLevelDb(leveldbDir: string): Promise<DesktopTeam[]> {
+  if (!existsSync(leveldbDir)) {
     throw new Error(`Slack LevelDB not found: ${leveldbDir}`);
+  }
   const snap = await snapshotLevelDb(leveldbDir);
   const db = new ClassicLevel<Buffer, Buffer>(snap, {
     keyEncoding: "buffer",
@@ -157,24 +167,27 @@ async function extractTeamsFromSlackLevelDb(
             }
           }
         }
-        if (configBuf) break;
+        if (configBuf) {
+          break;
+        }
       }
     }
 
-    if (!configBuf)
+    if (!configBuf) {
       throw new Error("Slack LevelDB did not contain localConfig_v2/v3");
+    }
 
     const cfg = parseLocalConfig(configBuf);
-    const teamsObj = cfg?.teams ?? {};
+    const teamsValue = isRecord(cfg) ? cfg.teams : undefined;
+    const teamsObj = isRecord(teamsValue) ? teamsValue : {};
     const teams: DesktopTeam[] = Object.values(teamsObj)
-      .filter(
-        (t: any) => typeof t?.url === "string" && typeof t?.token === "string",
-      )
-      .map((t: any) => ({ url: t.url, name: t.name, token: t.token }))
+      .map((t) => toDesktopTeam(t))
+      .filter((t): t is DesktopTeam => t !== null)
       .filter((t) => t.token.startsWith("xoxc-"));
 
-    if (teams.length === 0)
+    if (teams.length === 0) {
       throw new Error("No xoxc tokens found in Slack localConfig");
+    }
     return teams;
   } finally {
     try {
@@ -191,11 +204,7 @@ async function extractTeamsFromSlackLevelDb(
 }
 
 function getSafeStoragePassword(): string {
-  const services = [
-    "Slack Safe Storage",
-    "Chrome Safe Storage",
-    "Chromium Safe Storage",
-  ];
+  const services = ["Slack Safe Storage", "Chrome Safe Storage", "Chromium Safe Storage"];
   for (const svc of services) {
     try {
       const out = execSync(
@@ -205,7 +214,9 @@ function getSafeStoragePassword(): string {
           stdio: ["ignore", "pipe", "ignore"],
         },
       ).trim();
-      if (out) return out;
+      if (out) {
+        return out;
+      }
     } catch {
       // continue
     }
@@ -215,15 +226,13 @@ function getSafeStoragePassword(): string {
   );
 }
 
-function decryptChromiumCookieValue(
-  encrypted: Buffer,
-  password: string,
-): string {
-  if (!encrypted || encrypted.length === 0) return "";
+function decryptChromiumCookieValue(encrypted: Buffer, password: string): string {
+  if (!encrypted || encrypted.length === 0) {
+    return "";
+  }
 
   const prefix = encrypted.subarray(0, 3).toString("utf8");
-  const data =
-    prefix === "v10" || prefix === "v11" ? encrypted.subarray(3) : encrypted;
+  const data = prefix === "v10" || prefix === "v11" ? encrypted.subarray(3) : encrypted;
 
   const salt = Buffer.from("saltysalt", "utf8");
   const iv = Buffer.alloc(16, " ");
@@ -234,12 +243,16 @@ function decryptChromiumCookieValue(
   const plain = Buffer.concat([decipher.update(data), decipher.final()]);
   const marker = Buffer.from("xoxd-");
   const idx = plain.indexOf(marker);
-  if (idx === -1) return plain.toString("utf8");
+  if (idx === -1) {
+    return plain.toString("utf8");
+  }
 
   let end = idx;
   while (end < plain.length) {
     const b = plain[end]!;
-    if (b < 0x21 || b > 0x7e) break;
+    if (b < 0x21 || b > 0x7e) {
+      break;
+    }
     end++;
   }
   const rawToken = plain.subarray(idx, end).toString("utf8");
@@ -251,35 +264,41 @@ function decryptChromiumCookieValue(
 }
 
 function extractCookieDFromSlackCookiesDb(cookiesPath: string): string {
-  if (!existsSync(cookiesPath))
+  if (!existsSync(cookiesPath)) {
     throw new Error(`Slack Cookies DB not found: ${cookiesPath}`);
+  }
   const db = new Database(cookiesPath, { readonly: true });
   try {
     const rows = db
       .query(
         "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
       )
-      .all() as Array<{
+      .all() as {
       host_key: string;
       name: string;
       value: string;
       encrypted_value: Uint8Array;
-    }>;
+    }[];
 
-    if (!rows || rows.length === 0)
+    if (!rows || rows.length === 0) {
       throw new Error("No Slack 'd' cookie found");
+    }
     const row = rows[0]!;
-    if (row.value && row.value.startsWith("xoxd-")) return row.value;
+    if (row.value && row.value.startsWith("xoxd-")) {
+      return row.value;
+    }
 
     const encrypted = Buffer.from(row.encrypted_value || []);
-    if (encrypted.length === 0)
+    if (encrypted.length === 0) {
       throw new Error("Slack 'd' cookie had no encrypted_value");
+    }
 
     const password = getSafeStoragePassword();
     const decrypted = decryptChromiumCookieValue(encrypted, password);
     const match = decrypted.match(/xoxd-[A-Za-z0-9%/+_=.-]+/);
-    if (!match)
+    if (!match) {
       throw new Error("Could not locate xoxd-* in decrypted Slack cookie");
+    }
     return match[0]!;
   } finally {
     db.close();

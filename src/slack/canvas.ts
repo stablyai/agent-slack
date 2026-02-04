@@ -3,6 +3,7 @@ import { downloadSlackFile } from "./files.ts";
 import { htmlToMarkdown } from "./html-to-md.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
 import { readFile } from "node:fs/promises";
+import { getUserAgent } from "../lib/version.ts";
 
 export type SlackCanvasRef = {
   workspace_url: string;
@@ -30,7 +31,9 @@ export function parseSlackCanvasUrl(input: string): SlackCanvasRef {
   }
 
   const canvas_id = parts.find((p) => /^F[A-Z0-9]{8,}$/.test(p));
-  if (!canvas_id) throw new Error(`Could not find canvas id in: ${url.pathname}`);
+  if (!canvas_id) {
+    throw new Error(`Could not find canvas id in: ${url.pathname}`);
+  }
 
   const workspace_url = `${url.protocol}//${url.host}`;
   return { workspace_url, canvas_id, raw: input };
@@ -38,62 +41,76 @@ export function parseSlackCanvasUrl(input: string): SlackCanvasRef {
 
 export async function fetchCanvasMarkdown(
   client: SlackApiClient,
-  auth: SlackAuth,
-  workspaceUrl: string,
-  canvasId: string,
-  options?: { maxChars?: number; downloadHtml?: boolean },
+  input: {
+    auth: SlackAuth;
+    workspaceUrl: string;
+    canvasId: string;
+    options?: { maxChars?: number; downloadHtml?: boolean };
+  },
 ): Promise<{ canvas: { id: string; title?: string; markdown: string } }> {
-  const info = await client.api("files.info", { file: canvasId });
-  const file = info.file as any;
-  if (!file) throw new Error("Canvas not found (files.info returned no file)");
+  const info = await client.api("files.info", { file: input.canvasId });
+  const file = isRecord(info.file) ? info.file : null;
+  if (!file) {
+    throw new Error("Canvas not found (files.info returned no file)");
+  }
 
-  const title = (file.title || file.name || "").trim() || undefined;
-  const downloadUrl: string | undefined =
-    file.url_private_download || file.url_private;
-  if (!downloadUrl) throw new Error("Canvas has no download URL");
+  const title = (getString(file.title) || getString(file.name) || "").trim() || undefined;
+  const downloadUrl = getString(file.url_private_download) ?? getString(file.url_private);
+  if (!downloadUrl) {
+    throw new Error("Canvas has no download URL");
+  }
 
   let html = "";
-  if (options?.downloadHtml ?? true) {
-    const htmlPath = await downloadSlackFile(
-      auth,
-      downloadUrl,
+  if (input.options?.downloadHtml ?? true) {
+    const htmlPath = await downloadSlackFile({
+      auth: input.auth,
+      url: downloadUrl,
       // keep canvases with other downloads (agent-friendly temp dir)
       // filename uses canvasId (unique)
       // Note: canvases download as HTML via Slack file endpoints
       // so allowHtml must be true.
-      await ensureDownloadsDir(),
-      `${canvasId}.html`,
-      { allowHtml: true },
-    );
+      destDir: await ensureDownloadsDir(),
+      preferredName: `${input.canvasId}.html`,
+      options: { allowHtml: true },
+    });
     html = await readFile(htmlPath, "utf8");
   } else {
     const headers: Record<string, string> = {};
-    if (auth.auth_type === "standard") {
-      headers.Authorization = `Bearer ${auth.token}`;
+    if (input.auth.auth_type === "standard") {
+      headers.Authorization = `Bearer ${input.auth.token}`;
     } else {
-      headers.Authorization = `Bearer ${auth.xoxc_token}`;
-      headers.Cookie = `d=${encodeURIComponent(auth.xoxd_cookie)}`;
+      headers.Authorization = `Bearer ${input.auth.xoxc_token}`;
+      headers.Cookie = `d=${encodeURIComponent(input.auth.xoxd_cookie)}`;
       headers.Referer = "https://app.slack.com/";
-      headers["User-Agent"] = "agent-slack/0.1.0";
+      headers["User-Agent"] = getUserAgent();
     }
     const resp = await fetch(downloadUrl, { headers });
-    if (!resp.ok)
+    if (!resp.ok) {
       throw new Error(`Failed to download canvas HTML (${resp.status})`);
+    }
     html = await resp.text();
   }
 
   const markdownRaw = htmlToMarkdown(html).trim();
-  const maxChars = options?.maxChars ?? 20000;
+  const maxChars = input.options?.maxChars ?? 20000;
   const markdown =
     maxChars >= 0 && markdownRaw.length > maxChars
-      ? markdownRaw.slice(0, maxChars) + "\n…"
+      ? `${markdownRaw.slice(0, maxChars)}\n…`
       : markdownRaw;
 
   return {
     canvas: {
-      id: canvasId,
+      id: input.canvasId,
       title,
       markdown,
     },
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }

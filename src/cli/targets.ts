@@ -7,7 +7,9 @@ export type MsgTarget =
 
 export function parseMsgTarget(input: string): MsgTarget {
   const trimmed = input.trim();
-  if (!trimmed) throw new Error("Missing target");
+  if (!trimmed) {
+    throw new Error("Missing target");
+  }
 
   try {
     const ref = parseSlackMessageUrl(trimmed);
@@ -16,10 +18,13 @@ export function parseMsgTarget(input: string): MsgTarget {
     // not a slack message URL
   }
 
-  if (trimmed.startsWith("#")) return { kind: "channel", channel: trimmed };
-  if (isChannelId(trimmed)) return { kind: "channel", channel: trimmed };
+  if (trimmed.startsWith("#")) {
+    return { kind: "channel", channel: trimmed };
+  }
+  if (isChannelId(trimmed)) {
+    return { kind: "channel", channel: trimmed };
+  }
 
   // Allow bare channel names ("general") for convenience.
   return { kind: "channel", channel: `#${trimmed}` };
 }
-

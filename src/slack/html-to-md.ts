@@ -9,7 +9,7 @@ export function htmlToMarkdown(html: string): string {
     emDelimiter: "_",
   });
 
-  service.use(gfm as any);
+  service.use(gfm);
 
   // Keep line breaks from <br>
   service.addRule("br", {
@@ -20,10 +20,7 @@ export function htmlToMarkdown(html: string): string {
   // Slack exports sometimes wrap content in <main> / <article>.
   // Turndown handles full documents fine, but prefer the primary content node.
   const extracted =
-    extractTag(html, "main") ??
-    extractTag(html, "article") ??
-    extractTag(html, "body") ??
-    html;
+    extractTag(html, "main") ?? extractTag(html, "article") ?? extractTag(html, "body") ?? html;
 
   return service.turndown(extracted);
 }

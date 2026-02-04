@@ -1,0 +1,68 @@
+{
+  "plugins": ["import", "unicorn", "typescript", "oxc"],
+  "rules": {
+    "curly": "error",
+    "import/first": "error",
+    "max-lines": [
+      "warn",
+      {
+        "max": 350,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
+    "max-params": [
+      "warn",
+      {
+        "max": 2
+      }
+    ],
+    "no-unneeded-ternary": "error",
+    "no-useless-return": "error",
+    "prefer-destructuring": [
+      "warn",
+      {
+        "object": true,
+        "array": true
+      }
+    ],
+    "prefer-template": "error",
+    "typescript/array-type": "error",
+    "typescript/consistent-indexed-object-style": "error",
+    "typescript/consistent-type-definitions": ["error", "type"],
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-deprecated": "warn",
+    "typescript/no-explicit-any": [
+      "error",
+      {
+        "ignoreRestArgs": true
+      }
+    ],
+    "typescript/no-unnecessary-boolean-literal-compare": "error",
+    "typescript/no-unnecessary-template-expression": "error",
+    "typescript/no-unsafe-return": "warn",
+    "typescript/no-unsafe-type-assertion": "warn",
+    "typescript/prefer-function-type": "error",
+    "typescript/prefer-includes": "error",
+    "typescript/prefer-reduce-type-parameter": "warn",
+    "typescript/require-await": "warn",
+    "typescript/switch-exhaustiveness-check": "error",
+    "unicorn/consistent-empty-array-spread": "error",
+    "unicorn/error-message": "error",
+    "unicorn/filename-case": [
+      "warn",
+      {
+        "case": "kebabCase"
+      }
+    ],
+    "unicorn/no-instanceof-builtins": "error",
+    "unicorn/no-useless-promise-resolve-reject": "error",
+    "unicorn/prefer-at": "error",
+    "unicorn/prefer-date-now": "error",
+    "unicorn/prefer-includes": "error",
+    "unicorn/prefer-math-min-max": "error",
+    "unicorn/prefer-negative-index": "error",
+    "unicorn/prefer-object-from-entries": "error",
+    "unicorn/throw-new-error": "error"
+  }
+}

@@ -12,7 +12,7 @@ const IS_MACOS = platform() === "darwin";
 
 function escapeOsaScript(script: string): string {
   // osascript -e '...'
-  return script.replace(/'/g, `'\"'\"'`);
+  return script.replace(/'/g, `'"'"'`);
 }
 
 function osascript(script: string): string {
@@ -46,10 +46,26 @@ const TEAM_JSON_PATHS = [
   "JSON.stringify(window.boot_data?.teams || {})",
 ];
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toChromeTeam(value: unknown): ChromeExtractedTeam | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const token = typeof value.token === "string" ? value.token : null;
+  const url = typeof value.url === "string" ? value.url : null;
+  if (!token || !url || !token.startsWith("xoxc-")) {
+    return null;
+  }
+  const name = typeof value.name === "string" ? value.name : undefined;
+  return { url, name, token };
+}
+
 function teamsScript(): string {
   const tryPaths = TEAM_JSON_PATHS.map(
-    (expr) =>
-      `try { var v = ${expr}; if (v && v !== '{}' && v !== 'null') return v; } catch(e) {}`,
+    (expr) => `try { var v = ${expr}; if (v && v !== '{}' && v !== 'null') return v; } catch(e) {}`,
   );
   return `
     tell application "Google Chrome"
@@ -66,29 +82,31 @@ function teamsScript(): string {
 }
 
 export function extractFromChrome(): ChromeExtracted | null {
-  if (!IS_MACOS) return null;
+  if (!IS_MACOS) {
+    return null;
+  }
   try {
     const cookie = osascript(cookieScript());
-    if (!cookie || !cookie.startsWith("xoxd-")) return null;
+    if (!cookie || !cookie.startsWith("xoxd-")) {
+      return null;
+    }
 
     const teamsRaw = osascript(teamsScript());
-    let teamsObj: any = {};
+    let teamsObj: unknown = {};
     try {
       teamsObj = JSON.parse(teamsRaw || "{}");
     } catch {
       teamsObj = {};
     }
 
-    const teams: ChromeExtractedTeam[] = Object.values(teamsObj || {})
-      .filter(
-        (t: any) =>
-          typeof t?.token === "string" &&
-          t.token.startsWith("xoxc-") &&
-          typeof t?.url === "string",
-      )
-      .map((t: any) => ({ url: t.url, name: t.name, token: t.token }));
+    const teamsRecord = isRecord(teamsObj) ? teamsObj : {};
+    const teams: ChromeExtractedTeam[] = Object.values(teamsRecord)
+      .map((t) => toChromeTeam(t))
+      .filter((t): t is ChromeExtractedTeam => t !== null);
 
-    if (teams.length === 0) return null;
+    if (teams.length === 0) {
+      return null;
+    }
     return { cookie_d: cookie, teams };
   } catch {
     return null;

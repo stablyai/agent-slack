@@ -1,5 +1,5 @@
 import type { SlackMessageRef } from "./url.ts";
-import { SlackApiClient } from "./client.ts";
+import type { SlackApiClient } from "./client.ts";
 import { slackMrkdwnToMarkdown } from "./mrkdwn.ts";
 import { renderSlackMessageContent } from "./render.ts";
 
@@ -29,10 +29,10 @@ export type SlackMessageSummary = {
   bot_id?: string;
   text: string;
   markdown: string;
-  blocks?: any[];
-  attachments?: any[];
+  blocks?: unknown[];
+  attachments?: unknown[];
   files?: SlackFileSummary[];
-  reactions?: any[];
+  reactions?: unknown[];
 };
 
 export type CompactSlackMessage = {
@@ -41,78 +41,110 @@ export type CompactSlackMessage = {
   thread_ts?: string;
   author?: { user_id?: string; bot_id?: string };
   content?: string;
-  files?: Array<{
+  files?: {
     mimetype?: string;
     mode?: string;
     path: string;
-  }>;
-  reactions?: any[];
+  }[];
+  reactions?: {
+    name: string;
+    users: string[];
+    count?: number;
+  }[];
 };
 
 export function toCompactMessage(
   msg: SlackMessageSummary,
-  options?: { maxSnippetChars?: number; maxBodyChars?: number },
-  downloadedPaths?: Record<string, string>,
+  input?: {
+    maxSnippetChars?: number;
+    maxBodyChars?: number;
+    includeReactions?: boolean;
+    downloadedPaths?: Record<string, string>;
+  },
 ): CompactSlackMessage {
-  const maxSnippetChars = options?.maxSnippetChars ?? 4000;
-  const maxBodyChars = options?.maxBodyChars ?? 8000;
+  const maxBodyChars = input?.maxBodyChars ?? 8000;
+  const includeReactions = input?.includeReactions ?? false;
 
-  const rendered = renderSlackMessageContent(msg as any);
+  const rendered = renderSlackMessageContent(msg);
   const content =
     maxBodyChars >= 0 && rendered.length > maxBodyChars
-      ? rendered.slice(0, maxBodyChars) + "\n…"
+      ? `${rendered.slice(0, maxBodyChars)}\n…`
       : rendered;
 
-  const files =
-    msg.files
-      ?.map((f) => {
-        const path = downloadedPaths?.[f.id];
-        if (!path) return null;
-        return {
-          mimetype: f.mimetype,
-          mode: f.mode,
-          path,
-        };
-      })
-      .filter(Boolean) ?? undefined;
+  const files = msg.files
+    ?.map((f) => {
+      const path = input?.downloadedPaths?.[f.id];
+      if (!path) {
+        return null;
+      }
+      return {
+        mimetype: f.mimetype,
+        mode: f.mode,
+        path,
+      };
+    })
+    .filter((f): f is NonNullable<typeof f> => Boolean(f));
 
   return {
     channel_id: msg.channel_id,
     ts: msg.ts,
-    thread_ts:
-      msg.thread_ts ?? ((msg.reply_count ?? 0) > 0 ? msg.ts : undefined),
-    author:
-      msg.user || msg.bot_id
-        ? { user_id: msg.user, bot_id: msg.bot_id }
-        : undefined,
+    thread_ts: msg.thread_ts ?? ((msg.reply_count ?? 0) > 0 ? msg.ts : undefined),
+    author: msg.user || msg.bot_id ? { user_id: msg.user, bot_id: msg.bot_id } : undefined,
     content: content ? content : undefined,
-    files: files && files.length > 0 ? (files as any) : undefined,
-    reactions: msg.reactions,
+    files: files && files.length > 0 ? files : undefined,
+    reactions: includeReactions ? compactReactions(msg.reactions) : undefined,
   };
+}
+
+function compactReactions(
+  reactions: unknown[] | undefined,
+): Array<{ name: string; users: string[]; count?: number }> | undefined {
+  if (!Array.isArray(reactions) || reactions.length === 0) {
+    return undefined;
+  }
+  const out: { name: string; users: string[]; count?: number }[] = [];
+  for (const r of reactions) {
+    if (!isRecord(r)) {
+      continue;
+    }
+    const name = getString(r.name)?.trim() ?? "";
+    if (!name) {
+      continue;
+    }
+    const users = Array.isArray(r.users)
+      ? r.users.map((u) => String(u)).filter((u) => /^U[A-Z0-9]{8,}$/.test(u))
+      : [];
+    const count = typeof r.count === "number" && r.count !== users.length ? r.count : undefined;
+    out.push({ name, users, count });
+  }
+  return out.length ? out : undefined;
 }
 
 export async function fetchMessage(
   client: SlackApiClient,
-  ref: SlackMessageRef,
+  input: { ref: SlackMessageRef; includeReactions?: boolean },
 ): Promise<SlackMessageSummary> {
   const history = await client.api("conversations.history", {
-    channel: ref.channel_id,
-    latest: ref.message_ts,
+    channel: input.ref.channel_id,
+    latest: input.ref.message_ts,
     inclusive: true,
     limit: 5,
+    include_all_metadata: input.includeReactions ? true : undefined,
   });
-  const historyMessages = (history.messages ?? []) as any[];
-  let msg = historyMessages.find((m) => m?.ts === ref.message_ts);
+  const historyMessages = asArray(history.messages);
+  let msg = historyMessages.find(
+    (m): m is Record<string, unknown> => isRecord(m) && getString(m.ts) === input.ref.message_ts,
+  );
 
   // Thread replies are not guaranteed to appear in channel history. If the URL
   // includes ?thread_ts=..., scan the thread directly.
-  if (!msg && ref.thread_ts_hint) {
-    msg = await findMessageInThread(
-      client,
-      ref.channel_id,
-      ref.thread_ts_hint,
-      ref.message_ts,
-    );
+  if (!msg && input.ref.thread_ts_hint) {
+    msg = await findMessageInThread(client, {
+      channelId: input.ref.channel_id,
+      threadTs: input.ref.thread_ts_hint,
+      targetTs: input.ref.message_ts,
+      includeReactions: input.includeReactions,
+    });
   }
 
   // Fallback: if the message_ts is actually the thread root, replies can still
@@ -120,130 +152,131 @@ export async function fetchMessage(
   if (!msg) {
     try {
       const rootResp = await client.api("conversations.replies", {
-        channel: ref.channel_id,
-        ts: ref.message_ts,
+        channel: input.ref.channel_id,
+        ts: input.ref.message_ts,
         limit: 1,
+        include_all_metadata: input.includeReactions ? true : undefined,
       });
-      const root = (rootResp.messages ?? [])[0] as any;
-      if (root?.ts === ref.message_ts) msg = root;
+      const [root] = asArray(rootResp.messages);
+      if (isRecord(root) && getString(root.ts) === input.ref.message_ts) {
+        msg = root;
+      }
     } catch {
       // ignore
     }
   }
 
-  if (!msg) throw new Error("Message not found (no access or wrong URL)");
+  if (!msg) {
+    throw new Error("Message not found (no access or wrong URL)");
+  }
 
-  const files: SlackFileSummary[] | undefined = Array.isArray(msg.files)
-    ? msg.files.map((f: any) => ({
-        id: f.id,
-        name: f.name,
-        title: f.title,
-        mimetype: f.mimetype,
-        filetype: f.filetype,
-        mode: f.mode,
-        permalink: f.permalink,
-        url_private: f.url_private,
-        url_private_download: f.url_private_download,
-        size: f.size,
-      }))
-    : undefined;
+  const files = asArray(msg.files)
+    .map((f) => toSlackFileSummary(f))
+    .filter((f): f is SlackFileSummary => f !== null);
+  const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
 
-  const enrichedFiles = files ? await enrichFiles(client, files) : undefined;
-
-  const text = msg.text ?? "";
+  const text = getString(msg.text) ?? "";
+  const ts = getString(msg.ts) ?? input.ref.message_ts;
+  const blocks = Array.isArray(msg.blocks) ? (msg.blocks as unknown[]) : undefined;
+  const attachments = Array.isArray(msg.attachments) ? (msg.attachments as unknown[]) : undefined;
+  const reactions = Array.isArray(msg.reactions) ? (msg.reactions as unknown[]) : undefined;
   return {
-    channel_id: ref.channel_id,
-    ts: msg.ts,
-    thread_ts: msg.thread_ts,
-    reply_count: msg.reply_count,
-    user: msg.user,
-    bot_id: msg.bot_id,
+    channel_id: input.ref.channel_id,
+    ts,
+    thread_ts: getString(msg.thread_ts),
+    reply_count: getNumber(msg.reply_count),
+    user: getString(msg.user),
+    bot_id: getString(msg.bot_id),
     text,
     markdown: slackMrkdwnToMarkdown(text),
-    blocks: msg.blocks,
-    attachments: msg.attachments,
+    blocks,
+    attachments,
     files: enrichedFiles,
-    reactions: msg.reactions,
+    reactions,
   };
 }
 
 async function findMessageInThread(
   client: SlackApiClient,
-  channelId: string,
-  threadTs: string,
-  targetTs: string,
-): Promise<any | null> {
+  input: {
+    channelId: string;
+    threadTs: string;
+    targetTs: string;
+    includeReactions?: boolean;
+  },
+): Promise<Record<string, unknown> | undefined> {
   let cursor: string | undefined;
   for (;;) {
     const resp = await client.api("conversations.replies", {
-      channel: channelId,
-      ts: threadTs,
+      channel: input.channelId,
+      ts: input.threadTs,
       limit: 200,
       cursor,
+      include_all_metadata: input.includeReactions ? true : undefined,
     });
-    const messages = (resp.messages ?? []) as any[];
-    const found = messages.find((m) => m?.ts === targetTs);
-    if (found) return found;
-    const next = resp.response_metadata?.next_cursor;
-    if (!next) break;
+    const messages = asArray(resp.messages);
+    const found = messages.find(
+      (m): m is Record<string, unknown> => isRecord(m) && getString(m.ts) === input.targetTs,
+    );
+    if (found) {
+      return found;
+    }
+    const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+    const next = meta ? getString(meta.next_cursor) : undefined;
+    if (!next) {
+      break;
+    }
     cursor = next;
   }
-  return null;
+  return undefined;
 }
 
 export async function fetchThread(
   client: SlackApiClient,
-  channelId: string,
-  threadTs: string,
+  input: { channelId: string; threadTs: string; includeReactions?: boolean },
 ): Promise<SlackMessageSummary[]> {
   const out: SlackMessageSummary[] = [];
   let cursor: string | undefined;
 
   for (;;) {
     const resp = await client.api("conversations.replies", {
-      channel: channelId,
-      ts: threadTs,
+      channel: input.channelId,
+      ts: input.threadTs,
       limit: 200,
       cursor,
+      include_all_metadata: input.includeReactions ? true : undefined,
     });
-    const messages = (resp.messages ?? []) as any[];
+    const messages = asArray(resp.messages);
     for (const m of messages) {
-      const files: SlackFileSummary[] | undefined = Array.isArray(m.files)
-        ? m.files.map((f: any) => ({
-            id: f.id,
-            name: f.name,
-            title: f.title,
-            mimetype: f.mimetype,
-            filetype: f.filetype,
-            mode: f.mode,
-            permalink: f.permalink,
-            url_private: f.url_private,
-            url_private_download: f.url_private_download,
-            size: f.size,
-          }))
-        : undefined;
-      const enrichedFiles = files
-        ? await enrichFiles(client, files)
-        : undefined;
+      if (!isRecord(m)) {
+        continue;
+      }
+      const files = asArray(m.files)
+        .map((f) => toSlackFileSummary(f))
+        .filter((f): f is SlackFileSummary => f !== null);
+      const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
 
-      const text = m.text ?? "";
+      const text = getString(m.text) ?? "";
       out.push({
-        channel_id: channelId,
-        ts: m.ts,
-        thread_ts: m.thread_ts,
-        reply_count: m.reply_count,
-        user: m.user,
-        bot_id: m.bot_id,
+        channel_id: input.channelId,
+        ts: getString(m.ts) ?? "",
+        thread_ts: getString(m.thread_ts),
+        reply_count: getNumber(m.reply_count),
+        user: getString(m.user),
+        bot_id: getString(m.bot_id),
         text,
         markdown: slackMrkdwnToMarkdown(text),
-        blocks: m.blocks,
-        attachments: m.attachments,
+        blocks: Array.isArray(m.blocks) ? (m.blocks as unknown[]) : undefined,
+        attachments: Array.isArray(m.attachments) ? (m.attachments as unknown[]) : undefined,
         files: enrichedFiles,
-        reactions: m.reactions,
+        reactions: Array.isArray(m.reactions) ? (m.reactions as unknown[]) : undefined,
       });
     }
-    const next = resp.response_metadata?.next_cursor;
-    if (!next) break;
+    const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+    const next = meta ? getString(meta.next_cursor) : undefined;
+    if (!next) {
+      break;
+    }
     cursor = next;
   }
 
@@ -261,21 +294,20 @@ async function enrichFiles(
     if (f.mode === "snippet" || !f.url_private_download) {
       try {
         const info = await client.api("files.info", { file: f.id });
-        const file = info.file;
+        const file = isRecord(info.file) ? info.file : null;
         out.push({
           ...f,
-          name: f.name ?? file?.name,
-          title: f.title ?? file?.title,
-          mimetype: f.mimetype ?? file?.mimetype,
-          filetype: f.filetype ?? file?.filetype,
-          mode: f.mode ?? file?.mode,
-          permalink: f.permalink ?? file?.permalink,
-          url_private: f.url_private ?? file?.url_private,
-          url_private_download:
-            f.url_private_download ?? file?.url_private_download,
+          name: f.name ?? getString(file?.name),
+          title: f.title ?? getString(file?.title),
+          mimetype: f.mimetype ?? getString(file?.mimetype),
+          filetype: f.filetype ?? getString(file?.filetype),
+          mode: f.mode ?? getString(file?.mode),
+          permalink: f.permalink ?? getString(file?.permalink),
+          url_private: f.url_private ?? getString(file?.url_private),
+          url_private_download: f.url_private_download ?? getString(file?.url_private_download),
           snippet: {
-            content: file?.content,
-            language: file?.filetype,
+            content: getString(file?.content),
+            language: getString(file?.filetype),
           },
         });
         continue;
@@ -286,4 +318,42 @@ async function enrichFiles(
     out.push(f);
   }
   return out;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function getNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function toSlackFileSummary(value: unknown): SlackFileSummary | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const id = getString(value.id);
+  if (!id) {
+    return null;
+  }
+  return {
+    id,
+    name: getString(value.name),
+    title: getString(value.title),
+    mimetype: getString(value.mimetype),
+    filetype: getString(value.filetype),
+    mode: getString(value.mode),
+    permalink: getString(value.permalink),
+    url_private: getString(value.url_private),
+    url_private_download: getString(value.url_private_download),
+    size: getNumber(value.size),
+  };
 }

@@ -2,7 +2,6 @@
 node_modules
 .env
 .env.*
-design.doc
 
 # bun
 bun.lockb

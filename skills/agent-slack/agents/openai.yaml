@@ -1,0 +1,4 @@
+interface:
+  display_name: "agent-slack"
+  short_description: "Read & reply to Slack threads via CLI"
+  default_prompt: "Use $agent-slack to read a Slack permalink/thread, summarize it, and draft a reply."

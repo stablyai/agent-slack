@@ -1,9 +1,14 @@
 export function redactSecret(
   value: string,
-  keepStart = 6,
-  keepEnd = 4,
+  options?: { keepStart?: number; keepEnd?: number },
 ): string {
-  if (!value) return value;
-  if (value.length <= keepStart + keepEnd + 3) return "[redacted]";
+  const keepStart = options?.keepStart ?? 6;
+  const keepEnd = options?.keepEnd ?? 4;
+  if (!value) {
+    return value;
+  }
+  if (value.length <= keepStart + keepEnd + 3) {
+    return "[redacted]";
+  }
   return `${value.slice(0, keepStart)}…${value.slice(-keepEnd)}`;
 }
