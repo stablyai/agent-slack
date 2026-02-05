@@ -1,6 +1,14 @@
 ---
 name: agent-slack
-description: Slack automation CLI for AI agents. Use when you need to read a Slack message/thread (URL or channel+ts), download attachments to local paths, search messages/files, or send a reply / add a reaction.
+description: |
+  Slack automation CLI for AI agents. Use when:
+  - Reading a Slack message or thread (given a URL or channel+ts)
+  - Downloading Slack attachments (snippets, images, files) to local paths
+  - Searching Slack messages or files
+  - Sending a reply or adding/removing a reaction
+  - Fetching a Slack canvas as markdown
+  - Looking up Slack users
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack"
 ---
 
 # Slack automation with `agent-slack`
@@ -90,8 +98,16 @@ If you have multiple workspaces configured and you use a channel **name** (`#gen
 agent-slack message get "#general" --workspace "https://myteam.slack.com" --ts "1770165109.628379"
 ```
 
-## Deep-dive references
+## Canvas + Users
 
-- [references/commands.md](references/commands.md): command map + key flags
+```bash
+agent-slack canvas get "https://workspace.slack.com/docs/T123/F456"
+agent-slack user list --workspace "https://workspace.slack.com" --limit 100
+agent-slack user get "@alice" --workspace "https://workspace.slack.com"
+```
+
+## References
+
+- [references/commands.md](references/commands.md): full command map + all flags
 - [references/targets.md](references/targets.md): URL vs `#channel` targeting rules
-- [references/output.md](references/output.md): output shapes + download locations
+- [references/output.md](references/output.md): JSON output shapes + download paths

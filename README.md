@@ -167,15 +167,30 @@ agent-slack message get "#general" --workspace "https://stablygroup.slack.com" -
 
 Agents can read those paths directly (e.g. snippets as `.txt`, images as `.png`).
 
-## Agent skills (Codex + Claude Code)
+## Agent skill
 
-This repo ships an agent skill at `skills/agent-slack/`.
+This repo ships an agent skill at `skills/agent-slack/` compatible with Claude Code, Codex, Cursor, and [35+ other agents](https://github.com/drivecore/skills#supported-agents).
 
-Install it into common discovery locations:
+**Install via [skills.sh](https://skills.sh)** (recommended):
+
+```bash
+npx skills add stablyai/agent-slack
+```
+
+Or install to specific agents:
+
+```bash
+npx skills add stablyai/agent-slack -a claude-code -a codex -g
+```
+
+<details>
+<summary>Manual installation</summary>
 
 ```bash
 bash ./scripts/install-skill.sh
 ```
+
+</details>
 
 ## Fetch a Canvas as Markdown
 

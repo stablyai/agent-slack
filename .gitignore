@@ -24,3 +24,6 @@ bin/native/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# design docs
+skill-design.doc
