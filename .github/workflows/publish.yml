@@ -7,27 +7,46 @@ on:
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
-          - os: darwin
-            runner: macos-latest
-            targets: |
-              bun-darwin-arm64:agent-slack-darwin-arm64
-              bun-darwin-x64:agent-slack-darwin-x64
-          - os: linux
+          # macOS arm64 - use macos-14 which is arm64
+          - target: bun-darwin-arm64
+            outfile: agent-slack-darwin-arm64
+            runner: macos-14
+            os: darwin-arm64
+          # macOS x64 - use macos-13 which is x64
+          - target: bun-darwin-x64
+            outfile: agent-slack-darwin-x64
+            runner: macos-13
+            os: darwin-x64
+          # Linux x64
+          - target: bun-linux-x64
+            outfile: agent-slack-linux-x64
             runner: ubuntu-latest
-            targets: |
-              bun-linux-x64:agent-slack-linux-x64
-              bun-linux-x64-musl:agent-slack-linux-x64-musl
-              bun-linux-arm64:agent-slack-linux-arm64
-              bun-linux-arm64-musl:agent-slack-linux-arm64-musl
-          - os: windows
+            os: linux-x64
+          # Linux x64 musl
+          - target: bun-linux-x64-musl
+            outfile: agent-slack-linux-x64-musl
+            runner: ubuntu-latest
+            os: linux-x64-musl
+          # Linux arm64 - cross-compile (native modules may not work)
+          - target: bun-linux-arm64
+            outfile: agent-slack-linux-arm64
+            runner: ubuntu-latest
+            os: linux-arm64
+          # Linux arm64 musl - cross-compile (native modules may not work)
+          - target: bun-linux-arm64-musl
+            outfile: agent-slack-linux-arm64-musl
+            runner: ubuntu-latest
+            os: linux-arm64-musl
+          # Windows x64
+          - target: bun-windows-x64
+            outfile: agent-slack-windows-x64.exe
             runner: windows-latest
-            targets: |
-              bun-windows-x64:agent-slack-windows-x64.exe
+            os: windows-x64
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -46,27 +65,24 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Lint
-        if: matrix.os == 'linux'
+        if: matrix.os == 'linux-x64'
         run: bun run lint
 
       - name: Test
-        if: matrix.os == 'linux'
+        if: matrix.os == 'linux-x64'
         run: bun run test
 
-      - name: Build binaries
+      - name: Build binary
         shell: bash
         run: |
           mkdir -p release
-          echo "${{ matrix.targets }}" | while IFS=: read -r target outfile; do
-            [ -z "$target" ] && continue
-            echo "Building $outfile ($target)"
-            bun build src/index.ts --compile --target="$target" --outfile="release/$outfile"
-          done
+          echo "Building ${{ matrix.outfile }} (${{ matrix.target }})"
+          bun build src/index.ts --compile --target="${{ matrix.target }}" --outfile="release/${{ matrix.outfile }}"
 
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.os }}
+          name: binary-${{ matrix.os }}
           path: release/
 
   release:
