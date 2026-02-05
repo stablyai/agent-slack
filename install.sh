@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO="${AGENT_SLACK_REPO:-nwparker/agent-slack}"
+REPO="${AGENT_SLACK_REPO:-stablyai/agent-slack}"
 BIN_NAME="agent-slack"
 SKIP_VERIFY="${AGENT_SLACK_SKIP_VERIFY:-0}"
 

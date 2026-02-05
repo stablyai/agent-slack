@@ -38,7 +38,7 @@ Guiding principle:
 ## Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nwparker/agent-slack/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.sh | sh
 ```
 
 Run via:
@@ -194,10 +194,10 @@ agent-slack canvas get "F456" --workspace "https://workspace.slack.com"
 agent-slack search all "smoke tests failed" --channel "#alerts" --after 2026-01-01 --before 2026-02-01
 
 # Search messages only
-agent-slack search messages "kernel vm" --user "@nwparker" --channel general
+agent-slack search messages "stably ai" --user "@stablyai" --channel general
 
 # Search files only (downloads files and returns local paths)
-agent-slack search files "playwright" --content-type snippet --limit 10
+agent-slack search files "testing" --content-type snippet --limit 10
 ```
 
 Tips:

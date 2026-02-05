@@ -86,8 +86,8 @@ Prefer channel-scoped search for reliability:
 
 ```bash
 agent-slack search all "smoke tests failed" --channel "#alerts" --after 2026-01-01 --before 2026-02-01
-agent-slack search messages "kernel vm" --user "@alice" --channel general
-agent-slack search files "playwright" --content-type snippet --limit 10
+agent-slack search messages "stably test" --user "@alice" --channel general
+agent-slack search files "testing" --content-type snippet --limit 10
 ```
 
 ## Multi-workspace guardrail (important)

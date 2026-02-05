@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nwparker/agent-slack.git"
+    "url": "git+https://github.com/stablyai/agent-slack.git"
   },
   "type": "module",
   "scripts": {
