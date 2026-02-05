@@ -17,10 +17,10 @@ jobs:
             outfile: agent-slack-darwin-arm64
             runner: macos-14
             os: darwin-arm64
-          # macOS x64 - use macos-13 which is x64
+          # macOS x64 - use macos-15-large (Intel x64)
           - target: bun-darwin-x64
             outfile: agent-slack-darwin-x64
-            runner: macos-13
+            runner: macos-15-large
             os: darwin-x64
           # Linux x64
           - target: bun-linux-x64
