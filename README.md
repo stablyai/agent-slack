@@ -73,8 +73,8 @@ agent-slack
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
 │   └── files    <query>
-├── canvas
-│   └── get <canvas-url-or-id>     # canvas → markdown
+└── canvas
+    └── get <canvas-url-or-id>     # canvas → markdown
 ```
 
 Notes:
