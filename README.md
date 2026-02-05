@@ -33,6 +33,10 @@ npx skills add stablyai/agent-slack
 
 <details>
 <summary>Manual installation</summary>
+```bash
+bash ./scripts/install-skill.sh
+```
+</details>
 
 ## Command map (high level)
 
@@ -123,11 +127,8 @@ agent-slack message get "#general" --workspace "https://stablygroup.slack.com" -
 
 ## Examples
 
-
 > [!TIP]
 > You should probably just use the skill for your agent instead of reading below.
-
-
 
 ### Read messages / threads
 
@@ -180,12 +181,6 @@ When to use which:
 - macOS default: `~/.agent-slack/tmp/downloads/`
 
 Agents can read those paths directly (e.g. snippets as `.txt`, images as `.png`).
-
-```bash
-bash ./scripts/install-skill.sh
-```
-
-</details>
 
 ### Search (messages + files)
 
