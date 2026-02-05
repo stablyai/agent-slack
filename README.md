@@ -35,6 +35,20 @@ Guiding principle:
 - **Write**: reply in thread, add reactions
 - **Canvas**: fetch Slack canvases as Markdown
 
+## Installation
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nwparker/agent-slack/main/install.sh | sh
+```
+
+Run via:
+
+```bash
+agent-slack --help
+```
+
+For development and publishing, see `CONTRIBUTING.md`.
+
 ## Command map (high level)
 
 ```text
@@ -67,20 +81,6 @@ Notes:
 
 - Output is **always JSON** and aggressively pruned (`null`/empty fields removed).
 - Attached files are auto-downloaded and returned as absolute local paths.
-
-## Installation
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/nwparker/agent-slack/main/install.sh | sh
-```
-
-Run via:
-
-```bash
-agent-slack --help
-```
-
-For development and publishing, see `CONTRIBUTING.md`.
 
 ## Authentication (no fancy setup)
 
