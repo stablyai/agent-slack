@@ -177,12 +177,6 @@ This repo ships an agent skill at `skills/agent-slack/` compatible with Claude C
 npx skills add stablyai/agent-slack
 ```
 
-Or install to specific agents:
-
-```bash
-npx skills add stablyai/agent-slack -a claude-code -a codex -g
-```
-
 <details>
 <summary>Manual installation</summary>
 
