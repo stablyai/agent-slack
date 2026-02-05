@@ -192,7 +192,7 @@ agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 
 # Developing / Contributing
 
-see `CONTRIBUTING.md`.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
