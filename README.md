@@ -1,23 +1,3 @@
-<p align="center">
-  <a href="https://stably.ai">
-    <img src="https://public-artifacts.stably.ai/logo-white-with-bg.png" height="96" alt="Stably">
-  </a>
-</p>
-
-<h3 align="center">
-  <a href="https://stably.ai">Stably</a>
-</h3>
-
-<p align="center">
-  Code. Ship. <s>Test.</s>
-</p>
-
-<p align="center">
-  <a href="https://docs.stably.ai/"><strong>Documentation</strong></a> ·
-  <a href="https://stably.ai/"><strong>Homepage</strong></a>
-</p>
-<br/>
-
 # agent-slack
 
 Slack automation CLI for AI agents (TypeScript + Bun).
@@ -217,3 +197,25 @@ agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 ```
+
+---
+
+<p align="center">
+  <a href="https://stably.ai">
+    <img src="https://public-artifacts.stably.ai/logo-white-with-bg.png" height="96" alt="Stably">
+  </a>
+</p>
+
+<h3 align="center">
+  <a href="https://stably.ai">Stably</a>
+</h3>
+
+<p align="center">
+  Code. Ship. <s>Test.</s>
+</p>
+
+<p align="center">
+  <a href="https://docs.stably.ai/"><strong>Documentation</strong></a> ·
+  <a href="https://stably.ai/"><strong>Homepage</strong></a>
+</p>
+<br/>
