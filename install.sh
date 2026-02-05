@@ -64,10 +64,10 @@ detect_platform() {
   esac
 
   musl_suffix=""
-  [ "$platform" = "linux" ] && is_musl && musl_suffix="-musl"
+  [ "$platform" = "linux" ] && is_musl && musl_suffix="-musl" || true
 
   exe_suffix=""
-  [ "$platform" = "windows" ] && exe_suffix=".exe"
+  [ "$platform" = "windows" ] && exe_suffix=".exe" || true
 }
 
 main() {
