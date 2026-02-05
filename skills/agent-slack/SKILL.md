@@ -13,6 +13,8 @@ description: |
 
 # Slack automation with `agent-slack`
 
+`agent-slack` is a CLI binary installed on `$PATH`. Invoke it directly (e.g. `agent-slack user list`)
+
 ## Quick start (auth)
 
 Authentication is automatic on macOS (Slack Desktop first, then Chrome fallback).
