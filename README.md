@@ -71,13 +71,7 @@ Notes:
 ## Installation
 
 ```bash
-# Quick install (downloads a native executable)
 curl -fsSL https://raw.githubusercontent.com/nwparker/agent-slack/main/install.sh | sh
-
-# Package managers (downloads a native executable during install)
-npm install -g agent-slack
-pnpm add -g agent-slack
-bun add -g agent-slack
 ```
 
 Run via:
