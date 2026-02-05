@@ -105,7 +105,7 @@ agent-slack auth test
 - URL: `https://workspace.slack.com/archives/<channel>/p<digits>[?thread_ts=...]`
 - Channel: `#general` (or bare `general`) or a channel ID like `C0123...`
 
-Examples:
+In practice:
 
 ```bash
 # Get a single message by channel + ts
@@ -123,7 +123,8 @@ agent-slack message get "#general" --workspace "https://stablygroup.slack.com" -
 
 ## Examples
 
-You should probably just use the skill for your agent. **I'm not sure why you humans are reading this!**
+> [!TIP]
+> You should probably just use the skill for your agent instead of reading below
 
 ### Read messages / threads
 
