@@ -21,13 +21,18 @@ Guiding principle:
 curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
 ```
 
-Run via:
+## Agent skill
+
+This repo ships an agent skill at `skills/agent-slack/` compatible with Claude Code, Codex, Cursor, etc
+
+**Install via [skills.sh](https://skills.sh)** (recommended):
 
 ```bash
-agent-slack --help
+npx skills add stablyai/agent-slack
 ```
 
-For development and publishing, see `CONTRIBUTING.md`.
+<details>
+<summary>Manual installation</summary>
 
 ## Command map (high level)
 
@@ -141,19 +146,6 @@ agent-slack message get "#general" --workspace "https://stablygroup.slack.com" -
 
 Agents can read those paths directly (e.g. snippets as `.txt`, images as `.png`).
 
-## Agent skill
-
-This repo ships an agent skill at `skills/agent-slack/` compatible with Claude Code, Codex, Cursor, and [35+ other agents](https://github.com/drivecore/skills#supported-agents).
-
-**Install via [skills.sh](https://skills.sh)** (recommended):
-
-```bash
-npx skills add stablyai/agent-slack
-```
-
-<details>
-<summary>Manual installation</summary>
-
 ```bash
 bash ./scripts/install-skill.sh
 ```
@@ -197,6 +189,10 @@ agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 ```
+
+# Developing / Contributing
+
+see `CONTRIBUTING.md`.
 
 ---
 
