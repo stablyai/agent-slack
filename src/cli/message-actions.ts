@@ -286,20 +286,20 @@ export async function sendMessage(input: {
   if (target.kind === "url") {
     const { ref } = target;
     warnIfTruncated(ref);
-    const resp = await input.ctx.withAutoRefresh({
+    await input.ctx.withAutoRefresh({
       workspaceUrl: ref.workspace_url,
       work: async () => {
         const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const msg = await fetchMessage(client, { ref });
         const threadTs = msg.thread_ts ?? msg.ts;
-        return (await client.api("chat.postMessage", {
+        await client.api("chat.postMessage", {
           channel: ref.channel_id,
           text: input.text,
           thread_ts: threadTs,
-        })) as Record<string, unknown>;
+        });
       },
     });
-    return pruneEmpty(resp) as Record<string, unknown>;
+    return { ok: true };
   }
 
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
@@ -307,19 +307,19 @@ export async function sendMessage(input: {
     workspaceUrl,
     channels: [String(target.channel)],
   });
-  const resp = await input.ctx.withAutoRefresh({
+  await input.ctx.withAutoRefresh({
     workspaceUrl,
     work: async () => {
       const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveChannelId(client, String(target.channel));
-      return (await client.api("chat.postMessage", {
+      await client.api("chat.postMessage", {
         channel: channelId,
         text: input.text,
         thread_ts: input.options.threadTs ? String(input.options.threadTs) : undefined,
-      })) as Record<string, unknown>;
+      });
     },
   });
-  return pruneEmpty(resp) as Record<string, unknown>;
+  return { ok: true };
 }
 
 export async function reactOnTarget(input: {
@@ -332,7 +332,7 @@ export async function reactOnTarget(input: {
   const target = parseMsgTarget(input.targetInput);
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options?.workspace);
 
-  const resolved = await input.ctx.withAutoRefresh({
+  await input.ctx.withAutoRefresh({
     workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
     work: async () => {
       if (target.kind === "url") {
@@ -340,11 +340,12 @@ export async function reactOnTarget(input: {
         warnIfTruncated(ref);
         const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const name = normalizeSlackReactionName(input.emoji);
-        return (await client.api(`reactions.${input.action}`, {
+        await client.api(`reactions.${input.action}`, {
           channel: ref.channel_id,
           timestamp: ref.message_ts,
           name,
-        })) as Record<string, unknown>;
+        });
+        return;
       }
 
       const ts = input.options?.ts?.trim();
@@ -360,13 +361,13 @@ export async function reactOnTarget(input: {
       const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveChannelId(client, target.channel);
       const name = normalizeSlackReactionName(input.emoji);
-      return (await client.api(`reactions.${input.action}`, {
+      await client.api(`reactions.${input.action}`, {
         channel: channelId,
         timestamp: ts,
         name,
-      })) as Record<string, unknown>;
+      });
     },
   });
 
-  return pruneEmpty(resolved) as Record<string, unknown>;
+  return { ok: true };
 }
