@@ -14,8 +14,7 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
     .option("--cursor <cursor>", "Pagination cursor")
     .option("--include-bots", "Include bot users")
     .action(async (...args) => {
-      const [, options] = args as [
-        unknown,
+      const [options] = args as [
         { workspace?: string; limit: string; cursor?: string; includeBots?: boolean },
       ];
       try {

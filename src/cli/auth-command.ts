@@ -57,7 +57,7 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     .description("Verify credentials (calls Slack auth.test)")
     .option("--workspace <url>", "Workspace URL (needed when you have multiple workspaces)")
     .action(async (...args) => {
-      const [, options] = args as [unknown, { workspace?: string }];
+      const [options] = args as [{ workspace?: string }];
       try {
         const resp = await runAuthTest({
           ctx: input.ctx,
@@ -167,8 +167,7 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     .option("--xoxc <token>", "Browser token (xoxc-...)")
     .option("--xoxd <cookie>", "Browser cookie d (xoxd-...)")
     .action(async (...args) => {
-      const [, options] = args as [
-        unknown,
+      const [options] = args as [
         { workspaceUrl: string; token?: string; xoxc?: string; xoxd?: string },
       ];
       try {
