@@ -2,11 +2,18 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+let cachedVersion: string | undefined;
+
 export function getPackageVersion(): string {
+  if (cachedVersion !== undefined) {
+    return cachedVersion;
+  }
+
   const envVersion =
     process.env.AGENT_SLACK_VERSION?.trim() || process.env.npm_package_version?.trim();
   if (envVersion) {
-    return envVersion;
+    cachedVersion = envVersion;
+    return cachedVersion;
   }
 
   try {
@@ -20,7 +27,8 @@ export function getPackageVersion(): string {
         const raw = readFileSync(candidate, "utf8");
         const pkg = JSON.parse(raw) as { version?: unknown };
         const v = typeof pkg.version === "string" ? pkg.version.trim() : "";
-        return v || "0.0.0";
+        cachedVersion = v || "0.0.0";
+        return cachedVersion;
       }
       const next = dirname(dir);
       if (next === dir) {
@@ -31,7 +39,8 @@ export function getPackageVersion(): string {
   } catch {
     // fall through
   }
-  return "0.0.0";
+  cachedVersion = "0.0.0";
+  return cachedVersion;
 }
 
 export function getUserAgent(): string {

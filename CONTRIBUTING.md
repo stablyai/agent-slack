@@ -16,6 +16,7 @@ Build and test:
 ```bash
 bun run build
 bun run test
+bun run typecheck
 ```
 
 Lint and format:
@@ -25,30 +26,58 @@ bun run lint
 bun run format:check
 ```
 
-Run the packaged entrypoints locally:
+Run via Bun directly (for local development):
 
 ```bash
-node ./bin/agent-slack.cjs --help
 bun ./bin/agent-slack.bun.js --help
 ```
 
-## Publishing (maintainers)
+## Releasing (maintainers)
 
-Publishing is tag-driven. Push a `vX.Y.Z` tag and the GitHub Actions `Release` workflow will:
+Releases are binary-only via GitHub Releases. No npm publishing.
 
-- Build native binaries + checksums and upload them to the GitHub Release (used by `install.sh` and npm postinstall).
-- Publish the npm package `agent-slack` using Bun.
-
-Prerequisite: set the repo secret `NPM_TOKEN` to an npm automation token with publish rights.
-
-### Release steps
-
-1. Update `package.json` (and `bun.lock` if needed).
-2. Commit, tag, and push:
+### Using the release script
 
 ```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
+# Bump to explicit version
+bun run release 0.2.0
+
+# Or use semver bump type
+bun run release patch   # 0.1.0 -> 0.1.1
+bun run release minor   # 0.1.0 -> 0.2.0
+bun run release major   # 0.1.0 -> 1.0.0
 ```
 
-3. Wait for the `Release` workflow to finish, then verify the GitHub Release assets and npm package.
+The script will:
+
+1. Update version in `package.json`
+2. Commit with message `v{version}`
+3. Create git tag `v{version}`
+4. Push to origin (after confirmation)
+
+Pushing the tag triggers the GitHub Actions `Release` workflow, which:
+
+- Builds native binaries for all platforms (macOS, Linux, Windows × x64, arm64)
+- Generates checksums
+- Uploads everything to the GitHub Release
+
+### Manual release (alternative)
+
+```bash
+# 1. Update version in package.json
+# 2. Commit and tag
+git add package.json
+git commit -m "v0.2.0"
+git tag v0.2.0
+git push origin main --tags
+```
+
+### User installation
+
+Users install the binary via:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nwparker/agent-slack/main/install.sh | sh
+```
+
+Or download directly from [GitHub Releases](https://github.com/nwparker/agent-slack/releases).

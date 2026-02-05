@@ -7,13 +7,22 @@ on:
 
 jobs:
   release:
-    name: Build + Publish
+    name: Build + Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Read Node version from package.json
+        id: node-version
+        run: echo "version=$(node -p \"require('./package.json').engines.node.replace('>=', '')\")" >> $GITHUB_OUTPUT
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node-version.outputs.version }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -29,9 +38,6 @@ jobs:
       - name: Test
         run: bun run test
 
-      - name: Build (JS bundle)
-        run: bun run build
-
       - name: Build release binaries
         run: bun run build:release
 
@@ -42,8 +48,3 @@ jobs:
             release/agent-slack-*
             release/checksums-sha256.txt
           generate_release_notes: true
-
-      - name: Publish to npm (Bun)
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bun publish

@@ -92,7 +92,7 @@ function inferExt(file: {
   }
 
   const name = file.name || file.title || "";
-  const m = name.match(/\\.([A-Za-z0-9]{1,10})$/);
+  const m = name.match(/\.([A-Za-z0-9]{1,10})$/);
   return m ? m[1]!.toLowerCase() : null;
 }
 
