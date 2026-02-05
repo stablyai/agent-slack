@@ -40,7 +40,7 @@ agent-slack
 │   ├── import-chrome
 │   └── parse-curl
 ├── message
-│   ├── get   <target>             # fetch 1 message (+ thread summary)
+│   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch full thread
 │   ├── send  <target> <text>      # send / reply (does the right thing)
 │   └── react
