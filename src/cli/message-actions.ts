@@ -132,6 +132,15 @@ function toThreadListMessage(
   return rest;
 }
 
+function warnIfTruncated(ref: { possiblyTruncated?: boolean }): void {
+  if (ref.possiblyTruncated) {
+    console.error(
+      'Hint: URL may have been truncated by shell. Quote URLs containing "&":\n' +
+        '  agent-slack message get "https://...?thread_ts=...&cid=..."',
+    );
+  }
+}
+
 export async function handleMessageGet(input: {
   ctx: CliContext;
   targetInput: string;
@@ -145,6 +154,7 @@ export async function handleMessageGet(input: {
     work: async () => {
       if (target.kind === "url") {
         const { ref } = target;
+        warnIfTruncated(ref);
         const { client, auth } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const includeReactions = Boolean(input.options.includeReactions);
         const msg = await fetchMessage(client, { ref, includeReactions });
@@ -199,6 +209,7 @@ export async function handleMessageList(input: {
     work: async () => {
       if (target.kind === "url") {
         const { ref } = target;
+        warnIfTruncated(ref);
         const { client, auth } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const includeReactions = Boolean(input.options.includeReactions);
         const msg = await fetchMessage(client, { ref, includeReactions });
@@ -274,6 +285,7 @@ export async function sendMessage(input: {
   const target = parseMsgTarget(String(input.targetInput));
   if (target.kind === "url") {
     const { ref } = target;
+    warnIfTruncated(ref);
     const resp = await input.ctx.withAutoRefresh({
       workspaceUrl: ref.workspace_url,
       work: async () => {
@@ -325,6 +337,7 @@ export async function reactOnTarget(input: {
     work: async () => {
       if (target.kind === "url") {
         const { ref } = target;
+        warnIfTruncated(ref);
         const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const name = normalizeSlackReactionName(input.emoji);
         return (await client.api(`reactions.${input.action}`, {
