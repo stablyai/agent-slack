@@ -7,7 +7,38 @@ import { pbkdf2Sync, createDecipheriv } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
-import { ClassicLevel } from "classic-level";
+
+// Lazy-load classic-level to avoid crashing on platforms where the native module isn't available.
+// This allows the CLI to still work with env vars or parse-curl even when LevelDB extraction fails.
+import type { ClassicLevel as ClassicLevelType } from "classic-level";
+
+type ClassicLevelCtor = new <K, V>(
+  path: string,
+  opts: { keyEncoding: string; valueEncoding: string },
+) => ClassicLevelType<K, V>;
+
+let ClassicLevelClass: ClassicLevelCtor | null = null;
+let levelLoadError: Error | null = null;
+
+async function loadClassicLevel(): Promise<ClassicLevelCtor> {
+  if (ClassicLevelClass) {
+    return ClassicLevelClass;
+  }
+  if (levelLoadError) {
+    throw levelLoadError;
+  }
+  try {
+    const { ClassicLevel } = await import("classic-level");
+    ClassicLevelClass = ClassicLevel as ClassicLevelCtor;
+    return ClassicLevelClass;
+  } catch (err) {
+    levelLoadError = new Error(
+      `LevelDB native module not available: ${err instanceof Error ? err.message : String(err)}. ` +
+        `Use SLACK_TOKEN/SLACK_COOKIE_D env vars or "agent-slack auth parse-curl" instead.`,
+    );
+    throw levelLoadError;
+  }
+}
 
 type DesktopTeam = { url: string; name?: string; token: string };
 
@@ -107,8 +138,9 @@ async function extractTeamsFromSlackLevelDb(leveldbDir: string): Promise<Desktop
   if (!existsSync(leveldbDir)) {
     throw new Error(`Slack LevelDB not found: ${leveldbDir}`);
   }
+  const LevelDBClass = await loadClassicLevel();
   const snap = await snapshotLevelDb(leveldbDir);
-  const db = new ClassicLevel<Buffer, Buffer>(snap, {
+  const db = new LevelDBClass<Buffer, Buffer>(snap, {
     keyEncoding: "buffer",
     valueEncoding: "buffer",
   });

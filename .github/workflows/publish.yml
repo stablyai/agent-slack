@@ -6,11 +6,28 @@ on:
       - "v*"
 
 jobs:
-  release:
-    name: Build + Release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: darwin
+            runner: macos-latest
+            targets: |
+              bun-darwin-arm64:agent-slack-darwin-arm64
+              bun-darwin-x64:agent-slack-darwin-x64
+          - os: linux
+            runner: ubuntu-latest
+            targets: |
+              bun-linux-x64:agent-slack-linux-x64
+              bun-linux-x64-musl:agent-slack-linux-x64-musl
+              bun-linux-arm64:agent-slack-linux-arm64
+              bun-linux-arm64-musl:agent-slack-linux-arm64-musl
+          - os: windows
+            runner: windows-latest
+            targets: |
+              bun-windows-x64:agent-slack-windows-x64.exe
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -29,13 +46,46 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Lint
+        if: matrix.os == 'linux'
         run: bun run lint
 
       - name: Test
+        if: matrix.os == 'linux'
         run: bun run test
 
-      - name: Build release binaries
-        run: bun run build:release
+      - name: Build binaries
+        shell: bash
+        run: |
+          mkdir -p release
+          echo "${{ matrix.targets }}" | while IFS=: read -r target outfile; do
+            [ -z "$target" ] && continue
+            echo "Building $outfile ($target)"
+            bun build src/index.ts --compile --target="$target" --outfile="release/$outfile"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: release/
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum agent-slack-* > checksums-sha256.txt
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
