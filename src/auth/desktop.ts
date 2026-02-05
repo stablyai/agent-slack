@@ -7,38 +7,7 @@ import { pbkdf2Sync, createDecipheriv } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
-
-// Lazy-load classic-level to avoid crashing on platforms where the native module isn't available.
-// This allows the CLI to still work with env vars or parse-curl even when LevelDB extraction fails.
-import type { ClassicLevel as ClassicLevelType } from "classic-level";
-
-type ClassicLevelCtor = new <K, V>(
-  path: string,
-  opts: { keyEncoding: string; valueEncoding: string },
-) => ClassicLevelType<K, V>;
-
-let ClassicLevelClass: ClassicLevelCtor | null = null;
-let levelLoadError: Error | null = null;
-
-async function loadClassicLevel(): Promise<ClassicLevelCtor> {
-  if (ClassicLevelClass) {
-    return ClassicLevelClass;
-  }
-  if (levelLoadError) {
-    throw levelLoadError;
-  }
-  try {
-    const { ClassicLevel } = await import("classic-level");
-    ClassicLevelClass = ClassicLevel as ClassicLevelCtor;
-    return ClassicLevelClass;
-  } catch (err) {
-    levelLoadError = new Error(
-      `LevelDB native module not available: ${err instanceof Error ? err.message : String(err)}. ` +
-        `Use SLACK_TOKEN/SLACK_COOKIE_D env vars or "agent-slack auth parse-curl" instead.`,
-    );
-    throw levelLoadError;
-  }
-}
+import { findKeysContaining } from "../lib/leveldb-reader.js";
 
 type DesktopTeam = { url: string; name?: string; token: string };
 
@@ -138,68 +107,21 @@ async function extractTeamsFromSlackLevelDb(leveldbDir: string): Promise<Desktop
   if (!existsSync(leveldbDir)) {
     throw new Error(`Slack LevelDB not found: ${leveldbDir}`);
   }
-  const LevelDBClass = await loadClassicLevel();
+
   const snap = await snapshotLevelDb(leveldbDir);
-  const db = new LevelDBClass<Buffer, Buffer>(snap, {
-    keyEncoding: "buffer",
-    valueEncoding: "buffer",
-  });
 
   try {
-    await db.open();
+    // Use pure JS LevelDB reader - search for localConfig entries
+    const localConfigV2 = Buffer.from("localConfig_v2");
+    const localConfigV3 = Buffer.from("localConfig_v3");
+
+    const entries = await findKeysContaining(snap, Buffer.from("localConfig_v"));
+
     let configBuf: Buffer | null = null;
-
-    // Fast path: try known Chromium Local Storage key shapes for Slack.
-    const candidates: Buffer[] = [];
-    for (const versionName of ["localConfig_v2", "localConfig_v3"] as const) {
-      for (const prefix of [
-        "._https://app.slack.com\x00\x01",
-        "_https://app.slack.com\x00\x01",
-        "._https://app.slack.com\x00",
-        "_https://app.slack.com\x00",
-      ]) {
-        candidates.push(Buffer.from(`${prefix}${versionName}`));
-        candidates.push(Buffer.from(`${prefix}${versionName}\0`));
-        candidates.push(Buffer.from(`${prefix}${versionName}\x01`));
-      }
-    }
-
-    for (const k of candidates) {
-      const value = await db.get(k).catch(() => null);
-      if (value && value.length > 0) {
-        configBuf = value;
-        break;
-      }
-    }
-
-    // Slow fallback: scan keys until we find localConfig.
-    if (!configBuf) {
-      const localConfigV2 = Buffer.from("localConfig_v2");
-      const localConfigV3 = Buffer.from("localConfig_v3");
-
-      const originPrefixes = [
-        Buffer.from("._https://app.slack.com"),
-        Buffer.from("_https://app.slack.com"),
-        Buffer.from("L_https://app.slack.com"),
-      ];
-
-      for (const originPrefix of originPrefixes) {
-        const upper = Buffer.concat([originPrefix, Buffer.from([0xff])]);
-        for await (const [key] of db.iterator({
-          gte: originPrefix,
-          lte: upper,
-          keys: true,
-          values: false,
-        })) {
-          if (key.includes(localConfigV2) || key.includes(localConfigV3)) {
-            const value = await db.get(key).catch(() => null);
-            if (value && value.length > 0) {
-              configBuf = value;
-              break;
-            }
-          }
-        }
-        if (configBuf) {
+    for (const entry of entries) {
+      if (entry.key.includes(localConfigV2) || entry.key.includes(localConfigV3)) {
+        if (entry.value && entry.value.length > 0) {
+          configBuf = entry.value;
           break;
         }
       }
@@ -222,11 +144,6 @@ async function extractTeamsFromSlackLevelDb(leveldbDir: string): Promise<Desktop
     }
     return teams;
   } finally {
-    try {
-      await db.close();
-    } catch {
-      // ignore
-    }
     try {
       await rm(snap, { recursive: true, force: true });
     } catch {
