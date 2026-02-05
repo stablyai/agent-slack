@@ -17,10 +17,11 @@ jobs:
             outfile: agent-slack-darwin-arm64
             runner: macos-14
             os: darwin-arm64
-          # macOS x64 - use macos-15-large (Intel x64)
+          # macOS x64 - cross-compile from arm64 (most users are arm64 now anyway)
+          # Note: Desktop auth extraction may not work on x64 due to cross-compiled native modules
           - target: bun-darwin-x64
             outfile: agent-slack-darwin-x64
-            runner: macos-15-large
+            runner: macos-14
             os: darwin-x64
           # Linux x64
           - target: bun-linux-x64
