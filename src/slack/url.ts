@@ -4,6 +4,8 @@ export type SlackMessageRef = {
   message_ts: string; // "1234567890.123456"
   thread_ts_hint?: string; // from URL query (?thread_ts=...)
   raw: string;
+  /** True if the URL looks like it may have been truncated by shell & interpretation */
+  possiblyTruncated?: boolean;
 };
 
 export function parseSlackMessageUrl(input: string): SlackMessageRef {
@@ -43,6 +45,11 @@ export function parseSlackMessageUrl(input: string): SlackMessageRef {
   const thread_ts_hint =
     threadTsParam && /^\d{6,}\.\d{6}$/.test(threadTsParam) ? threadTsParam : undefined;
 
+  // Slack URLs with thread_ts typically also have cid param. If thread_ts exists but
+  // cid doesn't, the URL was likely truncated by shell interpreting & as background.
+  const hasCid = url.searchParams.has("cid");
+  const possiblyTruncated = Boolean(threadTsParam && !hasCid);
+
   const workspace_url = `${url.protocol}//${url.host}`;
-  return { workspace_url, channel_id, message_ts, thread_ts_hint, raw: input };
+  return { workspace_url, channel_id, message_ts, thread_ts_hint, raw: input, possiblyTruncated };
 }
