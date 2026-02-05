@@ -123,8 +123,11 @@ agent-slack message get "#general" --workspace "https://stablygroup.slack.com" -
 
 ## Examples
 
+
 > [!TIP]
-> You should probably just use the skill for your agent instead of reading below
+> You should probably just use the skill for your agent instead of reading below.
+
+
 
 ### Read messages / threads
 
