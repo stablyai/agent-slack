@@ -98,24 +98,7 @@ export SLACK_TOKEN="xoxb-..."
 agent-slack auth test
 ```
 
-## Read messages / threads
-
-```bash
-# Single message (+ thread summary if threaded)
-agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000"
-
-# Full thread for a message
-agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
-```
-
-Optional:
-
-```bash
-# Include reactions + which users reacted
-agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000" --include-reactions
-```
-
-### Targets: URL or channel
+## Targets: URL or channel
 
 `message get` / `message list` accept either a Slack message URL or a channel reference:
 
@@ -138,7 +121,55 @@ If you have multiple workspaces configured and you use a channel **name** (`#cha
 agent-slack message get "#general" --workspace "https://stablygroup.slack.com" --ts "1770165109.628379"
 ```
 
-## Files (snippets/images/attachments)
+## Examples
+
+You should probably just use the skill for your agent. **I'm not sure why you humans are reading this!**
+
+### Read messages / threads
+
+```bash
+# Single message (+ thread summary if threaded)
+agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Full thread for a message
+agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
+```
+
+Optional:
+
+```bash
+# Include reactions + which users reacted
+agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000" --include-reactions
+```
+
+### Message get vs list
+
+**`message get`** fetches a single message. If the message is in a thread, it also returns thread metadata (reply count, participants) but **not** the full thread contents:
+
+```json
+{
+  "message": { "ts": "...", "text": "...", "user": "U123", ... },
+  "thread": { "replyCount": 5, "participants": ["U123", "U456"] }
+}
+```
+
+**`message list`** fetches all messages in a thread (or channel history if no thread). Use this when you need the full conversation:
+
+```json
+{
+  "messages": [
+    { "ts": "...", "text": "...", "user": "U123", ... },
+    { "ts": "...", "text": "...", "user": "U456", ... }
+  ]
+}
+```
+
+When to use which:
+
+- Use `get` to check a single message or see if there's a thread worth expanding
+- Use `list` to read an entire thread conversation
+
+### Files (snippets/images/attachments)
 
 `message get/list` auto-download attached files to an agent-friendly temp directory and return absolute paths in `message.files[].path`:
 
@@ -152,14 +183,7 @@ bash ./scripts/install-skill.sh
 
 </details>
 
-## Fetch a Canvas as Markdown
-
-```bash
-agent-slack canvas get "https://workspace.slack.com/docs/T123/F456"
-agent-slack canvas get "F456" --workspace "https://workspace.slack.com"
-```
-
-## Search (messages + files)
+### Search (messages + files)
 
 ```bash
 # Search both messages and files
@@ -179,7 +203,7 @@ Tips:
 
 <!-- AI search (assistant.search.*) is described in design.doc but not currently implemented. -->
 
-## Users
+### Users
 
 ```bash
 # List users (email requires appropriate Slack scopes; fields are pruned if missing)
@@ -190,7 +214,14 @@ agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 ```
 
-# Developing / Contributing
+### Fetch a Canvas as Markdown
+
+```bash
+agent-slack canvas get "https://workspace.slack.com/docs/T123/F456"
+agent-slack canvas get "F456" --workspace "https://workspace.slack.com"
+```
+
+## Developing / Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
