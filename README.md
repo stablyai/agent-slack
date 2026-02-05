@@ -38,7 +38,7 @@ Guiding principle:
 ## Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
 ```
 
 Run via:
