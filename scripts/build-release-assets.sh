@@ -18,7 +18,7 @@ build() {
   target=$1
   outfile=$2
   printf '%s\n' "Building $outfile ($target)"
-  bun build src/index.ts --compile --target="$target" --outfile="$outdir/$outfile"
+  bun build src/index.ts --compile --target="$target" --outfile="$outdir/$outfile" --define "AGENT_SLACK_BUILD_VERSION='$version'"
 }
 
 build "bun-darwin-arm64" "agent-slack-darwin-arm64"

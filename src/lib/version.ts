@@ -2,6 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Injected at build time via --define AGENT_SLACK_BUILD_VERSION='"x.y.z"'
+declare const AGENT_SLACK_BUILD_VERSION: string | undefined;
+
 let cachedVersion: string | undefined;
 
 export function getPackageVersion(): string {
@@ -9,6 +12,13 @@ export function getPackageVersion(): string {
     return cachedVersion;
   }
 
+  // 1. Check build-time injected version (for compiled binaries)
+  if (typeof AGENT_SLACK_BUILD_VERSION === "string" && AGENT_SLACK_BUILD_VERSION) {
+    cachedVersion = AGENT_SLACK_BUILD_VERSION;
+    return cachedVersion;
+  }
+
+  // 2. Check environment variables
   const envVersion =
     process.env.AGENT_SLACK_VERSION?.trim() || process.env.npm_package_version?.trim();
   if (envVersion) {
@@ -16,10 +26,8 @@ export function getPackageVersion(): string {
     return cachedVersion;
   }
 
+  // 3. Try to read from package.json (for development)
   try {
-    // When bundled, `import.meta.url` typically points at `dist/index.js`.
-    // When running unbundled, it points at `src/lib/version.ts`.
-    // Walk upwards until we find the nearest package.json.
     let dir = dirname(fileURLToPath(import.meta.url));
     for (let i = 0; i < 6; i++) {
       const candidate = join(dir, "package.json");
@@ -39,6 +47,7 @@ export function getPackageVersion(): string {
   } catch {
     // fall through
   }
+
   cachedVersion = "0.0.0";
   return cachedVersion;
 }
