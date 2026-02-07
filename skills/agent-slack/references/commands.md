@@ -74,3 +74,13 @@ Common options:
 
 - `agent-slack user list [--workspace <url>] [--limit <n>] [--cursor <cursor>] [--include-bots]`
 - `agent-slack user get <U...|@handle|handle> [--workspace <url>]`
+
+## Channels / conversations
+
+- `agent-slack channel list [--workspace <url>] [--user <U...|@handle|handle>] [--all] [--limit <n>] [--cursor <cursor>]`
+  - Default mode calls `users.conversations` for the current authed user
+  - `--user` resolves the user and calls `users.conversations` for that user
+  - `--all` calls `conversations.list`
+  - `--all` and `--user` are incompatible (hard error)
+  - Always sets `exclude_archived=true`
+  - Includes all conversation types: `public_channel,private_channel,im,mpim`

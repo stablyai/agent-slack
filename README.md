@@ -11,6 +11,7 @@ Guiding principle:
 
 - **Read**: fetch a message, detect threads, list full threads
 - **Search**: messages + files (with filters)
+- **Channels**: list conversations for current user, a specific user, or whole workspace
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
 - **Write**: reply in thread, add reactions
 - **Canvas**: fetch Slack canvases as Markdown
@@ -58,6 +59,8 @@ agent-slack
 ├── user
 │   ├── list
 │   └── get <user>
+├── channel
+│   └── list                  # list conversations for current user/user/all
 ├── search
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
@@ -212,6 +215,24 @@ agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 ```
+
+### Channels / Conversations
+
+```bash
+# Current authed user's conversations (public/private/DM/MPIM), archived excluded
+agent-slack channel list --workspace "https://workspace.slack.com"
+
+# Specific user conversations by ID or handle
+agent-slack channel list --workspace "https://workspace.slack.com" --user "@alice"
+
+# All workspace conversations (calls conversations.list), archived excluded
+agent-slack channel list --workspace "https://workspace.slack.com" --all
+```
+
+Notes:
+
+- `--all` and `--user` are incompatible and will error if used together.
+- Output returns full conversation JSON objects plus `next_cursor` when present.
 
 ### Fetch a Canvas as Markdown
 
