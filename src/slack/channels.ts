@@ -1,5 +1,7 @@
 import type { SlackApiClient } from "./client.ts";
 
+const DEFAULT_CONVERSATION_TYPES = "public_channel,private_channel,im,mpim";
+
 export function isChannelId(input: string): boolean {
   return /^[CDG][A-Z0-9]{8,}$/.test(input);
 }
@@ -71,6 +73,52 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
   );
 }
 
+export type ConversationsPage = {
+  channels: Record<string, unknown>[];
+  next_cursor?: string;
+};
+
+type ListConversationsOptions = {
+  limit?: number;
+  cursor?: string;
+  types?: string;
+  excludeArchived?: boolean;
+};
+
+export async function listUserConversations(
+  client: SlackApiClient,
+  options?: ListConversationsOptions & { user?: string },
+): Promise<ConversationsPage> {
+  const resp = await client.api("users.conversations", {
+    user: options?.user,
+    limit: normalizeLimit(options?.limit),
+    cursor: options?.cursor,
+    types: options?.types ?? DEFAULT_CONVERSATION_TYPES,
+    exclude_archived: options?.excludeArchived ?? true,
+  });
+  return normalizeConversationsPage(resp);
+}
+
+export async function listAllConversations(
+  client: SlackApiClient,
+  options?: ListConversationsOptions,
+): Promise<ConversationsPage> {
+  const resp = await client.api("conversations.list", {
+    limit: normalizeLimit(options?.limit),
+    cursor: options?.cursor,
+    types: options?.types ?? DEFAULT_CONVERSATION_TYPES,
+    exclude_archived: options?.excludeArchived ?? true,
+  });
+  return normalizeConversationsPage(resp);
+}
+
+export function normalizeConversationsPage(resp: Record<string, unknown>): ConversationsPage {
+  const channels = asArray(resp.channels).filter(isRecord);
+  const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+  const next = meta ? getString(meta.next_cursor) : undefined;
+  return { channels, next_cursor: next };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -81,4 +129,8 @@ function asArray(value: unknown): unknown[] {
 
 function getString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function normalizeLimit(value: number | undefined): number {
+  return Math.min(Math.max(value ?? 200, 1), 1000);
 }

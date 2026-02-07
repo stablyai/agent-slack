@@ -8,7 +8,8 @@ description: |
   - Sending a reply or adding/removing a reaction
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack"
+  - Listing channels/conversations for a user or workspace
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "list slack channels", "slack conversations"
 ---
 
 # Slack automation with `agent-slack`
@@ -106,7 +107,13 @@ agent-slack message get "#general" --workspace "https://myteam.slack.com" --ts "
 agent-slack canvas get "https://workspace.slack.com/docs/T123/F456"
 agent-slack user list --workspace "https://workspace.slack.com" --limit 100
 agent-slack user get "@alice" --workspace "https://workspace.slack.com"
+agent-slack channel list --workspace "https://workspace.slack.com"
+agent-slack channel list --workspace "https://workspace.slack.com" --user "@alice"
+agent-slack channel list --workspace "https://workspace.slack.com" --all
 ```
+
+`channel list` defaults to current user conversations and always excludes archived conversations.
+`--all` switches to `conversations.list` and cannot be combined with `--user`.
 
 ## References
 

@@ -26,6 +26,12 @@ Use `--max-body-chars` to cap message bodies for token budget control.
 
 Use `--max-content-chars` (messages) and `--limit` to control size.
 
+## Channel/conversation shapes (high-level)
+
+- `channel list` returns:
+  - `channels: [ ... ]` (full Slack conversation objects as returned by API)
+  - `next_cursor?: string` (present when Slack returns another page)
+
 ## Attachment downloads
 
 Attachments are downloaded to an agent-friendly temp directory and returned as absolute paths in output.

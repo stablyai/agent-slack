@@ -76,7 +76,7 @@ export async function getUser(client: SlackApiClient, input: string): Promise<Co
   return toCompactUser(u);
 }
 
-async function resolveUserId(client: SlackApiClient, input: string): Promise<string | null> {
+export async function resolveUserId(client: SlackApiClient, input: string): Promise<string | null> {
   const trimmed = input.trim();
   if (/^U[A-Z0-9]{8,}$/.test(trimmed)) {
     return trimmed;
