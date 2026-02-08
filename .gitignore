@@ -26,5 +26,4 @@ yarn-debug.log*
 yarn-error.log*
 
 # design docs
-skill-design.doc
-design.doc
+design-docs/
