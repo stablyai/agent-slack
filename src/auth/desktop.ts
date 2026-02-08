@@ -17,9 +17,32 @@ export type DesktopExtracted = {
   source: { leveldb_path: string; cookies_path: string };
 };
 
-const SLACK_SUPPORT_DIR = join(homedir(), "Library", "Application Support", "Slack");
-const LEVELDB_DIR = join(SLACK_SUPPORT_DIR, "Local Storage", "leveldb");
-const COOKIES_DB = join(SLACK_SUPPORT_DIR, "Cookies");
+// Electron (direct download) paths
+const SLACK_SUPPORT_DIR_ELECTRON = join(homedir(), "Library", "Application Support", "Slack");
+// Mac App Store paths (sandboxed container)
+const SLACK_SUPPORT_DIR_APPSTORE = join(
+  homedir(),
+  "Library",
+  "Containers",
+  "com.tinyspeck.slackmacgap",
+  "Data",
+  "Library",
+  "Application Support",
+  "Slack",
+);
+
+function getSlackPaths(): { leveldbDir: string; cookiesDb: string } {
+  const candidates = [SLACK_SUPPORT_DIR_ELECTRON, SLACK_SUPPORT_DIR_APPSTORE];
+  for (const dir of candidates) {
+    const leveldbDir = join(dir, "Local Storage", "leveldb");
+    if (existsSync(leveldbDir)) {
+      return { leveldbDir, cookiesDb: join(dir, "Cookies") };
+    }
+  }
+  throw new Error(
+    `Slack Desktop data not found. Checked:\n  - ${candidates.map((d) => join(d, "Local Storage", "leveldb")).join("\n  - ")}`,
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -255,11 +278,12 @@ function extractCookieDFromSlackCookiesDb(cookiesPath: string): string {
 }
 
 export async function extractFromSlackDesktop(): Promise<DesktopExtracted> {
-  const teams = await extractTeamsFromSlackLevelDb(LEVELDB_DIR);
-  const cookie_d = extractCookieDFromSlackCookiesDb(COOKIES_DB);
+  const { leveldbDir, cookiesDb } = getSlackPaths();
+  const teams = await extractTeamsFromSlackLevelDb(leveldbDir);
+  const cookie_d = extractCookieDFromSlackCookiesDb(cookiesDb);
   return {
     cookie_d,
     teams,
-    source: { leveldb_path: LEVELDB_DIR, cookies_path: COOKIES_DB },
+    source: { leveldb_path: leveldbDir, cookies_path: cookiesDb },
   };
 }
