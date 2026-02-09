@@ -108,6 +108,53 @@ async function resolveUserId(client: SlackApiClient, input: string): Promise<str
   return null;
 }
 
+export async function getDmChannelForUsers(
+  client: SlackApiClient,
+  inputs: string[],
+): Promise<{ user_ids: string[]; dm_channel_id: string; channel_type: "dm" | "group_dm" }> {
+  if (!inputs || inputs.length === 0) {
+    throw new Error("At least one user is required");
+  }
+
+  if (inputs.length > 8) {
+    throw new Error("Slack supports a maximum of 8 users in a group DM");
+  }
+
+  const userIds: string[] = [];
+  for (const input of inputs) {
+    const trimmed = input.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const userId = await resolveUserId(client, trimmed);
+    if (!userId) {
+      throw new Error(`Could not resolve user: ${input}`);
+    }
+    userIds.push(userId);
+  }
+
+  if (userIds.length === 0) {
+    throw new Error("No valid users provided");
+  }
+
+  const resp = await client.api("conversations.open", { users: userIds.join(",") });
+  const channel = isRecord(resp.channel) ? resp.channel : null;
+  const channelId = channel ? getString(channel.id) : null;
+
+  if (!channelId) {
+    throw new Error("conversations.open returned no channel");
+  }
+
+  // D... = DM, G... = group DM (MPIM in Slack API)
+  const channelType = channelId.startsWith("D") ? "dm" : "group_dm";
+
+  return {
+    user_ids: userIds,
+    dm_channel_id: channelId,
+    channel_type: channelType,
+  };
+}
+
 function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
   const profile = isRecord(u.profile) ? u.profile : {};
   return {
