@@ -232,6 +232,8 @@ agent-slack channel list --workspace "https://workspace.slack.com" --all
 Notes:
 
 - `--all` and `--user` are incompatible and will error if used together.
+- `channel list` returns one Slack API page per call (no client-side aggregation); use `--cursor` with `next_cursor` to paginate.
+- `--limit` default is `100` and practical minimum is `10` (very small values can make pagination slow).
 - Output returns full conversation JSON objects plus `next_cursor` when present.
 
 ### Fetch a Canvas as Markdown

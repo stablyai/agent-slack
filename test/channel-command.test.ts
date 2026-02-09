@@ -75,6 +75,7 @@ describe("channel list command", () => {
     await program.parseAsync(["channel", "list"], { from: "user" });
 
     expect(calls[0]?.method).toBe("users.conversations");
+    expect(calls[0]?.params.limit).toBe(100);
     expect(calls[0]?.params.exclude_archived).toBe(true);
     expect(log).toHaveBeenCalled();
   });
@@ -160,5 +161,18 @@ describe("channel list command", () => {
     expect(calls).toHaveLength(0);
     expect(err).toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
+  });
+
+  test("help text documents single-page pagination model", () => {
+    const { ctx } = createContext();
+    const program = new Command();
+    registerChannelCommand({ program, ctx });
+    const listCmd = program.commands.find((cmd) => cmd.name() === "channel")?.commands[0];
+
+    const limitOpt = listCmd?.options.find((opt) => opt.long === "--limit");
+    const cursorOpt = listCmd?.options.find((opt) => opt.long === "--cursor");
+
+    expect(limitOpt?.description).toContain("one page");
+    expect(cursorOpt?.description).toContain("next page");
   });
 });

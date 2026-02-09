@@ -132,5 +132,5 @@ function getString(value: unknown): string | undefined {
 }
 
 function normalizeLimit(value: number | undefined): number {
-  return Math.min(Math.max(value ?? 200, 1), 1000);
+  return Math.min(Math.max(value ?? 100, 10), 1000);
 }

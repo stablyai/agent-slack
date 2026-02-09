@@ -81,6 +81,8 @@ Common options:
   - Default mode calls `users.conversations` for the current authed user
   - `--user` resolves the user and calls `users.conversations` for that user
   - `--all` calls `conversations.list`
+  - Returns one API page per call (caller paginates with `--cursor` / `next_cursor`)
+  - `--limit` defaults to `100`; practical minimum is `10`
   - `--all` and `--user` are incompatible (hard error)
   - Always sets `exclude_archived=true`
   - Includes all conversation types: `public_channel,private_channel,im,mpim`

@@ -28,7 +28,7 @@ describe("conversations list helpers", () => {
     expect(calls[0]?.params).toEqual({
       types: "public_channel,private_channel,im,mpim",
       exclude_archived: true,
-      limit: 200,
+      limit: 100,
       cursor: undefined,
       user: undefined,
     });
@@ -58,9 +58,17 @@ describe("conversations list helpers", () => {
     expect(calls[0]?.params).toEqual({
       types: "public_channel,private_channel,im,mpim",
       exclude_archived: true,
-      limit: 200,
+      limit: 100,
       cursor: undefined,
     });
+  });
+
+  test("listUserConversations applies practical lower bound to limit", async () => {
+    const { client, calls } = createClient({ channels: [] });
+
+    await listUserConversations(client, { limit: 1 });
+
+    expect(calls[0]?.params.limit).toBe(10);
   });
 
   test("normalizeConversationsPage extracts channels and next cursor", () => {

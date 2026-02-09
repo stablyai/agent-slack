@@ -23,8 +23,8 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     .option("--workspace <url>", "Workspace URL (required if you have multiple workspaces)")
     .option("--user <user>", "User id (U...) or @handle/handle")
     .option("--all", "List all conversations (calls conversations.list, incompatible with --user)")
-    .option("--limit <n>", "Max conversations in one page (default 200)", "200")
-    .option("--cursor <cursor>", "Pagination cursor")
+    .option("--limit <n>", "Max conversations in one page (default 100; practical min 10)", "100")
+    .option("--cursor <cursor>", "Pagination cursor for the next page")
     .action(async (...args) => {
       const [options] = args as [ChannelListOptions];
       try {

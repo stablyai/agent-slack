@@ -114,6 +114,8 @@ agent-slack channel list --workspace "https://workspace.slack.com" --all
 
 `channel list` defaults to current user conversations and always excludes archived conversations.
 `--all` switches to `conversations.list` and cannot be combined with `--user`.
+`channel list` returns one API page per call; pass `--cursor` with the returned `next_cursor` to continue.
+`--limit` defaults to `100` with a practical minimum of `10`.
 
 ## References
 
