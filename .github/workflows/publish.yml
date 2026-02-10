@@ -47,18 +47,8 @@ jobs:
             release/checksums-sha256.txt
           generate_release_notes: true
 
-      # npm publish — requires NPM_TOKEN secret to be configured.
-      # To set up: https://docs.npmjs.com/creating-and-viewing-access-tokens
-      # Then add it as a GitHub Actions secret named NPM_TOKEN.
       - name: Build for npm
-        if: ${{ env.HAS_NPM_TOKEN == 'true' }}
         run: bun run build:npm
-        env:
-          HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
 
       - name: Publish to npm
-        if: ${{ env.HAS_NPM_TOKEN == 'true' }}
         run: npm publish --provenance --access public
-        env:
-          HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
