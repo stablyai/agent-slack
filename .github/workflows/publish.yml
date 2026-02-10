@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write # npm provenance
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -19,6 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: package.json
+          registry-url: "https://registry.npmjs.org"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -44,3 +46,9 @@ jobs:
             release/agent-slack-*
             release/checksums-sha256.txt
           generate_release_notes: true
+
+      - name: Build for npm
+        run: bun run build:npm
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public

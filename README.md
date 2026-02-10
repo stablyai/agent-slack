@@ -17,8 +17,16 @@ Guiding principle:
 
 ## Installation
 
+Recommended (Bun install script):
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
+```
+
+npm global install (requires Node >= 22.5):
+
+```bash
+npm i -g slack-agent
 ```
 
 ## Agent skill
