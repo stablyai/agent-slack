@@ -6,8 +6,33 @@ import { execFileSync, execSync } from "node:child_process";
 import { pbkdf2Sync, createDecipheriv } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { Database } from "bun:sqlite";
 import { findKeysContaining } from "../lib/leveldb-reader.js";
+
+type SqliteRow = Record<string, unknown>;
+
+/**
+ * Query a SQLite database in read-only mode.
+ * Uses bun:sqlite when running under Bun, falls back to node:sqlite (Node >= 22.5).
+ */
+async function queryReadonlySqlite(dbPath: string, sql: string): Promise<SqliteRow[]> {
+  try {
+    const { Database } = await import("bun:sqlite");
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      return db.query(sql).all() as SqliteRow[];
+    } finally {
+      db.close();
+    }
+  } catch {
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(dbPath, { readOnly: true });
+    try {
+      return db.prepare(sql).all() as SqliteRow[];
+    } finally {
+      db.close();
+    }
+  }
+}
 
 type DesktopTeam = { url: string; name?: string; token: string };
 
@@ -235,52 +260,47 @@ function decryptChromiumCookieValue(encrypted: Buffer, password: string): string
   }
 }
 
-function extractCookieDFromSlackCookiesDb(cookiesPath: string): string {
+async function extractCookieDFromSlackCookiesDb(cookiesPath: string): Promise<string> {
   if (!existsSync(cookiesPath)) {
     throw new Error(`Slack Cookies DB not found: ${cookiesPath}`);
   }
-  const db = new Database(cookiesPath, { readonly: true });
-  try {
-    const rows = db
-      .query(
-        "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
-      )
-      .all() as {
-      host_key: string;
-      name: string;
-      value: string;
-      encrypted_value: Uint8Array;
-    }[];
 
-    if (!rows || rows.length === 0) {
-      throw new Error("No Slack 'd' cookie found");
-    }
-    const row = rows[0]!;
-    if (row.value && row.value.startsWith("xoxd-")) {
-      return row.value;
-    }
+  const rows = (await queryReadonlySqlite(
+    cookiesPath,
+    "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
+  )) as {
+    host_key: string;
+    name: string;
+    value: string;
+    encrypted_value: Uint8Array;
+  }[];
 
-    const encrypted = Buffer.from(row.encrypted_value || []);
-    if (encrypted.length === 0) {
-      throw new Error("Slack 'd' cookie had no encrypted_value");
-    }
-
-    const password = getSafeStoragePassword();
-    const decrypted = decryptChromiumCookieValue(encrypted, password);
-    const match = decrypted.match(/xoxd-[A-Za-z0-9%/+_=.-]+/);
-    if (!match) {
-      throw new Error("Could not locate xoxd-* in decrypted Slack cookie");
-    }
-    return match[0]!;
-  } finally {
-    db.close();
+  if (!rows || rows.length === 0) {
+    throw new Error("No Slack 'd' cookie found");
   }
+  const row = rows[0]!;
+  if (row.value && row.value.startsWith("xoxd-")) {
+    return row.value;
+  }
+
+  const encrypted = Buffer.from(row.encrypted_value || []);
+  if (encrypted.length === 0) {
+    throw new Error("Slack 'd' cookie had no encrypted_value");
+  }
+
+  const password = getSafeStoragePassword();
+  const decrypted = decryptChromiumCookieValue(encrypted, password);
+  const match = decrypted.match(/xoxd-[A-Za-z0-9%/+_=.-]+/);
+  if (!match) {
+    throw new Error("Could not locate xoxd-* in decrypted Slack cookie");
+  }
+  return match[0]!;
 }
 
 export async function extractFromSlackDesktop(): Promise<DesktopExtracted> {
   const { leveldbDir, cookiesDb } = getSlackPaths();
   const teams = await extractTeamsFromSlackLevelDb(leveldbDir);
-  const cookie_d = extractCookieDFromSlackCookiesDb(cookiesDb);
+  const cookie_d = await extractCookieDFromSlackCookiesDb(cookiesDb);
   return {
     cookie_d,
     teams,

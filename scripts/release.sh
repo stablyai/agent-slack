@@ -113,6 +113,7 @@ printf '%s\n' "  1. Update version in package.json to $new_version"
 printf '%s\n' "  2. Create a git commit with message \"$tag\""
 printf '%s\n' "  3. Create git tag \"$tag\""
 printf '%s\n' "  4. Push commit and tag to origin"
+printf '%s\n' "  5. CI will publish GitHub release binaries + npm package"
 printf '\n'
 
 printf '%s' "Proceed with release? [y/N] "
@@ -164,3 +165,4 @@ printf '%s\n' "  - The GitHub release workflow should now be triggered"
 printf '%s\n' "  - Check the Actions tab for build progress"
 printf '%s\n' "  - Once complete, the release will be available at:"
 printf '%s\n' "    https://github.com/stablyai/agent-slack/releases/tag/$tag"
+printf '%s\n' "    https://www.npmjs.com/package/agent-slack/v/$new_version"
