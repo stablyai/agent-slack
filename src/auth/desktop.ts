@@ -10,6 +10,28 @@ import { findKeysContaining } from "../lib/leveldb-reader.js";
 
 type SqliteRow = Record<string, unknown>;
 
+function isMissingBunSqliteModule(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const err = error as { code?: unknown; message?: unknown };
+  const code = typeof err.code === "string" ? err.code : "";
+  const message = typeof err.message === "string" ? err.message : "";
+
+  if (code === "ERR_MODULE_NOT_FOUND" || code === "ERR_UNSUPPORTED_ESM_URL_SCHEME") {
+    return true;
+  }
+  if (!message.includes("bun:sqlite")) {
+    return false;
+  }
+  return (
+    message.includes("Cannot find module") ||
+    message.includes("Unknown builtin module") ||
+    message.includes("unsupported URL scheme") ||
+    message.includes("Only URLs with a scheme in")
+  );
+}
+
 /**
  * Query a SQLite database in read-only mode.
  * Uses bun:sqlite when running under Bun, falls back to node:sqlite (Node >= 22.5).
@@ -23,7 +45,10 @@ async function queryReadonlySqlite(dbPath: string, sql: string): Promise<SqliteR
     } finally {
       db.close();
     }
-  } catch {
+  } catch (error) {
+    if (!isMissingBunSqliteModule(error)) {
+      throw error;
+    }
     const { DatabaseSync } = await import("node:sqlite");
     const db = new DatabaseSync(dbPath, { readOnly: true });
     try {
