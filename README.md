@@ -23,7 +23,7 @@ Recommended (Bun install script):
 curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
 ```
 
-npm global install (requires Node >= 22.5):
+OR npm global install (requires Node >= 22.5):
 
 ```bash
 npm i -g slack-agent
