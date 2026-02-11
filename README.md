@@ -26,7 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install
 OR npm global install (requires Node >= 22.5):
 
 ```bash
-npm i -g slack-agent
+npm i -g agent-slack
 ```
 
 ## Agent skill
