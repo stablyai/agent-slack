@@ -29,8 +29,32 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
     throw new Error("Channel name is empty");
   }
 
+  // Slack has no name→ID lookup API. conversations.list paginates the entire
+  // workspace (200 at a time), which is O(channels) API calls — 3+ minutes in
+  // large workspaces. search.messages with `in:#name` resolves it in one call
+  // by returning a message whose metadata includes the channel ID.
+  try {
+    const searchResp = await client.api("search.messages", {
+      query: `in:#${name}`,
+      count: 1,
+      sort: "timestamp",
+      sort_dir: "desc",
+    });
+    const messages = isRecord(searchResp) ? searchResp.messages : null;
+    const matches = isRecord(messages) ? asArray(messages.matches).filter(isRecord) : [];
+    if (matches.length > 0) {
+      const channel = isRecord(matches[0]!.channel) ? matches[0]!.channel : null;
+      const channelId = channel ? getString(channel.id) : undefined;
+      if (channelId) {
+        return channelId;
+      }
+    }
+  } catch {
+    // search may fail (e.g. token lacks search:read scope) — fall through to pagination
+  }
+
+  // Fallback: paginate conversations.list until we find a match
   let cursor: string | undefined;
-  const matches: { id: string; name?: string; is_private?: boolean }[] = [];
   for (;;) {
     const resp = await client.api("conversations.list", {
       exclude_archived: true,
@@ -41,11 +65,7 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
     const chans = asArray(resp.channels).filter(isRecord);
     for (const c of chans) {
       if (getString(c.name) === name && getString(c.id)) {
-        matches.push({
-          id: getString(c.id) ?? "",
-          name: getString(c.name) ?? undefined,
-          is_private: typeof c.is_private === "boolean" ? c.is_private : undefined,
-        });
+        return getString(c.id)!;
       }
     }
 
@@ -57,18 +77,7 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
     cursor = next;
   }
 
-  if (matches.length === 1) {
-    return matches[0]!.id;
-  }
-  if (matches.length === 0) {
-    throw new Error(`Could not resolve channel name: #${name}`);
-  }
-
-  throw new Error(
-    `Ambiguous channel name: #${name} (matched ${matches.length} channels: ${matches
-      .map((m) => m.id)
-      .join(", ")})`,
-  );
+  throw new Error(`Could not resolve channel name: #${name}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
