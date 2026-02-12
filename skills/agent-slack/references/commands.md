@@ -25,11 +25,20 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--include-reactions`
 
 - `agent-slack message list <target>`
-  - Fetches the full thread
+  - Lists recent channel messages (channel history), or fetches all thread replies
+  - **Channel history** (default when targeting a channel without `--thread-ts`):
+    - `agent-slack message list "#general"` — latest 25 messages
+    - `agent-slack message list "#general" --limit 50` — latest 50 messages
+  - **Thread mode** (when `--thread-ts` or `--ts` is provided, or target is a message URL):
+    - `agent-slack message list "<url>"` — all replies in that thread
+    - `agent-slack message list "#general" --thread-ts "1770165109.000001"` — thread replies
   - Options:
     - `--workspace <url>` (same rules as above)
-    - `--thread-ts <seconds>.<micros>` (required for channel targets unless you pass `--ts`)
-    - `--ts <seconds>.<micros>` (optional: resolve a message to its thread)
+    - `--thread-ts <seconds>.<micros>` (switches to thread mode; fetches replies)
+    - `--ts <seconds>.<micros>` (resolve a message to its thread)
+    - `--limit <n>` (default `25`, max `200`; channel history mode only)
+    - `--oldest <ts>` (only messages after this ts; channel history mode)
+    - `--latest <ts>` (only messages before this ts; channel history mode)
     - `--max-body-chars <n>` (default `8000`, `-1` unlimited)
     - `--include-reactions`
 

@@ -231,6 +231,58 @@ async function findMessageInThread(
   return undefined;
 }
 
+export async function fetchChannelHistory(
+  client: SlackApiClient,
+  input: {
+    channelId: string;
+    limit?: number;
+    latest?: string;
+    oldest?: string;
+    includeReactions?: boolean;
+  },
+): Promise<SlackMessageSummary[]> {
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), 200);
+  const out: SlackMessageSummary[] = [];
+
+  const resp = await client.api("conversations.history", {
+    channel: input.channelId,
+    limit,
+    latest: input.latest,
+    oldest: input.oldest,
+    include_all_metadata: input.includeReactions ? true : undefined,
+  });
+  const messages = asArray(resp.messages);
+  for (const m of messages) {
+    if (!isRecord(m)) {
+      continue;
+    }
+    const files = asArray(m.files)
+      .map((f) => toSlackFileSummary(f))
+      .filter((f): f is SlackFileSummary => f !== null);
+    const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
+
+    const text = getString(m.text) ?? "";
+    out.push({
+      channel_id: input.channelId,
+      ts: getString(m.ts) ?? "",
+      thread_ts: getString(m.thread_ts),
+      reply_count: getNumber(m.reply_count),
+      user: getString(m.user),
+      bot_id: getString(m.bot_id),
+      text,
+      markdown: slackMrkdwnToMarkdown(text),
+      blocks: Array.isArray(m.blocks) ? (m.blocks as unknown[]) : undefined,
+      attachments: Array.isArray(m.attachments) ? (m.attachments as unknown[]) : undefined,
+      files: enrichedFiles,
+      reactions: Array.isArray(m.reactions) ? (m.reactions as unknown[]) : undefined,
+    });
+  }
+
+  // conversations.history returns newest-first; normalize to chronological.
+  out.sort((a, b) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts));
+  return out;
+}
+
 export async function fetchThread(
   client: SlackApiClient,
   input: { channelId: string; threadTs: string; includeReactions?: boolean },

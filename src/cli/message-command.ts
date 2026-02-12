@@ -42,17 +42,17 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
 
   messageCmd
     .command("list")
-    .description("Fetch the full thread for a Slack message URL")
+    .description("List recent channel messages, or fetch a full thread")
     .argument("<target>", "Slack message URL, #channel, or channel ID")
     .option(
       "--workspace <url>",
       "Workspace URL (needed when using #channel/channel id and you have multiple workspaces)",
     )
-    .option(
-      "--thread-ts <ts>",
-      "Thread root ts (required when using #channel/channel id unless you pass --ts)",
-    )
-    .option("--ts <ts>", "Message ts (optional: resolve message to its thread)")
+    .option("--thread-ts <ts>", "Thread root ts (lists thread replies instead of channel history)")
+    .option("--ts <ts>", "Message ts (resolve message to its thread)")
+    .option("--limit <n>", "Max messages to return for channel history (default 25, max 200)")
+    .option("--oldest <ts>", "Only messages after this ts (channel history mode)")
+    .option("--latest <ts>", "Only messages before this ts (channel history mode)")
     .option(
       "--max-body-chars <n>",
       "Max content characters to include (default 8000, -1 for unlimited)",
