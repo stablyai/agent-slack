@@ -37,6 +37,17 @@ function getNumber(value: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
 }
 
+export function parseLimit(raw: string | undefined): number | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) {
+    throw new Error(`Invalid --limit value "${raw}": must be a positive integer`);
+  }
+  return n;
+}
+
 async function getThreadSummary(
   client: { api: (method: string, params?: Record<string, unknown>) => Promise<unknown> },
   input: {
@@ -251,7 +262,7 @@ export async function handleMessageList(input: {
       // No thread specifier → list recent channel messages
       if (!threadTs && !ts) {
         const includeReactions = Boolean(input.options.includeReactions);
-        const limit = input.options.limit ? Number.parseInt(input.options.limit, 10) : undefined;
+        const limit = parseLimit(input.options.limit);
         const channelMessages = await fetchChannelHistory(client, {
           channelId,
           limit,

@@ -241,7 +241,8 @@ export async function fetchChannelHistory(
     includeReactions?: boolean;
   },
 ): Promise<SlackMessageSummary[]> {
-  const limit = Math.min(Math.max(input.limit ?? 25, 1), 200);
+  const raw = input.limit ?? 25;
+  const limit = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 200) : 25;
   const out: SlackMessageSummary[] = [];
 
   const resp = await client.api("conversations.history", {
