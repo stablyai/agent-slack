@@ -85,7 +85,7 @@ function normalizeUrl(u: string): string {
 }
 
 async function refreshFromDesktopIfPossible(): Promise<boolean> {
-  if (process.platform !== "darwin") {
+  if (process.platform !== "darwin" && process.platform !== "linux") {
     return false;
   }
   try {
@@ -185,7 +185,6 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
     };
   }
 
-  // Default: try Slack Desktop extraction (macOS). Does not require quitting Slack.
   try {
     const extracted = await extractFromSlackDesktop();
     await upsertWorkspaces(
