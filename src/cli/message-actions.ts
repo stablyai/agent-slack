@@ -12,7 +12,10 @@ import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
 import { parseMsgTarget } from "./targets.ts";
 import { resolveChannelId } from "../slack/channels.ts";
 import { downloadSlackFile } from "../slack/files.ts";
+import { htmlToMarkdown } from "../slack/html-to-md.ts";
 import { normalizeSlackReactionName } from "../slack/emoji.ts";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 export type MessageCommandOptions = {
   maxBodyChars: string;
@@ -115,6 +118,29 @@ function inferExt(file: {
   return m ? m[1]!.toLowerCase() : null;
 }
 
+/** File modes that are canvas/doc types whose HTML should be converted to markdown. */
+const CANVAS_MODES = new Set(["canvas", "quip", "docs"]);
+
+async function downloadCanvasAsMarkdown(input: {
+  auth: SlackAuth;
+  fileId: string;
+  url: string;
+  destDir: string;
+}): Promise<string> {
+  const htmlPath = await downloadSlackFile({
+    auth: input.auth,
+    url: input.url,
+    destDir: input.destDir,
+    preferredName: `${input.fileId}.html`,
+    options: { allowHtml: true },
+  });
+  const html = await readFile(htmlPath, "utf8");
+  const md = htmlToMarkdown(html).trim();
+  const mdPath = join(input.destDir, `${input.fileId}.md`);
+  await writeFile(mdPath, md, "utf8");
+  return mdPath;
+}
+
 async function downloadFilesForMessages(input: {
   auth: SlackAuth;
   messages: SlackMessageSummary[];
@@ -131,14 +157,27 @@ async function downloadFilesForMessages(input: {
       if (!url) {
         continue;
       }
-      const ext = inferExt(f);
-      const path = await downloadSlackFile({
-        auth: input.auth,
-        url,
-        destDir: downloadsDir,
-        preferredName: `${f.id}${ext ? `.${ext}` : ""}`,
-      });
-      downloadedPaths[f.id] = path;
+      try {
+        if (f.mode && CANVAS_MODES.has(f.mode)) {
+          downloadedPaths[f.id] = await downloadCanvasAsMarkdown({
+            auth: input.auth,
+            fileId: f.id,
+            url,
+            destDir: downloadsDir,
+          });
+        } else {
+          const ext = inferExt(f);
+          downloadedPaths[f.id] = await downloadSlackFile({
+            auth: input.auth,
+            url,
+            destDir: downloadsDir,
+            preferredName: `${f.id}${ext ? `.${ext}` : ""}`,
+          });
+        }
+      } catch {
+        // Non-fatal: skip files that fail to download (e.g. expired URLs
+        // or unexpected content types).
+      }
     }
   }
   return downloadedPaths;
