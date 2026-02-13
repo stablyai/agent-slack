@@ -136,7 +136,8 @@ async function downloadCanvasAsMarkdown(input: {
   });
   const html = await readFile(htmlPath, "utf8");
   const md = htmlToMarkdown(html).trim();
-  const mdPath = join(input.destDir, `${input.fileId}.md`);
+  const safeName = `${input.fileId.replace(/[\\/<>:"|?*]/g, "_")}.md`;
+  const mdPath = join(input.destDir, safeName);
   await writeFile(mdPath, md, "utf8");
   return mdPath;
 }
@@ -153,12 +154,15 @@ async function downloadFilesForMessages(input: {
       if (downloadedPaths[f.id]) {
         continue;
       }
-      const url = f.url_private_download || f.url_private;
+      const isCanvas = f.mode != null && CANVAS_MODES.has(f.mode);
+      const url = isCanvas
+        ? f.url_private || f.url_private_download
+        : f.url_private_download || f.url_private;
       if (!url) {
         continue;
       }
       try {
-        if (f.mode && CANVAS_MODES.has(f.mode)) {
+        if (isCanvas) {
           downloadedPaths[f.id] = await downloadCanvasAsMarkdown({
             auth: input.auth,
             fileId: f.id,
@@ -174,9 +178,10 @@ async function downloadFilesForMessages(input: {
             preferredName: `${f.id}${ext ? `.${ext}` : ""}`,
           });
         }
-      } catch {
-        // Non-fatal: skip files that fail to download (e.g. expired URLs
-        // or unexpected content types).
+      } catch (err) {
+        console.error(
+          `Warning: skipping file ${f.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   }
