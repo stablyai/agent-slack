@@ -121,6 +121,11 @@ function inferExt(file: {
 /** File modes that are canvas/doc types whose HTML should be converted to markdown. */
 const CANVAS_MODES = new Set(["canvas", "quip", "docs"]);
 
+/** Detect Slack auth/login interstitial pages that aren't real canvas content. */
+function looksLikeAuthPage(html: string): boolean {
+  return /<form[^>]+signin|data-qa="signin|<title>[^<]*Sign\s*in/i.test(html);
+}
+
 async function downloadCanvasAsMarkdown(input: {
   auth: SlackAuth;
   fileId: string;
@@ -135,6 +140,9 @@ async function downloadCanvasAsMarkdown(input: {
     options: { allowHtml: true },
   });
   const html = await readFile(htmlPath, "utf8");
+  if (looksLikeAuthPage(html)) {
+    throw new Error("Downloaded auth/login page instead of canvas content (token may be expired)");
+  }
   const md = htmlToMarkdown(html).trim();
   const safeName = `${input.fileId.replace(/[\\/<>:"|?*]/g, "_")}.md`;
   const mdPath = join(input.destDir, safeName);
