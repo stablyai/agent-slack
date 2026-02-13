@@ -1,7 +1,12 @@
 import type { CliContext } from "./context.ts";
 import type { SlackAuth } from "../slack/client.ts";
 import type { SlackMessageSummary, CompactSlackMessage } from "../slack/messages.ts";
-import { fetchMessage, fetchThread, toCompactMessage } from "../slack/messages.ts";
+import {
+  fetchMessage,
+  fetchThread,
+  fetchChannelHistory,
+  toCompactMessage,
+} from "../slack/messages.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
 import { parseMsgTarget } from "./targets.ts";
@@ -14,6 +19,9 @@ export type MessageCommandOptions = {
   workspace?: string;
   ts?: string;
   threadTs?: string;
+  limit?: string;
+  oldest?: string;
+  latest?: string;
   includeReactions?: boolean;
 };
 
@@ -27,6 +35,17 @@ function asArray(value: unknown): unknown[] {
 
 function getNumber(value: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
+}
+
+export function parseLimit(raw: string | undefined): number | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) {
+    throw new Error(`Invalid --limit value "${raw}": must be a positive integer`);
+  }
+  return n;
 }
 
 async function getThreadSummary(
@@ -239,10 +258,26 @@ export async function handleMessageList(input: {
 
       const threadTs = input.options.threadTs?.trim();
       const ts = input.options.ts?.trim();
+
+      // No thread specifier → list recent channel messages
       if (!threadTs && !ts) {
-        throw new Error(
-          'When targeting a channel, you must pass --thread-ts "<seconds>.<micros>" (or --ts to resolve a message to its thread)',
-        );
+        const includeReactions = Boolean(input.options.includeReactions);
+        const limit = parseLimit(input.options.limit);
+        const channelMessages = await fetchChannelHistory(client, {
+          channelId,
+          limit,
+          latest: input.options.latest?.trim(),
+          oldest: input.options.oldest?.trim(),
+          includeReactions,
+        });
+        const downloadedPaths = await downloadFilesForMessages({ auth, messages: channelMessages });
+        const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
+        return pruneEmpty({
+          channel_id: channelId,
+          messages: channelMessages.map((m) =>
+            toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }),
+          ),
+        }) as Record<string, unknown>;
       }
 
       const rootTs =

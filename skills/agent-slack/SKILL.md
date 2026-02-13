@@ -3,12 +3,13 @@ name: agent-slack
 description: |
   Slack automation CLI for AI agents. Use when:
   - Reading a Slack message or thread (given a URL or channel+ts)
+  - Browsing recent channel messages / channel history
   - Downloading Slack attachments (snippets, images, files) to local paths
   - Searching Slack messages or files
   - Sending a reply or adding/removing a reaction
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack"
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages"
 ---
 
 # Slack automation with `agent-slack`
@@ -69,6 +70,17 @@ agent-slack message get "https://workspace.slack.com/archives/C123/p170000000000
 ```bash
 agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
 ```
+
+## Browse recent channel messages
+
+To see what's been posted recently in a channel (channel history):
+
+```bash
+agent-slack message list "#general" --limit 20
+agent-slack message list "C0123ABC" --limit 10
+```
+
+This returns the most recent messages in chronological order. Use `--limit` to control how many (default 25).
 
 ## Attachments (snippets/images/files)
 

@@ -9,7 +9,7 @@ Guiding principle:
 
 ## At a glance
 
-- **Read**: fetch a message, detect threads, list full threads
+- **Read**: fetch a message, browse channel history, list full threads
 - **Search**: messages + files (with filters)
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
 - **Write**: reply in thread, add reactions
@@ -58,7 +58,7 @@ agent-slack
 │   └── parse-curl
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
-│   ├── list  <target>             # fetch full thread
+│   ├── list  <target>             # fetch thread or recent channel messages
 │   ├── send  <target> <text>      # send / reply (does the right thing)
 │   └── react
 │       ├── add    <target> <emoji>
@@ -146,6 +146,9 @@ agent-slack message get "https://workspace.slack.com/archives/C123/p170000000000
 
 # Full thread for a message
 agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Recent channel messages (browse channel history)
+agent-slack message list "#general" --limit 20
 ```
 
 Optional:
@@ -166,7 +169,7 @@ agent-slack message get "https://workspace.slack.com/archives/C123/p170000000000
 }
 ```
 
-**`message list`** fetches all messages in a thread (or channel history if no thread). Use this when you need the full conversation:
+**`message list`** fetches all replies in a thread, or recent channel messages when no thread is specified. Use this when you need the full conversation:
 
 ```json
 {
@@ -181,6 +184,7 @@ When to use which:
 
 - Use `get` to check a single message or see if there's a thread worth expanding
 - Use `list` to read an entire thread conversation
+- Use `list` on a channel (without `--thread-ts`) to browse recent channel messages
 
 ### Files (snippets/images/attachments)
 
