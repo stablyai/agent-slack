@@ -1,4 +1,5 @@
 import type { SlackApiClient } from "./client.ts";
+import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 
 export function isChannelId(input: string): boolean {
   return /^[CDG][A-Z0-9]{8,}$/.test(input);
@@ -78,16 +79,4 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
   }
 
   throw new Error(`Could not resolve channel name: #${name}`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function getString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
 }

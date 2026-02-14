@@ -4,7 +4,7 @@ import { resolveChannelId } from "./channels.ts";
 import { downloadSlackFile } from "./files.ts";
 import { inferExt } from "./search-file-ext.ts";
 import { dateToUnixSeconds, resolveUserId } from "./search-query.ts";
-import { asArray, getString, isRecord } from "./search-guards.ts";
+import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 
 export type ContentType = "any" | "text" | "image" | "snippet" | "file";
 

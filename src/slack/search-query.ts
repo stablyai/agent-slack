@@ -1,6 +1,6 @@
 import type { SlackApiClient } from "./client.ts";
 import { normalizeChannelInput } from "./channels.ts";
-import { asArray, getString, isRecord } from "./search-guards.ts";
+import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 
 export async function buildSlackSearchQuery(
   client: SlackApiClient,
