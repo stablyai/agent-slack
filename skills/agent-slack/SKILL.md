@@ -76,6 +76,10 @@ agent-slack message get "#general" --workspace "myteam" --ts "1770165109.628379"
 agent-slack message get "#general" --workspace "https://myteam.slack.com" --ts "1770165109.628379"
 ```
 
+Or set the env var instead: `export SLACK_WORKSPACE_URL="myteam"`
+
+Channel IDs (`C...`/`G...`/`D...`) are unambiguous and never need `--workspace`.
+
 ## Commands
 
 ```bash
@@ -95,7 +99,8 @@ agent-slack auth remove <workspace-url>                                         
 agent-slack message get "<url>"                                                  # Fetch single message (+ thread summary)
 agent-slack message get "#channel" --ts "1770165109.628379"                       # Fetch by channel + timestamp
 agent-slack message get "<url>" --include-reactions                               # Include reaction details
-agent-slack message get "<url>" --max-body-chars -1                               # Full body, no truncation
+agent-slack message get "<url>" --max-body-chars -1                               # Full body, no truncation (default: 8000)
+agent-slack message get "<url>" --thread-ts "1770165109.000001"                   # Hint for thread permalink resolution
 agent-slack message get "#channel" --workspace "myteam" --ts "1770165109.628379"  # Disambiguate workspace
 
 agent-slack message list "<url>"                                                 # All replies in a thread
@@ -106,7 +111,7 @@ agent-slack message list "#channel" --ts "1770165109.628379"                    
 agent-slack message list "#channel" --oldest "1770000000.000000"                 # Messages after timestamp
 agent-slack message list "#channel" --latest "1770999999.000000"                 # Messages before timestamp
 agent-slack message list "#channel" --include-reactions                           # Include reactions on each message
-agent-slack message list "<url>" --max-body-chars -1                              # Full body, no truncation
+agent-slack message list "<url>" --max-body-chars -1                              # Full body, no truncation (default: 8000)
 
 agent-slack message send "<url>" "reply text"                                    # Reply in thread
 agent-slack message send "#channel" "hello"                                      # Post to channel
@@ -120,28 +125,42 @@ agent-slack message react add "#channel" "thumbsup" --ts "1770165109.628379"    
 agent-slack search all "query"                                                   # Search messages + files
 agent-slack search messages "query"                                              # Search messages only
 agent-slack search files "query"                                                 # Search files only
-agent-slack search all "query" --channel "#alerts"                               # Scope to channel
+agent-slack search all "query" --channel "#alerts"                               # Scope to channel (repeatable)
 agent-slack search all "query" --user "@alice"                                   # Filter by user
 agent-slack search all "query" --after 2026-01-01 --before 2026-02-01            # Date range
 agent-slack search files "query" --content-type snippet                          # Filter: text|image|snippet|file
 agent-slack search messages "query" --limit 50                                   # Limit results
-agent-slack search messages "query" --max-content-chars -1                       # Full content, no truncation
+agent-slack search messages "query" --max-content-chars -1                       # Full content, no truncation (default: 4000)
 
 # ── Canvas ────────────────────────────────────────────────────────────────────
 agent-slack canvas get "<canvas-url>"                                            # Fetch canvas as markdown
 agent-slack canvas get "F456" --workspace "myteam"                               # Fetch by canvas ID
-agent-slack canvas get "<canvas-url>" --max-chars -1                             # Full content, no truncation
+agent-slack canvas get "<canvas-url>" --max-chars -1                             # Full content, no truncation (default: 20000)
 
 # ── Users ─────────────────────────────────────────────────────────────────────
 agent-slack user list --workspace "myteam"                                       # List workspace users
 agent-slack user list --workspace "myteam" --limit 100                           # Limit results
 agent-slack user list --workspace "myteam" --include-bots                        # Include bot users
+agent-slack user list --workspace "myteam" --cursor "<cursor>"                   # Paginate (cursor from previous response)
 agent-slack user get "@alice" --workspace "myteam"                               # Get user by handle
 agent-slack user get "U12345678"                                                 # Get user by ID
 ```
 
 ## Targets
 
-- **Slack URL** (preferred): `https://workspace.slack.com/archives/C123/p1700000000000000`
+`<target>` in commands above accepts:
+
+- **Slack URL** (preferred): `https://<workspace>.slack.com/archives/<channel_id>/p<digits>[?thread_ts=...]`
 - **Channel name**: `#general` or `general` (needs `--workspace` with multiple workspaces)
-- **Channel ID**: `C0123ABC` (unambiguous, no `--workspace` needed)
+- **Channel ID**: `C...` (channels), `G...` (groups), `D...` (DMs) -- unambiguous, no `--workspace` needed
+
+When using a channel target, `--ts` is required for `message get` and `react`. For `message list`, omit `--ts`/`--thread-ts` to get channel history instead of a thread.
+
+## Output
+
+All commands print JSON to stdout. Empty values (`null`, `[]`, `{}`) are pruned.
+
+- `message get` returns `{ message: {...}, thread?: { ts, length } }` -- thread is a summary, not full replies
+- `message list` returns `{ messages: [...] }` -- full thread replies or channel history
+- `search messages|all` returns `{ messages: [...] }`, `search files|all` returns `{ files: [...] }`
+- Attachments are auto-downloaded to `~/.agent-slack/tmp/downloads/` (or `$XDG_RUNTIME_DIR/agent-slack/tmp/downloads/`) and returned as absolute paths in `files[].path`
