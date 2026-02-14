@@ -127,10 +127,12 @@ agent-slack message get "#general" --ts "1770165109.628379"
 agent-slack message list "#general" --thread-ts "1770165109.000001"
 ```
 
-If you have multiple workspaces configured and you use a channel **name** (`#channel` / `channel`), you must pass `--workspace` (or set `SLACK_WORKSPACE_URL`):
+If you have multiple workspaces configured and you use a channel **name** (`#channel` / `channel`), you must pass `--workspace` (or set `SLACK_WORKSPACE_URL`).
+`--workspace` accepts a full URL or a unique substring selector:
 
 ```bash
 agent-slack message get "#general" --workspace "https://stablygroup.slack.com" --ts "1770165109.628379"
+agent-slack message get "#general" --workspace "stablygroup" --ts "1770165109.628379"
 ```
 
 ## Examples
@@ -210,7 +212,7 @@ agent-slack search files "testing" --content-type snippet --limit 10
 Tips:
 
 - For reliable results, include `--channel ...` (channel-scoped search scans history/files and filters locally).
-- Use `--workspace https://...slack.com` when using `#channel` names across multiple workspaces.
+- Use `--workspace <url-or-unique-substring>` when using `#channel` names across multiple workspaces.
 
 <!-- AI search (assistant.search.*) is described in design.doc but not currently implemented. -->
 

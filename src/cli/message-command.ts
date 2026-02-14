@@ -19,7 +19,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .argument("<target>", "Slack message URL, #channel, or channel ID")
     .option(
       "--workspace <url>",
-      "Workspace URL (needed when using #channel/channel id and you have multiple workspaces)",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--ts <ts>", "Message ts (required when using #channel/channel id)")
     .option("--thread-ts <ts>", "Thread root ts hint (useful for thread permalinks)")
@@ -46,7 +46,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .argument("<target>", "Slack message URL, #channel, or channel ID")
     .option(
       "--workspace <url>",
-      "Workspace URL (needed when using #channel/channel id and you have multiple workspaces)",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--thread-ts <ts>", "Thread root ts (lists thread replies instead of channel history)")
     .option("--ts <ts>", "Message ts (resolve message to its thread)")
@@ -77,7 +77,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .argument("<text>", "Message text to post")
     .option(
       "--workspace <url>",
-      "Workspace URL (needed when using #channel/channel id and you have multiple workspaces)",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
     .action(async (...args) => {
@@ -109,7 +109,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .argument("<emoji>", "Emoji to react with (:rocket:, rocket, or 🚀)")
     .option(
       "--workspace <url>",
-      "Workspace URL (needed when using #channel/channel id and you have multiple workspaces)",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--ts <ts>", "Message ts (required when using #channel/channel id)")
     .action(async (...args) => {
@@ -140,7 +140,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .argument("<emoji>", "Emoji to remove (:rocket:, rocket, or 🚀)")
     .option(
       "--workspace <url>",
-      "Workspace URL (needed when using #channel/channel id and you have multiple workspaces)",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--ts <ts>", "Message ts (required when using #channel/channel id)")
     .action(async (...args) => {

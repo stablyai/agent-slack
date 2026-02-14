@@ -16,7 +16,10 @@ type SearchCommandOptions = {
 
 function addSearchOptions(cmd: Command): Command {
   return cmd
-    .option("--workspace <url>", "Workspace URL (needed when searching across multiple workspaces)")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; needed when searching across multiple workspaces)",
+    )
     .option("--channel <channel...>", "Channel filter (#name, name, or id). Repeatable.")
     .option("--user <user>", "User filter (@name, name, or user id U...)")
     .option("--after <date>", "Only results after YYYY-MM-DD")

@@ -5,7 +5,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 ## Auth
 
 - `agent-slack auth whoami` — show configured workspaces + token sources (secrets redacted)
-- `agent-slack auth test [--workspace <url>]` — verify credentials (`auth.test`)
+- `agent-slack auth test [--workspace <url-or-unique-substring>]` — verify credentials (`auth.test`)
 - `agent-slack auth import-desktop` — import browser-style creds from Slack Desktop (macOS)
 - `agent-slack auth import-chrome` — import creds from Chrome (macOS)
 - `agent-slack auth parse-curl` — read a copied Slack cURL command from stdin and save creds
@@ -18,7 +18,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 - `agent-slack message get <target>`
   - `<target>`: Slack message URL OR `#channel`/`channel`/channel id (`C...`) (see `targets.md`)
   - Options:
-    - `--workspace <url>` (required when using a channel _name_ across multiple workspaces)
+    - `--workspace <url-or-unique-substring>` (required when using a channel _name_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required when targeting a channel)
     - `--thread-ts <seconds>.<micros>` (optional hint for thread permalinks)
     - `--max-body-chars <n>` (default `8000`, `-1` unlimited)
@@ -33,7 +33,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `agent-slack message list "<url>"` — all replies in that thread
     - `agent-slack message list "#general" --thread-ts "1770165109.000001"` — thread replies
   - Options:
-    - `--workspace <url>` (same rules as above)
+    - `--workspace <url-or-unique-substring>` (same rules as above)
     - `--thread-ts <seconds>.<micros>` (switches to thread mode; fetches replies)
     - `--ts <seconds>.<micros>` (resolve a message to its thread)
     - `--limit <n>` (default `25`, max `200`; channel history mode only)
@@ -46,13 +46,13 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - If `<target>` is a Slack message URL, replies in that message’s thread.
   - Otherwise posts to the channel/DM.
   - Options:
-    - `--workspace <url>` (needed for channel _names_ across multiple workspaces)
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
 
 - `agent-slack message react add <target> <emoji>`
 - `agent-slack message react remove <target> <emoji>`
   - Options (channel mode):
-    - `--workspace <url>` (needed for channel _names_ across multiple workspaces)
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required for channel targets)
 
 ## Search
@@ -63,7 +63,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 
 Common options:
 
-- `--workspace <url>` (recommended when using channel names across multiple workspaces)
+- `--workspace <url-or-unique-substring>` (recommended when using channel names across multiple workspaces)
 - `--channel <channel...>` repeatable (`#name`, `name`, or id)
 - `--user <@name|name|U...>`
 - `--after YYYY-MM-DD`
@@ -76,10 +76,10 @@ Common options:
 
 - `agent-slack canvas get <canvas-url-or-id>`
   - Options:
-    - `--workspace <url>` (required when passing an id and multiple workspaces)
+    - `--workspace <url-or-unique-substring>` (required when passing an id and multiple workspaces)
     - `--max-chars <n>` (default `20000`, `-1` unlimited)
 
 ## Users
 
-- `agent-slack user list [--workspace <url>] [--limit <n>] [--cursor <cursor>] [--include-bots]`
-- `agent-slack user get <U...|@handle|handle> [--workspace <url>]`
+- `agent-slack user list [--workspace <url-or-unique-substring>] [--limit <n>] [--cursor <cursor>] [--include-bots]`
+- `agent-slack user get <U...|@handle|handle> [--workspace <url-or-unique-substring>]`
