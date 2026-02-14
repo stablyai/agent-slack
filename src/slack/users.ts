@@ -1,4 +1,5 @@
 import type { SlackApiClient } from "./client.ts";
+import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 
 export type CompactSlackUser = {
   id: string;
@@ -121,16 +122,4 @@ function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
     is_bot: typeof u.is_bot === "boolean" ? u.is_bot : undefined,
     deleted: typeof u.deleted === "boolean" ? u.deleted : undefined,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function getString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
 }

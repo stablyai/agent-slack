@@ -8,7 +8,7 @@ import { renderSlackMessageContent } from "./render.ts";
 import { parseSlackMessageUrl } from "./url.ts";
 import { inferExt } from "./search-file-ext.ts";
 import { dateToUnixSeconds, resolveUserId } from "./search-query.ts";
-import { asArray, getNumber, getString, isRecord } from "./search-guards.ts";
+import { asArray, getNumber, getString, isRecord } from "../lib/object-type-guards.ts";
 import { slackMrkdwnToMarkdown } from "./mrkdwn.ts";
 
 export type ContentType = "any" | "text" | "image" | "snippet" | "file";

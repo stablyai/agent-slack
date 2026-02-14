@@ -1,5 +1,5 @@
 import type { SlackApiClient } from "./client.ts";
-import { asArray, isRecord } from "./search-guards.ts";
+import { asArray, isRecord } from "../lib/object-type-guards.ts";
 
 export async function searchMessagesRaw(
   client: SlackApiClient,

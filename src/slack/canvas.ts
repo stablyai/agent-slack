@@ -2,6 +2,7 @@ import type { SlackApiClient, SlackAuth } from "./client.ts";
 import { downloadSlackFile } from "./files.ts";
 import { htmlToMarkdown } from "./html-to-md.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
+import { getString, isRecord } from "../lib/object-type-guards.ts";
 import { readFile } from "node:fs/promises";
 import { getUserAgent } from "../lib/version.ts";
 
@@ -105,12 +106,4 @@ export async function fetchCanvasMarkdown(
       markdown,
     },
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function getString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
 }
