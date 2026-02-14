@@ -55,7 +55,10 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
   auth
     .command("test")
     .description("Verify credentials (calls Slack auth.test)")
-    .option("--workspace <url>", "Workspace URL (needed when you have multiple workspaces)")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; needed when you have multiple workspaces)",
+    )
     .action(async (...args) => {
       const [options] = args as [{ workspace?: string }];
       try {

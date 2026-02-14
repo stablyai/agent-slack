@@ -8,6 +8,7 @@ import {
   upsertWorkspace,
   upsertWorkspaces,
 } from "../auth/store.ts";
+import { resolveWorkspaceSelector } from "./workspace-selector.ts";
 import { normalizeChannelInput } from "../slack/channels.ts";
 import { SlackApiClient, type SlackAuth } from "../slack/client.ts";
 
@@ -70,7 +71,7 @@ async function assertWorkspaceSpecifiedForChannelNames(input: {
 
   if (!input.workspaceUrl) {
     throw new Error(
-      'Ambiguous channel name across multiple workspaces. Pass --workspace "https://...slack.com" (or set SLACK_WORKSPACE_URL).',
+      'Ambiguous channel name across multiple workspaces. Pass --workspace "<url-or-unique-substring>" (or set SLACK_WORKSPACE_URL).',
     );
   }
 }
@@ -82,6 +83,14 @@ function isAuthErrorMessage(message: string): boolean {
 function normalizeUrl(u: string): string {
   const url = new URL(u);
   return `${url.protocol}//${url.host}`;
+}
+
+function tryNormalizeUrl(u: string): string | undefined {
+  try {
+    return normalizeUrl(u);
+  } catch {
+    return undefined;
+  }
 }
 
 async function refreshFromDesktopIfPossible(): Promise<boolean> {
@@ -150,10 +159,30 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
   auth: SlackAuth;
   workspace_url?: string;
 }> {
+  const selector = workspaceUrl?.trim() || undefined;
+  const normalizedSelectorUrl = selector ? tryNormalizeUrl(selector) : undefined;
+  const selectorProvided = Boolean(selector);
+  let resolvedWorkspaceUrl = normalizedSelectorUrl;
+  if (selector) {
+    const creds = await loadCredentials();
+    const resolved = resolveWorkspaceSelector(creds.workspaces, selector);
+    if (resolved.ambiguous.length > 0) {
+      const options = resolved.ambiguous.map((w) => w.workspace_url).join(", ");
+      throw new Error(
+        `Workspace selector "${selector}" is ambiguous. Matches: ${options}. Pass a more specific selector or full workspace URL.`,
+      );
+    }
+    if (resolved.match) {
+      resolvedWorkspaceUrl = resolved.match.workspace_url;
+    } else if (!normalizedSelectorUrl) {
+      resolvedWorkspaceUrl = undefined;
+    }
+  }
+
   const env = pickAuthFromEnv();
   if (env) {
     const envWorkspaceUrl = process.env.SLACK_WORKSPACE_URL?.trim();
-    const urlForBrowser = workspaceUrl || envWorkspaceUrl;
+    const urlForBrowser = resolvedWorkspaceUrl || envWorkspaceUrl;
     return {
       client: new SlackApiClient(env, { workspaceUrl: urlForBrowser }),
       auth: env,
@@ -161,8 +190,8 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
     };
   }
 
-  if (workspaceUrl) {
-    const ws = await resolveWorkspaceForUrl(workspaceUrl);
+  if (resolvedWorkspaceUrl) {
+    const ws = await resolveWorkspaceForUrl(resolvedWorkspaceUrl);
     if (ws) {
       return {
         client: new SlackApiClient(ws.auth as SlackAuth, {
@@ -174,15 +203,17 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
     }
   }
 
-  const def = await resolveDefaultWorkspace();
-  if (def) {
-    return {
-      client: new SlackApiClient(def.auth as SlackAuth, {
-        workspaceUrl: def.workspace_url,
-      }),
-      auth: def.auth as SlackAuth,
-      workspace_url: def.workspace_url,
-    };
+  if (!selectorProvided) {
+    const def = await resolveDefaultWorkspace();
+    if (def) {
+      return {
+        client: new SlackApiClient(def.auth as SlackAuth, {
+          workspaceUrl: def.workspace_url,
+        }),
+        auth: def.auth as SlackAuth,
+        workspace_url: def.workspace_url,
+      };
+    }
   }
 
   try {
@@ -199,10 +230,12 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
       })),
     );
 
-    const desired = workspaceUrl
-      ? await resolveWorkspaceForUrl(workspaceUrl)
-      : await resolveDefaultWorkspace();
-    const chosen = desired ?? (await resolveDefaultWorkspace());
+    const desired = resolvedWorkspaceUrl
+      ? await resolveWorkspaceForUrl(resolvedWorkspaceUrl)
+      : selector
+        ? resolveWorkspaceSelector((await loadCredentials()).workspaces, selector).match
+        : await resolveDefaultWorkspace();
+    const chosen = desired ?? (!selectorProvided ? await resolveDefaultWorkspace() : null);
     if (chosen) {
       return {
         client: new SlackApiClient(chosen.auth as SlackAuth, {
@@ -219,10 +252,41 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
   // Fallback: try Chrome extraction (macOS).
   const chrome = extractFromChrome();
   if (chrome && chrome.teams.length > 0) {
-    const chosen =
-      (workspaceUrl
-        ? chrome.teams.find((t) => normalizeUrl(t.url) === normalizeUrl(workspaceUrl))
-        : null) ?? chrome.teams[0]!;
+    let chosen = chrome.teams[0]!;
+    if (selector) {
+      const normalizedSelector = selector.toLowerCase();
+      const matches = chrome.teams.filter((t) => {
+        const normalizedUrl = normalizeUrl(t.url).toLowerCase();
+        const host = new URL(t.url).host.toLowerCase();
+        const hostWithoutSlackSuffix = host.replace(/\.slack\.com$/i, "");
+        const name = t.name?.toLowerCase() ?? "";
+        return (
+          normalizedUrl.includes(normalizedSelector) ||
+          host.includes(normalizedSelector) ||
+          hostWithoutSlackSuffix.includes(normalizedSelector) ||
+          name.includes(normalizedSelector)
+        );
+      });
+      if (matches.length > 1) {
+        throw new Error(
+          `Workspace selector "${selector}" is ambiguous in Chrome workspaces. Matches: ${matches.map((t) => normalizeUrl(t.url)).join(", ")}. Pass a more specific selector or full workspace URL.`,
+        );
+      }
+      if (matches.length === 1) {
+        chosen = matches[0]!;
+      } else if (normalizedSelectorUrl) {
+        try {
+          chosen =
+            chrome.teams.find((t) => normalizeUrl(t.url) === normalizeUrl(selector)) ?? chosen;
+        } catch {
+          // Keep default selection.
+        }
+      } else {
+        throw new Error(
+          `No configured workspace matches selector "${selector}". Run "agent-slack auth whoami" to list available workspaces.`,
+        );
+      }
+    }
     const auth: SlackAuth = {
       auth_type: "browser",
       xoxc_token: chosen.token,
@@ -244,6 +308,12 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
       auth,
       workspace_url: normalizeUrl(chosen.url),
     };
+  }
+
+  if (selector && !normalizedSelectorUrl) {
+    throw new Error(
+      `No configured workspace matches selector "${selector}". Run "agent-slack auth whoami" to list available workspaces.`,
+    );
   }
 
   throw new Error(
