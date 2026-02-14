@@ -47,7 +47,7 @@ agent-slack message react add "#general" "eyes" --ts "1770165109.628379"
 
 If you have multiple workspaces configured and your target is a channel **name** (`#general` / `general`), you must disambiguate:
 
-- pass `--workspace "https://myteam.slack.com"`, or
-- set `SLACK_WORKSPACE_URL="https://myteam.slack.com"`
+- pass `--workspace "https://myteam.slack.com"` (or a unique substring like `--workspace "myteam"`), or
+- set `SLACK_WORKSPACE_URL` to the same selector format
 
 Channel IDs (`C...`/`G...`/`D...`) do not require `--workspace`.

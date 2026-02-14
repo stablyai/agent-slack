@@ -9,7 +9,10 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
   userCmd
     .command("list")
     .description("List users in the workspace")
-    .option("--workspace <url>", "Workspace URL (required if you have multiple workspaces)")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
+    )
     .option("--limit <n>", "Max users (default 200)", "200")
     .option("--cursor <cursor>", "Pagination cursor")
     .option("--include-bots", "Include bot users")
@@ -42,7 +45,10 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
     .command("get")
     .description("Get a single user by id (U...) or handle (@name)")
     .argument("<user>", "User id (U...) or @handle/handle")
-    .option("--workspace <url>", "Workspace URL (required if you have multiple workspaces)")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
+    )
     .action(async (...args) => {
       const [user, options] = args as [string, { workspace?: string }];
       try {

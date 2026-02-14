@@ -110,6 +110,7 @@ If you have multiple workspaces configured and you use a channel **name** (`#gen
 
 ```bash
 agent-slack message get "#general" --workspace "https://myteam.slack.com" --ts "1770165109.628379"
+agent-slack message get "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
 ## Canvas + Users

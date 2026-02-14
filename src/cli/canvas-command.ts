@@ -12,7 +12,7 @@ export function registerCanvasCommand(input: { program: Command; ctx: CliContext
     .argument("<canvas>", "Slack canvas URL (…/docs/…/F…) or canvas id (F…)")
     .option(
       "--workspace <url>",
-      "Workspace URL (required if passing a canvas id and you have multiple workspaces)",
+      "Workspace selector (full URL or unique substring; required if passing a canvas id across multiple workspaces)",
     )
     .option(
       "--max-chars <n>",
