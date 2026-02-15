@@ -5,13 +5,10 @@ type UnknownRecord = Record<string, unknown>;
 export function renderSlackMessageContent(msg: unknown): string {
   const msgObj = isRecord(msg) ? msg : {};
   const blockMrkdwn = extractMrkdwnFromBlocks(msgObj.blocks);
-  if (blockMrkdwn.trim()) {
-    return slackMrkdwnToMarkdown(blockMrkdwn).trim();
-  }
-
   const attachmentMrkdwn = extractMrkdwnFromAttachments(msgObj.attachments);
-  if (attachmentMrkdwn.trim()) {
-    return slackMrkdwnToMarkdown(attachmentMrkdwn).trim();
+  const combined = [blockMrkdwn.trim(), attachmentMrkdwn.trim()].filter(Boolean).join("\n\n");
+  if (combined) {
+    return slackMrkdwnToMarkdown(combined).trim();
   }
 
   const text = getString(msgObj.text).trim();
@@ -239,7 +236,33 @@ function extractMrkdwnFromAttachments(attachments: unknown): string {
     if (!isRecord(a)) {
       continue;
     }
+
+    const isSharedMessage = Boolean(
+      a.is_share || (a.is_msg_unfurl && Array.isArray(a.message_blocks)),
+    );
+
     const chunk: string[] = [];
+
+    if (isSharedMessage) {
+      chunk.push(formatForwardHeader(a));
+
+      const msgBlocksContent = extractMrkdwnFromMessageBlocks(a.message_blocks);
+      const body = msgBlocksContent.trim() || getString(a.text).trim();
+      if (body) {
+        chunk.push(
+          body
+            .split("\n")
+            .map((line) => `> ${line}`)
+            .join("\n"),
+        );
+      }
+
+      if (chunk.length > 0) {
+        parts.push(chunk.join("\n"));
+      }
+      continue;
+    }
+
     const blocks = extractMrkdwnFromBlocks(a.blocks);
     if (blocks.trim()) {
       chunk.push(blocks);
@@ -286,6 +309,47 @@ function extractMrkdwnFromAttachments(attachments: unknown): string {
     }
   }
   return parts.join("\n\n");
+}
+
+function formatForwardHeader(a: Record<string, unknown>): string {
+  const authorName = getString(a.author_name);
+  const authorLink = getString(a.author_link);
+  const fromUrl = getString(a.from_url);
+
+  const authorPart = authorName && authorLink ? `<${authorLink}|${authorName}>` : authorName || "";
+  const sourcePart = fromUrl ? `<${fromUrl}|original>` : "";
+
+  if (authorPart && sourcePart) {
+    return `*Forwarded from ${authorPart} | ${sourcePart}*`;
+  }
+  if (authorPart) {
+    return `*Forwarded from ${authorPart}*`;
+  }
+  if (sourcePart) {
+    return `*Forwarded message | ${sourcePart}*`;
+  }
+  return "*Forwarded message*";
+}
+
+function extractMrkdwnFromMessageBlocks(messageBlocks: unknown): string {
+  if (!Array.isArray(messageBlocks)) {
+    return "";
+  }
+  const out: string[] = [];
+  for (const mb of messageBlocks) {
+    if (!isRecord(mb)) {
+      continue;
+    }
+    const message = isRecord(mb.message) ? mb.message : null;
+    if (!message) {
+      continue;
+    }
+    const content = extractMrkdwnFromBlocks(message.blocks);
+    if (content.trim()) {
+      out.push(content);
+    }
+  }
+  return out.join("\n\n");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
