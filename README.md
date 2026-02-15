@@ -7,17 +7,9 @@ Guiding principle:
 - **token-efficient output by default** (compact JSON, minimal duplication, and empty/null fields pruned) so LLMs can consume results cheaply.
 - **zero-config auth** -- Auth just works if you have Slack Desktop (with fallbacks available). No Python dependency.
 
-## At a glance
+## Getting started
 
-- **Read**: fetch a message, browse channel history, list full threads
-- **Search**: messages + files (with filters)
-- **Artifacts**: auto-download snippets/images/files to local paths for agents
-- **Write**: reply in thread, add reactions
-- **Canvas**: fetch Slack canvases as Markdown
-
-## Installation
-
-Recommended (Bun install script):
+Install via Bun (recommended):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
@@ -28,6 +20,14 @@ OR npm global install (requires Node >= 22.5):
 ```bash
 npm i -g agent-slack
 ```
+
+## At a glance
+
+- **Read**: fetch a message, browse channel history, list full threads
+- **Search**: messages + files (with filters)
+- **Artifacts**: auto-download snippets/images/files to local paths for agents
+- **Write**: reply in thread, add reactions
+- **Canvas**: fetch Slack canvases as Markdown
 
 ## Agent skill
 
