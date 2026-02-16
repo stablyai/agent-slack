@@ -12,117 +12,169 @@ description: |
   Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages"
 ---
 
-# Slack automation with `agent-slack`
+# agent-slack
 
-`agent-slack` is a CLI binary installed on `$PATH`. Invoke it directly (e.g. `agent-slack user list`)
+Slack automation CLI for AI agents. Read messages, search, reply, download attachments, fetch canvases.
 
-## Quick start (auth)
+> Output is always JSON. Attached files are auto-downloaded and returned as absolute local paths.
 
-Authentication is automatic on macOS (Slack Desktop first, then Chrome fallback).
+## Install
 
-If credentials aren’t available, run one of:
-
-- Slack Desktop (default):
+Recommended (Bun install script):
 
 ```bash
-agent-slack auth import-desktop
-agent-slack auth test
+curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
 ```
 
-- Chrome fallback:
+OR npm global install (requires Node >= 22.5):
 
 ```bash
-agent-slack auth import-chrome
-agent-slack auth test
+npm i -g agent-slack
 ```
 
-- Or set env vars (browser tokens; avoid pasting these into chat logs):
+## First time setup
+
+### macOS (automatic)
+
+Authentication is automatic (Slack Desktop first, then Chrome fallback).
 
 ```bash
-export SLACK_TOKEN="xoxc-..."
-export SLACK_COOKIE_D="xoxd-..."
-agent-slack auth test
+agent-slack auth import-desktop          # Import creds from Slack Desktop (macOS only)
+agent-slack auth import-chrome           # Import creds from Chrome (macOS only)
+agent-slack auth test                    # Verify credentials work
+agent-slack auth whoami                  # Show configured workspaces
 ```
 
-- Or set a standard token:
+### Linux / Windows (manual)
+
+1. Open Slack in your browser and log in
+2. Open DevTools (F12) > **Network** tab
+3. Filter for `api` — look for requests to `<workspace>.slack.com/api/` (e.g. `api/client.counts`, `api/conversations.view`)
+4. Right-click any matching request > **Copy as cURL**
+5. Pipe it in:
 
 ```bash
-export SLACK_TOKEN="xoxb-..."  # or xoxp-...
-agent-slack auth test
+agent-slack auth parse-curl              # Paste the copied cURL, creds are extracted automatically
+agent-slack auth test                    # Verify credentials work
 ```
 
-Check configured workspaces:
+Or add a token directly:
 
 ```bash
-agent-slack auth whoami
+agent-slack auth add --workspace-url "https://team.slack.com" --token "xoxb-..."  # Bot/user token
 ```
 
-## Canonical workflow (given a Slack message URL)
-
-1. Fetch a single message (plus thread summary, if any):
+Or set env vars (no import needed):
 
 ```bash
-agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000"
+export SLACK_TOKEN="xoxc-..."            # Browser token (xoxc) or bot/user token (xoxb/xoxp)
+export SLACK_COOKIE_D="xoxd-..."         # Required with xoxc tokens
 ```
 
-2. If you need the full thread:
+## Quick start
 
 ```bash
-agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
+agent-slack message get "<slack-message-url>"                    # Fetch a single message
+agent-slack message list "<slack-message-url>"                   # Fetch full thread
+agent-slack message list "#general" --limit 20                   # Browse recent channel messages
+agent-slack message send "<slack-message-url>" "Got it!"         # Reply in thread
+agent-slack search all "deploy failed" --channel "#alerts"       # Search messages + files
 ```
 
-## Browse recent channel messages
+## Multi-workspace
 
-To see what's been posted recently in a channel (channel history):
-
-```bash
-agent-slack message list "#general" --limit 20
-agent-slack message list "C0123ABC" --limit 10
-```
-
-This returns the most recent messages in chronological order. Use `--limit` to control how many (default 25).
-
-## Attachments (snippets/images/files)
-
-`message get/list` and `search` auto-download attachments and include absolute paths in JSON output (typically under `message.files[].path` / `files[].path`).
-
-## Reply or react (does the right thing)
+When using channel **names** with multiple workspaces, pass `--workspace` (full URL or unique substring):
 
 ```bash
-agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this."
-agent-slack message react add "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
-agent-slack message react remove "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
-```
-
-## Search (messages + files)
-
-Prefer channel-scoped search for reliability:
-
-```bash
-agent-slack search all "smoke tests failed" --channel "#alerts" --after 2026-01-01 --before 2026-02-01
-agent-slack search messages "stably test" --user "@alice" --channel general
-agent-slack search files "testing" --content-type snippet --limit 10
-```
-
-## Multi-workspace guardrail (important)
-
-If you have multiple workspaces configured and you use a channel **name** (`#general` / `general`), pass `--workspace` (or set `SLACK_WORKSPACE_URL`) to avoid ambiguity:
-
-```bash
-agent-slack message get "#general" --workspace "https://myteam.slack.com" --ts "1770165109.628379"
 agent-slack message get "#general" --workspace "myteam" --ts "1770165109.628379"
+agent-slack message get "#general" --workspace "https://myteam.slack.com" --ts "1770165109.628379"
 ```
 
-## Canvas + Users
+Or set the env var instead: `export SLACK_WORKSPACE_URL="myteam"`
+
+Channel IDs (`C...`/`G...`/`D...`) are unambiguous and never need `--workspace`.
+
+## Commands
 
 ```bash
-agent-slack canvas get "https://workspace.slack.com/docs/T123/F456"
-agent-slack user list --workspace "https://workspace.slack.com" --limit 100
-agent-slack user get "@alice" --workspace "https://workspace.slack.com"
+# ── Auth ──────────────────────────────────────────────────────────────────────
+agent-slack auth whoami                                                          # Show workspaces + token sources
+agent-slack auth test                                                            # Verify credentials
+agent-slack auth test --workspace "myteam"                                       # Test specific workspace
+agent-slack auth import-desktop                                                  # Import from Slack Desktop (macOS)
+agent-slack auth import-chrome                                                   # Import from Chrome (macOS)
+agent-slack auth parse-curl                                                      # Import from pasted cURL (stdin)
+agent-slack auth add --workspace-url <url> --token <xoxb/xoxp>                   # Add bot/user token
+agent-slack auth add --workspace-url <url> --xoxc <xoxc> --xoxd <xoxd>          # Add browser creds
+agent-slack auth set-default <workspace-url>                                     # Set default workspace
+agent-slack auth remove <workspace-url>                                          # Remove workspace creds
+
+# ── Messages ──────────────────────────────────────────────────────────────────
+agent-slack message get "<url>"                                                  # Fetch single message (+ thread summary)
+agent-slack message get "#channel" --ts "1770165109.628379"                       # Fetch by channel + timestamp
+agent-slack message get "<url>" --include-reactions                               # Include reaction details
+agent-slack message get "<url>" --max-body-chars -1                               # Full body, no truncation (default: 8000)
+agent-slack message get "<url>" --thread-ts "1770165109.000001"                   # Hint for thread permalink resolution
+agent-slack message get "#channel" --workspace "myteam" --ts "1770165109.628379"  # Disambiguate workspace
+
+agent-slack message list "<url>"                                                 # All replies in a thread
+agent-slack message list "#channel"                                              # Latest 25 channel messages
+agent-slack message list "#channel" --limit 50                                   # Latest 50 messages
+agent-slack message list "#channel" --thread-ts "1770165109.000001"              # Thread replies by ts
+agent-slack message list "#channel" --ts "1770165109.628379"                      # Resolve message to its thread
+agent-slack message list "#channel" --oldest "1770000000.000000"                 # Messages after timestamp
+agent-slack message list "#channel" --latest "1770999999.000000"                 # Messages before timestamp
+agent-slack message list "#channel" --include-reactions                           # Include reactions on each message
+agent-slack message list "<url>" --max-body-chars -1                              # Full body, no truncation (default: 8000)
+
+agent-slack message send "<url>" "reply text"                                    # Reply in thread
+agent-slack message send "#channel" "hello"                                      # Post to channel
+agent-slack message send "#channel" "reply" --thread-ts "1770165109.000001"      # Reply by ts
+
+agent-slack message react add "<url>" "eyes"                                     # Add reaction
+agent-slack message react remove "<url>" "eyes"                                  # Remove reaction
+agent-slack message react add "#channel" "thumbsup" --ts "1770165109.628379"     # React by channel + ts
+
+# ── Search ────────────────────────────────────────────────────────────────────
+agent-slack search all "query"                                                   # Search messages + files
+agent-slack search messages "query"                                              # Search messages only
+agent-slack search files "query"                                                 # Search files only
+agent-slack search all "query" --channel "#alerts"                               # Scope to channel (repeatable)
+agent-slack search all "query" --user "@alice"                                   # Filter by user
+agent-slack search all "query" --after 2026-01-01 --before 2026-02-01            # Date range
+agent-slack search files "query" --content-type snippet                          # Filter: text|image|snippet|file
+agent-slack search messages "query" --limit 50                                   # Limit results
+agent-slack search messages "query" --max-content-chars -1                       # Full content, no truncation (default: 4000)
+
+# ── Canvas ────────────────────────────────────────────────────────────────────
+agent-slack canvas get "<canvas-url>"                                            # Fetch canvas as markdown
+agent-slack canvas get "F456" --workspace "myteam"                               # Fetch by canvas ID
+agent-slack canvas get "<canvas-url>" --max-chars -1                             # Full content, no truncation (default: 20000)
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+agent-slack user list --workspace "myteam"                                       # List workspace users
+agent-slack user list --workspace "myteam" --limit 100                           # Limit results
+agent-slack user list --workspace "myteam" --include-bots                        # Include bot users
+agent-slack user list --workspace "myteam" --cursor "<cursor>"                   # Paginate (cursor from previous response)
+agent-slack user get "@alice" --workspace "myteam"                               # Get user by handle
+agent-slack user get "U12345678"                                                 # Get user by ID
 ```
 
-## References
+## Targets
 
-- [references/commands.md](references/commands.md): full command map + all flags
-- [references/targets.md](references/targets.md): URL vs `#channel` targeting rules
-- [references/output.md](references/output.md): JSON output shapes + download paths
+`<target>` in commands above accepts:
+
+- **Slack URL** (preferred): `https://<workspace>.slack.com/archives/<channel_id>/p<digits>[?thread_ts=...]`
+- **Channel name**: `#general` or `general` (needs `--workspace` with multiple workspaces)
+- **Channel ID**: `C...` (channels), `G...` (groups), `D...` (DMs) -- unambiguous, no `--workspace` needed
+
+When using a channel target, `--ts` is required for `message get` and `react`. For `message list`, omit `--ts`/`--thread-ts` to get channel history instead of a thread.
+
+## Output
+
+All commands print JSON to stdout. Empty values (`null`, `[]`, `{}`) are pruned.
+
+- `message get` returns `{ message: {...}, thread?: { ts, length } }` -- thread is a summary, not full replies
+- `message list` returns `{ messages: [...] }` -- full thread replies or channel history
+- `search messages|all` returns `{ messages: [...] }`, `search files|all` returns `{ files: [...] }`
+- Attachments are auto-downloaded to `~/.agent-slack/tmp/downloads/` (or `$XDG_RUNTIME_DIR/agent-slack/tmp/downloads/`) and returned as absolute paths in `files[].path`
