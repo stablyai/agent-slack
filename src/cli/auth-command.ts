@@ -104,6 +104,36 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     });
 
   auth
+    .command("import-brave")
+    .description("Import xoxc/xoxd from a logged-in Slack tab in Brave Browser (macOS)")
+    .action(async () => {
+      try {
+        const extracted = await input.ctx.importBrave();
+        if (!extracted) {
+          throw new Error(
+            "Could not extract tokens from Brave. Open Slack in Brave and ensure you're logged in.",
+          );
+        }
+
+        for (const team of extracted.teams) {
+          await upsertWorkspace({
+            workspace_url: input.ctx.normalizeUrl(team.url),
+            workspace_name: team.name,
+            auth: {
+              auth_type: "browser",
+              xoxc_token: team.token,
+              xoxd_cookie: extracted.cookie_d,
+            },
+          });
+        }
+        console.log(`Imported ${extracted.teams.length} workspace token(s) from Brave.`);
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  auth
     .command("parse-curl")
     .description("Paste a Slack API request copied as cURL (extracts xoxc/xoxd and saves locally)")
     .action(async () => {
