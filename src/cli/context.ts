@@ -1,3 +1,4 @@
+import { extractFromBrave } from "../auth/brave.ts";
 import { extractFromChrome } from "../auth/chrome.ts";
 import { parseSlackCurlCommand } from "../auth/curl.ts";
 import { extractFromSlackDesktop } from "../auth/desktop.ts";
@@ -33,6 +34,7 @@ export type CliContext = {
   parseCurl: (curl: string) => ReturnType<typeof parseSlackCurlCommand>;
   importDesktop: () => ReturnType<typeof extractFromSlackDesktop>;
   importChrome: () => ReturnType<typeof extractFromChrome>;
+  importBrave: () => ReturnType<typeof extractFromBrave>;
 };
 
 function isEnvAuthConfigured(): boolean {
@@ -249,8 +251,8 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
     // Fall through to Chrome extraction.
   }
 
-  // Fallback: try Chrome extraction (macOS).
-  const chrome = extractFromChrome();
+  // Fallback: try Chrome or Brave extraction (macOS).
+  const chrome = extractFromChrome() ?? (await extractFromBrave());
   if (chrome && chrome.teams.length > 0) {
     let chosen = chrome.teams[0]!;
     if (selector) {
@@ -317,7 +319,7 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
   }
 
   throw new Error(
-    'No Slack credentials available. Try "agent-slack auth import-desktop" or set SLACK_TOKEN / SLACK_COOKIE_D.',
+    'No Slack credentials available. Try "agent-slack auth import-desktop", "agent-slack auth import-chrome", "agent-slack auth import-brave", or set SLACK_TOKEN / SLACK_COOKIE_D.',
   );
 }
 
@@ -333,5 +335,6 @@ export function createCliContext(): CliContext {
     parseCurl: parseSlackCurlCommand,
     importDesktop: extractFromSlackDesktop,
     importChrome: extractFromChrome,
+    importBrave: extractFromBrave,
   };
 }
