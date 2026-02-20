@@ -29,6 +29,7 @@ describe("reactions compaction", () => {
       attachments: [
         {
           is_share: true,
+          reply_count: 4,
           from_url:
             "https://example.slack.com/archives/C222/p333?thread_ts=1771564510.386389&cid=C222",
         },
@@ -39,6 +40,6 @@ describe("reactions compaction", () => {
     expect(compact.forwarded_threads?.length).toBe(1);
     expect(compact.forwarded_threads?.[0]?.thread_ts).toBe("1771564510.386389");
     expect(compact.forwarded_threads?.[0]?.channel_id).toBe("C222");
-    expect(compact.forwarded_threads?.[0]?.has_more_replies).toBe(true);
+    expect(compact.forwarded_threads?.[0]?.reply_count).toBe(4);
   });
 });
