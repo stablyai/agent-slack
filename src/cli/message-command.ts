@@ -61,13 +61,13 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .option("--latest <ts>", "Only messages before this ts (channel history mode)")
     .option(
       "--with-reaction <emoji>",
-      "Only include messages with this reaction (repeatable; channel history mode)",
+      "Only include messages with this reaction (repeatable; channel history mode; requires --oldest)",
       collectOptionValue,
       [],
     )
     .option(
       "--without-reaction <emoji>",
-      "Only include messages without this reaction (repeatable; channel history mode)",
+      "Only include messages without this reaction (repeatable; channel history mode; requires --oldest)",
       collectOptionValue,
       [],
     )

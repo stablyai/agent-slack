@@ -39,8 +39,8 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--limit <n>` (default `25`, max `200`; channel history mode only)
     - `--oldest <ts>` (only messages after this ts; channel history mode)
     - `--latest <ts>` (only messages before this ts; channel history mode)
-    - `--with-reaction <emoji>` (repeatable; include only messages that have this reaction; channel history mode)
-    - `--without-reaction <emoji>` (repeatable; include only messages that do not have this reaction; channel history mode)
+    - `--with-reaction <emoji>` (repeatable; include only messages that have this reaction; channel history mode; requires `--oldest`)
+    - `--without-reaction <emoji>` (repeatable; include only messages that do not have this reaction; channel history mode; requires `--oldest`)
     - `--max-body-chars <n>` (default `8000`, `-1` unlimited)
     - `--include-reactions`
 

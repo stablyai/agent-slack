@@ -155,10 +155,10 @@ agent-slack message list "https://workspace.slack.com/archives/C123/p17000000000
 agent-slack message list "#general" --limit 20
 
 # Recent channel messages that are marked with :eyes:
-agent-slack message list "#general" --with-reaction eyes --limit 20
+agent-slack message list "#general" --with-reaction eyes --oldest "1770165109.000000" --limit 20
 
 # Recent channel messages that do not have :dart:
-agent-slack message list "#general" --without-reaction dart --limit 20
+agent-slack message list "#general" --without-reaction dart --oldest "1770165109.000000" --limit 20
 ```
 
 Optional:
@@ -212,7 +212,7 @@ When to use which:
 - Use `get` to check a single message or see if there's a thread worth expanding
 - Use `list` to read an entire thread conversation
 - Use `list` on a channel (without `--thread-ts`) to browse recent channel messages
-- Use `list` with `--with-reaction` / `--without-reaction` to filter channel history by reaction markers
+- Use `list` with `--with-reaction` / `--without-reaction` plus `--oldest` to filter channel history by reaction markers
 
 ### Files (snippets/images/attachments)
 

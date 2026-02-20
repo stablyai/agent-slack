@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { parseReactionFilters } from "../src/cli/message-actions.ts";
+import {
+  parseReactionFilters,
+  requireOldestWhenReactionFiltersUsed,
+} from "../src/cli/message-actions.ts";
 import { passesReactionNameFilters } from "../src/slack/messages.ts";
 
 describe("parseReactionFilters", () => {
@@ -45,5 +48,37 @@ describe("passesReactionNameFilters", () => {
         withoutReactions: ["dart"],
       }),
     ).toBe(true);
+  });
+});
+
+describe("requireOldestWhenReactionFiltersUsed", () => {
+  test("returns oldest when no reaction filters are used", () => {
+    expect(
+      requireOldestWhenReactionFiltersUsed({
+        oldest: undefined,
+        withReactions: [],
+        withoutReactions: [],
+      }),
+    ).toBeUndefined();
+  });
+
+  test("returns trimmed oldest when reaction filters are used", () => {
+    expect(
+      requireOldestWhenReactionFiltersUsed({
+        oldest: " 1770165109.628379 ",
+        withReactions: ["dart"],
+        withoutReactions: [],
+      }),
+    ).toBe("1770165109.628379");
+  });
+
+  test("throws when reaction filters are used without oldest", () => {
+    expect(() =>
+      requireOldestWhenReactionFiltersUsed({
+        oldest: undefined,
+        withReactions: ["dart"],
+        withoutReactions: [],
+      }),
+    ).toThrow('Reaction filters require --oldest "<seconds>.<micros>" to bound scan size.');
   });
 });
