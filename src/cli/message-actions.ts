@@ -59,6 +59,24 @@ export function parseReactionFilters(raw: string[] | undefined): string[] {
   return out;
 }
 
+export function requireOldestWhenReactionFiltersUsed(input: {
+  oldest?: string;
+  withReactions: string[];
+  withoutReactions: string[];
+}): string | undefined {
+  const hasReactionFilters = input.withReactions.length > 0 || input.withoutReactions.length > 0;
+  const oldest = input.oldest?.trim();
+  if (!hasReactionFilters) {
+    return oldest;
+  }
+  if (!oldest) {
+    throw new Error(
+      'Reaction filters require --oldest "<seconds>.<micros>" to bound scan size. Example: --oldest "1770165109.628379"',
+    );
+  }
+  return oldest;
+}
+
 export async function handleMessageGet(input: {
   ctx: CliContext;
   targetInput: string;
@@ -171,11 +189,16 @@ export async function handleMessageList(input: {
       if (!threadTs && !ts) {
         const includeReactions = Boolean(input.options.includeReactions);
         const limit = parseLimit(input.options.limit);
+        const oldest = requireOldestWhenReactionFiltersUsed({
+          oldest: input.options.oldest,
+          withReactions,
+          withoutReactions,
+        });
         const channelMessages = await fetchChannelHistory(client, {
           channelId,
           limit,
           latest: input.options.latest?.trim(),
-          oldest: input.options.oldest?.trim(),
+          oldest,
           includeReactions: includeReactions || hasReactionFilters,
           withReactions,
           withoutReactions,
