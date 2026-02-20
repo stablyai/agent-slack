@@ -53,6 +53,13 @@ agent-slack message edit "#general" "updated text" --ts "1770165109.628379"
 agent-slack message delete "#general" --ts "1770165109.628379"
 ```
 
+### Channel admin by id/name
+
+```bash
+agent-slack channel invite --channel "#general" --users "@alice,bob@example.com"
+agent-slack channel invite --channel "C0123ABCDEF" --users "U01234567"
+```
+
 ## Multi-workspace ambiguity (channel names only)
 
 If you have multiple workspaces configured and your target is a channel **name** (`#general` / `general`), you must disambiguate:

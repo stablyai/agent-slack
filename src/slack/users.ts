@@ -77,10 +77,24 @@ export async function getUser(client: SlackApiClient, input: string): Promise<Co
   return toCompactUser(u);
 }
 
-async function resolveUserId(client: SlackApiClient, input: string): Promise<string | null> {
+export async function resolveUserId(client: SlackApiClient, input: string): Promise<string | null> {
   const trimmed = input.trim();
   if (/^U[A-Z0-9]{8,}$/.test(trimmed)) {
     return trimmed;
+  }
+
+  const looksLikeEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed) && !trimmed.startsWith("@");
+  if (looksLikeEmail) {
+    try {
+      const byEmail = await client.api("users.lookupByEmail", { email: trimmed });
+      const user = isRecord(byEmail.user) ? byEmail.user : null;
+      const userId = user ? getString(user.id) : undefined;
+      if (userId) {
+        return userId;
+      }
+    } catch {
+      // Fallback to users.list scan below.
+    }
   }
 
   const handle = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
@@ -92,7 +106,17 @@ async function resolveUserId(client: SlackApiClient, input: string): Promise<str
   for (;;) {
     const resp = await client.api("users.list", { limit: 200, cursor });
     const members = asArray(resp.members).filter(isRecord);
-    const found = members.find((m) => getString(m.name) === handle);
+    const found = members.find((m) => {
+      if (getString(m.name) === handle) {
+        return true;
+      }
+      if (looksLikeEmail) {
+        const profile = isRecord(m.profile) ? m.profile : null;
+        const email = profile ? getString(profile.email) : undefined;
+        return Boolean(email) && email?.toLowerCase() === trimmed.toLowerCase();
+      }
+      return false;
+    });
     if (found) {
       const id = getString(found.id);
       if (id) {

@@ -27,6 +27,7 @@ npm i -g agent-slack
 - **Search**: messages + files (with filters)
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
 - **Write**: reply, edit/delete messages, add reactions
+- **Channels**: create channels and invite users by id/handle/email
 - **Canvas**: fetch Slack canvases as Markdown
 
 ## Agent skill
@@ -65,6 +66,9 @@ agent-slack
 │   └── react
 │       ├── add    <target> <emoji>
 │       └── remove <target> <emoji>
+├── channel
+│   ├── new                         # create channel
+│   └── invite                      # invite users to channel
 ├── user
 │   ├── list
 │   └── get <user>
@@ -183,6 +187,19 @@ Channel mode requires `--ts`:
 ```bash
 agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "1770165109.628379"
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
+```
+
+### Create channels and invite users
+
+```bash
+# Create a public channel
+agent-slack channel new --name "incident-war-room"
+
+# Create a private channel
+agent-slack channel new --name "incident-leads" --private
+
+# Invite users by id, handle, or email
+agent-slack channel invite --channel "incident-war-room" --users "U01AAAA,@alice,bob@example.com"
 ```
 
 ### Message get vs list

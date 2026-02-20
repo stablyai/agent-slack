@@ -71,6 +71,11 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required for channel targets)
 
+## Channels
+
+- `agent-slack channel new --name <name> [--private] [--workspace <url-or-unique-substring>]`
+- `agent-slack channel invite --channel <id|name> --users "<U...,@handle,email,...>" [--workspace <url-or-unique-substring>]`
+
 ## Search
 
 - `agent-slack search all <query>` — messages + files (default)
