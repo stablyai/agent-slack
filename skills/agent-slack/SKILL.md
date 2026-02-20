@@ -113,7 +113,12 @@ agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.6283
 agent-slack channel new --name "incident-war-room"
 agent-slack channel new --name "incident-leads" --private
 agent-slack channel invite --channel "incident-war-room" --users "U01AAAA,@alice,bob@example.com"
+agent-slack channel invite --channel "incident-war-room" --users "partner@vendor.com" --external
+agent-slack channel invite --channel "incident-war-room" --users "partner@vendor.com" --external --allow-external-user-invites
 ```
+
+For `--external`, invite targets must be emails. By default, invitees are external-limited; add
+`--allow-external-user-invites` to allow them to invite other users.
 
 ## Search (messages + files)
 

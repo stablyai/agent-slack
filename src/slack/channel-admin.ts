@@ -74,3 +74,57 @@ export function parseInviteUsersCsv(input: string): string[] {
     ),
   );
 }
+
+export function splitEmailsFromInviteTargets(input: string[]): {
+  emails: string[];
+  non_email_targets: string[];
+} {
+  const emails: string[] = [];
+  const nonEmailTargets: string[] = [];
+  for (const target of input) {
+    if (isLikelyEmail(target)) {
+      emails.push(target);
+      continue;
+    }
+    nonEmailTargets.push(target);
+  }
+  return {
+    emails: Array.from(new Set(emails)),
+    non_email_targets: nonEmailTargets,
+  };
+}
+
+export async function inviteExternalUsersToChannel(
+  client: SlackApiClient,
+  input: { channelId: string; emails: string[]; externalLimited?: boolean },
+): Promise<{ invited_emails: string[]; already_invited_emails: string[] }> {
+  const invitedEmails: string[] = [];
+  const alreadyInvitedEmails: string[] = [];
+
+  for (const email of input.emails) {
+    try {
+      await client.api("conversations.inviteShared", {
+        channel: input.channelId,
+        emails: [email],
+        external_limited: input.externalLimited ?? true,
+      });
+      invitedEmails.push(email);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("already_in_channel") || message.includes("already_invited")) {
+        alreadyInvitedEmails.push(email);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  return {
+    invited_emails: invitedEmails,
+    already_invited_emails: alreadyInvitedEmails,
+  };
+}
+
+function isLikelyEmail(input: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.trim());
+}

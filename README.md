@@ -200,7 +200,19 @@ agent-slack channel new --name "incident-leads" --private
 
 # Invite users by id, handle, or email
 agent-slack channel invite --channel "incident-war-room" --users "U01AAAA,@alice,bob@example.com"
+
+# Invite external Slack Connect users by email (restricted by default)
+agent-slack channel invite --channel "incident-war-room" --users "partner@vendor.com" --external
+
+# External invite with permission for invitees to invite others
+agent-slack channel invite --channel "incident-war-room" --users "partner@vendor.com" --external --allow-external-user-invites
 ```
+
+Notes:
+
+- `--external` maps to `conversations.inviteShared` and expects email targets.
+- External invites default to restricted mode (`external_limited=true`); add `--allow-external-user-invites` to disable that restriction.
+- External invites require Slack Connect permissions/scopes in your workspace.
 
 ### Message get vs list
 
