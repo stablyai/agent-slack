@@ -151,6 +151,34 @@ describe("renderSlackMessageContent", () => {
     expect(rendered).toContain("> Anonymous forward");
   });
 
+  test("includes forwarded file links in quoted forwarded body", () => {
+    const msg = {
+      text: "",
+      attachments: [
+        {
+          is_share: true,
+          from_url: "https://example.slack.com/archives/C222/p333",
+          message_blocks: [
+            {
+              message: {
+                text: "Forwarded with image",
+              },
+            },
+          ],
+          files: [
+            {
+              name: "image.png",
+              permalink: "https://example.slack.com/files/U1/F1/image.png",
+            },
+          ],
+        },
+      ],
+    };
+    const rendered = renderSlackMessageContent(msg);
+    expect(rendered).toContain("> Forwarded with image");
+    expect(rendered).toContain("> [image.png](https://example.slack.com/files/U1/F1/image.png)");
+  });
+
   test("renders nested forwarded attachments similarly to normal attachments", () => {
     const msg = {
       text: "",
