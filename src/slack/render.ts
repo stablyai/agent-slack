@@ -1,17 +1,19 @@
 import { slackMrkdwnToMarkdown } from "./mrkdwn.ts";
 
 type UnknownRecord = Record<string, unknown>;
+type RenderState = { depth: number; seen: WeakSet<object> };
+const MAX_ATTACHMENT_DEPTH = 8;
 
 export function renderSlackMessageContent(msg: unknown): string {
   const msgObj = isRecord(msg) ? msg : {};
   const blockMrkdwn = extractMrkdwnFromBlocks(msgObj.blocks);
-  if (blockMrkdwn.trim()) {
-    return slackMrkdwnToMarkdown(blockMrkdwn).trim();
-  }
-
-  const attachmentMrkdwn = extractMrkdwnFromAttachments(msgObj.attachments);
-  if (attachmentMrkdwn.trim()) {
-    return slackMrkdwnToMarkdown(attachmentMrkdwn).trim();
+  const attachmentMrkdwn = extractMrkdwnFromAttachments(msgObj.attachments, {
+    depth: 0,
+    seen: new WeakSet<object>(),
+  });
+  const combined = [blockMrkdwn.trim(), attachmentMrkdwn.trim()].filter(Boolean).join("\n\n");
+  if (combined) {
+    return slackMrkdwnToMarkdown(combined).trim();
   }
 
   const text = getString(msgObj.text).trim();
@@ -229,7 +231,10 @@ function extractMrkdwnFromRichTextElement(el: unknown): string {
   return "";
 }
 
-function extractMrkdwnFromAttachments(attachments: unknown): string {
+function extractMrkdwnFromAttachments(attachments: unknown, state: RenderState): string {
+  if (state.depth >= MAX_ATTACHMENT_DEPTH) {
+    return "";
+  }
   if (!Array.isArray(attachments)) {
     return "";
   }
@@ -239,7 +244,34 @@ function extractMrkdwnFromAttachments(attachments: unknown): string {
     if (!isRecord(a)) {
       continue;
     }
+    if (state.seen.has(a)) {
+      continue;
+    }
+    state.seen.add(a);
+
+    const isSharedMessage = Boolean(
+      a.is_share || (a.is_msg_unfurl && Array.isArray(a.message_blocks)),
+    );
+
     const chunk: string[] = [];
+
+    if (isSharedMessage) {
+      chunk.push(formatForwardHeader(a));
+
+      const body =
+        extractForwardedMessageBody(a, state).trim() ||
+        extractMrkdwnFromAttachments(a.attachments, nextState(state)).trim() ||
+        getString(a.text).trim();
+      if (body) {
+        chunk.push(quoteMarkdown(body));
+      }
+
+      if (chunk.length > 0) {
+        parts.push(chunk.join("\n"));
+      }
+      continue;
+    }
+
     const blocks = extractMrkdwnFromBlocks(a.blocks);
     if (blocks.trim()) {
       chunk.push(blocks);
@@ -281,11 +313,119 @@ function extractMrkdwnFromAttachments(attachments: unknown): string {
     if (chunk.length === 0 && fallback) {
       chunk.push(fallback);
     }
+    const nestedAttachments = extractMrkdwnFromAttachments(a.attachments, nextState(state));
+    if (nestedAttachments.trim()) {
+      chunk.push(nestedAttachments);
+    }
     if (chunk.length > 0) {
-      parts.push(chunk.join("\n"));
+      parts.push(uniqueTexts(chunk).join("\n"));
     }
   }
-  return parts.join("\n\n");
+  return uniqueTexts(parts).join("\n\n");
+}
+
+function formatForwardHeader(a: Record<string, unknown>): string {
+  const authorName = getString(a.author_name);
+  const authorLink = getString(a.author_link);
+  const fromUrl = getString(a.from_url);
+
+  const authorPart = authorName && authorLink ? `<${authorLink}|${authorName}>` : authorName || "";
+  const sourcePart = fromUrl ? `<${fromUrl}|original>` : "";
+
+  if (authorPart && sourcePart) {
+    return `*Forwarded from ${authorPart} | ${sourcePart}*`;
+  }
+  if (authorPart) {
+    return `*Forwarded from ${authorPart}*`;
+  }
+  if (sourcePart) {
+    return `*Forwarded message | ${sourcePart}*`;
+  }
+  return "*Forwarded message*";
+}
+
+function extractForwardedMessageBody(
+  attachment: Record<string, unknown>,
+  state: RenderState,
+): string {
+  const messageBlocks = attachment.message_blocks;
+  const topLevelFiles = extractFileMentions(attachment.files).trim();
+  if (!Array.isArray(messageBlocks)) {
+    return topLevelFiles;
+  }
+  const out: string[] = [];
+  for (const mb of messageBlocks) {
+    if (!isRecord(mb)) {
+      continue;
+    }
+    const message = isRecord(mb.message) ? mb.message : null;
+    if (!message) {
+      continue;
+    }
+    const messageText = getString(message.text).trim();
+    const blocksContent = extractMrkdwnFromBlocks(message.blocks).trim();
+    const attachmentsContent = extractMrkdwnFromAttachments(
+      message.attachments,
+      nextState(state),
+    ).trim();
+    const fileMentions = extractFileMentions(message.files).trim();
+    const content = uniqueTexts([
+      blocksContent,
+      attachmentsContent,
+      messageText,
+      fileMentions,
+    ]).join("\n\n");
+    if (content) {
+      out.push(content);
+    }
+  }
+  return uniqueTexts([topLevelFiles, ...out]).join("\n");
+}
+
+function nextState(state: RenderState): RenderState {
+  return { depth: state.depth + 1, seen: state.seen };
+}
+
+function quoteMarkdown(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
+function uniqueTexts(values: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const text = value.trim();
+    if (!text || seen.has(text)) {
+      continue;
+    }
+    seen.add(text);
+    out.push(text);
+  }
+  return out;
+}
+
+function extractFileMentions(files: unknown): string {
+  if (!Array.isArray(files)) {
+    return "";
+  }
+  const lines: string[] = [];
+  for (const f of files) {
+    if (!isRecord(f)) {
+      continue;
+    }
+    const name = getString(f.title) || getString(f.name) || "file";
+    const url =
+      getString(f.permalink) || getString(f.url_private_download) || getString(f.url_private);
+    if (url) {
+      lines.push(`<${url}|${name}>`);
+      continue;
+    }
+    lines.push(name);
+  }
+  return uniqueTexts(lines).join("\n");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
