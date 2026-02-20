@@ -151,6 +151,74 @@ describe("renderSlackMessageContent", () => {
     expect(rendered).toContain("> Anonymous forward");
   });
 
+  test("renders nested forwarded attachments similarly to normal attachments", () => {
+    const msg = {
+      text: "",
+      attachments: [
+        {
+          is_share: true,
+          author_name: "Carol",
+          message_blocks: [
+            {
+              message: {
+                attachments: [
+                  {
+                    title: "Nested update",
+                    title_link: "https://example.com/update",
+                    text: "Deployment passed",
+                    fields: [{ title: "Env", value: "prod" }],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const rendered = renderSlackMessageContent(msg);
+    expect(rendered).toContain("Forwarded from Carol");
+    expect(rendered).toContain("> [Nested update](https://example.com/update)");
+    expect(rendered).toContain("> Deployment passed");
+    expect(rendered).toContain("> Env");
+    expect(rendered).toContain("> prod");
+  });
+
+  test("deduplicates repeated forwarded body content", () => {
+    const msg = {
+      text: "",
+      attachments: [
+        {
+          is_share: true,
+          text: "Same content",
+          message_blocks: [
+            {
+              message: {
+                text: "Same content",
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const rendered = renderSlackMessageContent(msg);
+    const matches = rendered.match(/> Same content/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  test("handles cyclic forwarded attachments without infinite recursion", () => {
+    const shared: Record<string, unknown> = {
+      is_share: true,
+      author_name: "Loop User",
+      text: "Cycle-safe text",
+    };
+    shared.message_blocks = [{ message: { attachments: [shared] } }];
+
+    const msg = { text: "", attachments: [shared] };
+    const rendered = renderSlackMessageContent(msg);
+    expect(rendered).toContain("Forwarded from Loop User");
+    expect(rendered).toContain("> Cycle-safe text");
+  });
+
   test("does not treat link unfurl as forwarded message", () => {
     const msg = {
       text: "",
