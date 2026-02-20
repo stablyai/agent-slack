@@ -11,6 +11,7 @@ export type CompactSlackUser = {
   tz?: string;
   is_bot?: boolean;
   deleted?: boolean;
+  dm_id?: string;
 };
 
 export async function listUsers(
@@ -24,38 +25,39 @@ export async function listUsers(
   const limit = Math.min(Math.max(options?.limit ?? 200, 1), 1000);
   const includeBots = options?.includeBots ?? false;
 
-  const out: CompactSlackUser[] = [];
-  let cursor = options?.cursor;
+  let next_cursor: string | undefined;
+  const [out, dmMap] = await Promise.all([
+    (async () => {
+      const users: CompactSlackUser[] = [];
+      let cursor = options?.cursor;
+      while (users.length < limit) {
+        const pageSize = Math.min(200, limit - users.length);
+        const resp = await client.api("users.list", { limit: pageSize, cursor });
+        const members = asArray(resp.members).filter(isRecord);
+        for (const m of members) {
+          const id = getString(m.id);
+          if (!id) continue;
+          if (!includeBots && m.is_bot) continue;
+          users.push(toCompactUser(m));
+          if (users.length >= limit) break;
+        }
+        const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+        const next = meta ? getString(meta.next_cursor) : undefined;
+        if (!next) break;
+        cursor = next;
+        next_cursor = next;
+      }
+      return users;
+    })(),
+    fetchDmMap(client),
+  ]);
 
-  while (out.length < limit) {
-    const pageSize = Math.min(200, limit - out.length);
-    const resp = await client.api("users.list", {
-      limit: pageSize,
-      cursor,
-    });
-    const members = asArray(resp.members).filter(isRecord);
-    for (const m of members) {
-      const id = getString(m.id);
-      if (!id) {
-        continue;
-      }
-      if (!includeBots && m.is_bot) {
-        continue;
-      }
-      out.push(toCompactUser(m));
-      if (out.length >= limit) {
-        break;
-      }
-    }
-    const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
-    const next = meta ? getString(meta.next_cursor) : undefined;
-    if (!next) {
-      return { users: out };
-    }
-    cursor = next;
+  for (const u of out) {
+    const dmId = dmMap.get(u.id);
+    if (dmId) u.dm_id = dmId;
   }
 
-  return { users: out, next_cursor: cursor };
+  return { users: out, next_cursor };
 }
 
 export async function getUser(client: SlackApiClient, input: string): Promise<CompactSlackUser> {
@@ -131,6 +133,29 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
     cursor = next;
   }
   return null;
+}
+
+async function fetchDmMap(client: SlackApiClient): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  let cursor: string | undefined;
+  for (;;) {
+    const resp = await client.api("conversations.list", {
+      types: "im",
+      limit: 200,
+      cursor,
+    });
+    const channels = asArray(resp.channels).filter(isRecord);
+    for (const ch of channels) {
+      const id = getString(ch.id);
+      const user = getString(ch.user);
+      if (id && user) map.set(user, id);
+    }
+    const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+    const next = meta ? getString(meta.next_cursor) : undefined;
+    if (!next) break;
+    cursor = next;
+  }
+  return map;
 }
 
 function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
