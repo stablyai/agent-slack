@@ -78,6 +78,8 @@ To see what's been posted recently in a channel (channel history):
 ```bash
 agent-slack message list "#general" --limit 20
 agent-slack message list "C0123ABC" --limit 10
+agent-slack message list "#general" --with-reaction eyes --limit 20
+agent-slack message list "#general" --without-reaction dart --limit 20
 ```
 
 This returns the most recent messages in chronological order. Use `--limit` to control how many (default 25).
