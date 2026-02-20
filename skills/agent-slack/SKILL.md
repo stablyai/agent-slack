@@ -85,7 +85,6 @@ This returns the most recent messages in chronological order. Use `--limit` to c
 ## Attachments (snippets/images/files)
 
 `message get/list` and `search` auto-download attachments and include absolute paths in JSON output (typically under `message.files[].path` / `files[].path`).
-Forwarded/shared Slack messages are rendered with nested attachment content (fields/links/text) and cycle-safe guards.
 
 ## Send, edit, delete, or react
 
