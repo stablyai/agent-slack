@@ -301,49 +301,109 @@ export async function fetchChannelHistory(
     latest?: string;
     oldest?: string;
     includeReactions?: boolean;
+    withReactions?: string[];
+    withoutReactions?: string[];
   },
 ): Promise<SlackMessageSummary[]> {
   const raw = input.limit ?? 25;
   const limit = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 200) : 25;
   const out: SlackMessageSummary[] = [];
+  const withReactions = input.withReactions ?? [];
+  const withoutReactions = input.withoutReactions ?? [];
+  const hasReactionFilters = withReactions.length > 0 || withoutReactions.length > 0;
+  const pageLimit = hasReactionFilters ? 200 : limit;
 
-  const resp = await client.api("conversations.history", {
-    channel: input.channelId,
-    limit,
-    latest: input.latest,
-    oldest: input.oldest,
-    include_all_metadata: input.includeReactions ? true : undefined,
-  });
-  const messages = asArray(resp.messages);
-  for (const m of messages) {
-    if (!isRecord(m)) {
-      continue;
-    }
-    const files = asArray(m.files)
-      .map((f) => toSlackFileSummary(f))
-      .filter((f): f is SlackFileSummary => f !== null);
-    const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
-
-    const text = getString(m.text) ?? "";
-    out.push({
-      channel_id: input.channelId,
-      ts: getString(m.ts) ?? "",
-      thread_ts: getString(m.thread_ts),
-      reply_count: getNumber(m.reply_count),
-      user: getString(m.user),
-      bot_id: getString(m.bot_id),
-      text,
-      markdown: slackMrkdwnToMarkdown(text),
-      blocks: Array.isArray(m.blocks) ? (m.blocks as unknown[]) : undefined,
-      attachments: Array.isArray(m.attachments) ? (m.attachments as unknown[]) : undefined,
-      files: enrichedFiles,
-      reactions: Array.isArray(m.reactions) ? (m.reactions as unknown[]) : undefined,
+  let cursorLatest = input.latest;
+  for (;;) {
+    const resp = await client.api("conversations.history", {
+      channel: input.channelId,
+      limit: pageLimit,
+      latest: cursorLatest,
+      oldest: input.oldest,
+      include_all_metadata: input.includeReactions || hasReactionFilters ? true : undefined,
     });
+    const messages = asArray(resp.messages);
+    if (messages.length === 0) {
+      break;
+    }
+    for (const m of messages) {
+      if (!isRecord(m)) {
+        continue;
+      }
+      if (
+        hasReactionFilters &&
+        !passesReactionNameFilters(m, {
+          withReactions,
+          withoutReactions,
+        })
+      ) {
+        continue;
+      }
+      const files = asArray(m.files)
+        .map((f) => toSlackFileSummary(f))
+        .filter((f): f is SlackFileSummary => f !== null);
+      const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
+
+      const text = getString(m.text) ?? "";
+      out.push({
+        channel_id: input.channelId,
+        ts: getString(m.ts) ?? "",
+        thread_ts: getString(m.thread_ts),
+        reply_count: getNumber(m.reply_count),
+        user: getString(m.user),
+        bot_id: getString(m.bot_id),
+        text,
+        markdown: slackMrkdwnToMarkdown(text),
+        blocks: Array.isArray(m.blocks) ? (m.blocks as unknown[]) : undefined,
+        attachments: Array.isArray(m.attachments) ? (m.attachments as unknown[]) : undefined,
+        files: enrichedFiles,
+        reactions: Array.isArray(m.reactions) ? (m.reactions as unknown[]) : undefined,
+      });
+      if (out.length >= limit) {
+        break;
+      }
+    }
+
+    if (out.length >= limit || !hasReactionFilters) {
+      break;
+    }
+
+    const last = messages.at(-1);
+    const nextLatest = isRecord(last) ? getString(last.ts) : undefined;
+    if (!nextLatest || nextLatest === cursorLatest) {
+      break;
+    }
+    cursorLatest = nextLatest;
   }
 
   // conversations.history returns newest-first; normalize to chronological.
   out.sort((a, b) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts));
   return out;
+}
+
+export function passesReactionNameFilters(
+  msg: Record<string, unknown>,
+  input: { withReactions?: string[]; withoutReactions?: string[] },
+): boolean {
+  const withReactions = input.withReactions ?? [];
+  const withoutReactions = input.withoutReactions ?? [];
+  const names = new Set<string>();
+  for (const r of asArray(msg.reactions)) {
+    if (!isRecord(r)) {
+      continue;
+    }
+    const name = getString(r.name)?.trim();
+    if (name) {
+      names.add(name);
+    }
+  }
+  if (withReactions.some((name) => !names.has(name))) {
+    return false;
+  }
+  if (withoutReactions.some((name) => names.has(name))) {
+    return false;
+  }
+  return true;
 }
 
 export async function fetchThread(
