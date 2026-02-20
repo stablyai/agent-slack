@@ -19,4 +19,27 @@ describe("reactions compaction", () => {
     expect(b.reactions?.[0]?.users?.length).toBe(2);
     expect(b.reactions?.[0]?.count).toBeUndefined();
   });
+
+  test("adds forwarded thread metadata for shared messages with thread_ts", () => {
+    const msg: SlackMessageSummary = {
+      channel_id: "C1",
+      ts: "1.000001",
+      text: "outer",
+      markdown: "outer",
+      attachments: [
+        {
+          is_share: true,
+          reply_count: 4,
+          from_url:
+            "https://example.slack.com/archives/C222/p333?thread_ts=1771564510.386389&cid=C222",
+        },
+      ],
+    };
+
+    const compact = toCompactMessage(msg);
+    expect(compact.forwarded_threads?.length).toBe(1);
+    expect(compact.forwarded_threads?.[0]?.thread_ts).toBe("1771564510.386389");
+    expect(compact.forwarded_threads?.[0]?.channel_id).toBe("C222");
+    expect(compact.forwarded_threads?.[0]?.reply_count).toBe(4);
+  });
 });

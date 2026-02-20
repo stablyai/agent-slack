@@ -186,7 +186,7 @@ agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.6283
 ```json
 {
   "message": { "ts": "...", "text": "...", "user": "U123", ... },
-  "thread": { "replyCount": 5, "participants": ["U123", "U456"] }
+  "thread": { "ts": "...", "length": 6 }
 }
 ```
 
