@@ -58,6 +58,8 @@ agent-slack message delete "#general" --ts "1770165109.628379"
 ```bash
 agent-slack channel invite --channel "#general" --users "@alice,bob@example.com"
 agent-slack channel invite --channel "C0123ABCDEF" --users "U01234567"
+agent-slack channel invite --channel "#shared-room" --users "partner@vendor.com" --external
+agent-slack channel invite --channel "#shared-room" --users "partner@vendor.com" --external --allow-external-user-invites
 ```
 
 ## Multi-workspace ambiguity (channel names only)
