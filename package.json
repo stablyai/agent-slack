@@ -31,6 +31,7 @@
     "release": "sh ./scripts/release.sh",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "docs:check": "bash ./scripts/check-docs-sync.sh",
     "lint": "oxlint .",
     "lintf": "oxlint --fix .",
     "lint:fix": "oxlint --fix .",
