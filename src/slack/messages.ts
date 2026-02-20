@@ -57,7 +57,7 @@ export type CompactSlackMessage = {
     url: string;
     thread_ts: string;
     channel_id?: string;
-    has_more_replies: true;
+    reply_count?: number;
   }[];
 };
 
@@ -134,7 +134,7 @@ function extractForwardedThreads(attachments: unknown[] | undefined):
       url: string;
       thread_ts: string;
       channel_id?: string;
-      has_more_replies: true;
+      reply_count?: number;
     }[]
   | undefined {
   if (!Array.isArray(attachments) || attachments.length === 0) {
@@ -144,7 +144,7 @@ function extractForwardedThreads(attachments: unknown[] | undefined):
     url: string;
     thread_ts: string;
     channel_id?: string;
-    has_more_replies: true;
+    reply_count?: number;
   }[] = [];
   const seen = new Set<string>();
   for (const attachment of attachments) {
@@ -166,6 +166,7 @@ function extractForwardedThreads(attachments: unknown[] | undefined):
       continue;
     }
     const channelId = parsed.searchParams.get("cid")?.trim();
+    const replyCount = getNumber(attachment.reply_count);
     const key = `${fromUrl}::${threadTs}`;
     if (seen.has(key)) {
       continue;
@@ -175,7 +176,7 @@ function extractForwardedThreads(attachments: unknown[] | undefined):
       url: fromUrl,
       thread_ts: threadTs,
       channel_id: channelId || undefined,
-      has_more_replies: true,
+      reply_count: replyCount,
     });
   }
   return out.length ? out : undefined;
