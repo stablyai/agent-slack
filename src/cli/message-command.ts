@@ -1,6 +1,8 @@
 import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
 import {
+  deleteMessage,
+  editMessage,
   handleMessageGet,
   handleMessageList,
   reactOnTarget,
@@ -63,6 +65,60 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       const [targetInput, options] = args as [string, MessageCommandOptions];
       try {
         const payload = await handleMessageList({ ctx: input.ctx, targetInput, options });
+        console.log(JSON.stringify(payload, null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  messageCmd
+    .command("edit")
+    .description("Edit a message")
+    .argument("<target>", "Slack message URL, #channel, or channel ID")
+    .argument("<text>", "New message text")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
+    )
+    .option("--ts <ts>", "Message ts (required when using #channel/channel id)")
+    .action(async (...args) => {
+      const [targetInput, text, options] = args as [
+        string,
+        string,
+        { workspace?: string; ts?: string },
+      ];
+      try {
+        const payload = await editMessage({
+          ctx: input.ctx,
+          targetInput,
+          text,
+          options,
+        });
+        console.log(JSON.stringify(payload, null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  messageCmd
+    .command("delete")
+    .description("Delete a message")
+    .argument("<target>", "Slack message URL, #channel, or channel ID")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
+    )
+    .option("--ts <ts>", "Message ts (required when using #channel/channel id)")
+    .action(async (...args) => {
+      const [targetInput, options] = args as [string, { workspace?: string; ts?: string }];
+      try {
+        const payload = await deleteMessage({
+          ctx: input.ctx,
+          targetInput,
+          options,
+        });
         console.log(JSON.stringify(payload, null, 2));
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));

@@ -35,6 +35,14 @@ export function parseLimit(raw: string | undefined): number | undefined {
   return n;
 }
 
+export function requireMessageTs(raw: string | undefined): string {
+  const ts = raw?.trim();
+  if (!ts) {
+    throw new Error('When targeting a channel, you must pass --ts "<seconds>.<micros>"');
+  }
+  return ts;
+}
+
 export async function handleMessageGet(input: {
   ctx: CliContext;
   targetInput: string;
@@ -232,6 +240,87 @@ export async function sendMessage(input: {
   return { ok: true };
 }
 
+export async function editMessage(input: {
+  ctx: CliContext;
+  targetInput: string;
+  text: string;
+  options: { workspace?: string; ts?: string };
+}): Promise<Record<string, unknown>> {
+  const target = parseMsgTarget(String(input.targetInput));
+  const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
+
+  await input.ctx.withAutoRefresh({
+    workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
+    work: async () => {
+      if (target.kind === "url") {
+        const { ref } = target;
+        warnOnTruncatedSlackUrl(ref);
+        const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
+        await client.api("chat.update", {
+          channel: ref.channel_id,
+          ts: ref.message_ts,
+          text: input.text,
+        });
+        return;
+      }
+
+      const ts = requireMessageTs(input.options.ts);
+      await input.ctx.assertWorkspaceSpecifiedForChannelNames({
+        workspaceUrl,
+        channels: [target.channel],
+      });
+      const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+      const channelId = await resolveChannelId(client, target.channel);
+      await client.api("chat.update", {
+        channel: channelId,
+        ts,
+        text: input.text,
+      });
+    },
+  });
+
+  return { ok: true };
+}
+
+export async function deleteMessage(input: {
+  ctx: CliContext;
+  targetInput: string;
+  options: { workspace?: string; ts?: string };
+}): Promise<Record<string, unknown>> {
+  const target = parseMsgTarget(String(input.targetInput));
+  const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
+
+  await input.ctx.withAutoRefresh({
+    workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
+    work: async () => {
+      if (target.kind === "url") {
+        const { ref } = target;
+        warnOnTruncatedSlackUrl(ref);
+        const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
+        await client.api("chat.delete", {
+          channel: ref.channel_id,
+          ts: ref.message_ts,
+        });
+        return;
+      }
+
+      const ts = requireMessageTs(input.options.ts);
+      await input.ctx.assertWorkspaceSpecifiedForChannelNames({
+        workspaceUrl,
+        channels: [target.channel],
+      });
+      const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+      const channelId = await resolveChannelId(client, target.channel);
+      await client.api("chat.delete", {
+        channel: channelId,
+        ts,
+      });
+    },
+  });
+
+  return { ok: true };
+}
+
 export async function reactOnTarget(input: {
   ctx: CliContext;
   action: "add" | "remove";
@@ -258,10 +347,7 @@ export async function reactOnTarget(input: {
         return;
       }
 
-      const ts = input.options?.ts?.trim();
-      if (!ts) {
-        throw new Error('When targeting a channel, you must pass --ts "<seconds>.<micros>"');
-      }
+      const ts = requireMessageTs(input.options?.ts);
 
       await input.ctx.assertWorkspaceSpecifiedForChannelNames({
         workspaceUrl,
