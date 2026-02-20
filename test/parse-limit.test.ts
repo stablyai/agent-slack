@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseLimit } from "../src/cli/message-actions.ts";
+import { parseLimit, requireMessageTs } from "../src/cli/message-actions.ts";
 
 describe("parseLimit", () => {
   test("returns undefined when no value given", () => {
@@ -27,5 +27,23 @@ describe("parseLimit", () => {
   test("rejects floats (uses integer part)", () => {
     // parseInt("3.5") → 3, which is valid
     expect(parseLimit("3.5")).toBe(3);
+  });
+});
+
+describe("requireMessageTs", () => {
+  test("returns trimmed ts when present", () => {
+    expect(requireMessageTs(" 1770165109.628379 ")).toBe("1770165109.628379");
+  });
+
+  test("throws when missing", () => {
+    expect(() => requireMessageTs(undefined)).toThrow(
+      'When targeting a channel, you must pass --ts "<seconds>.<micros>"',
+    );
+  });
+
+  test("throws when blank", () => {
+    expect(() => requireMessageTs("   ")).toThrow(
+      'When targeting a channel, you must pass --ts "<seconds>.<micros>"',
+    );
   });
 });
