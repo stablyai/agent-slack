@@ -1,11 +1,16 @@
 import { slackMrkdwnToMarkdown } from "./mrkdwn.ts";
 
 type UnknownRecord = Record<string, unknown>;
+type RenderState = { depth: number; seen: WeakSet<object> };
+const MAX_ATTACHMENT_DEPTH = 8;
 
 export function renderSlackMessageContent(msg: unknown): string {
   const msgObj = isRecord(msg) ? msg : {};
   const blockMrkdwn = extractMrkdwnFromBlocks(msgObj.blocks);
-  const attachmentMrkdwn = extractMrkdwnFromAttachments(msgObj.attachments);
+  const attachmentMrkdwn = extractMrkdwnFromAttachments(msgObj.attachments, {
+    depth: 0,
+    seen: new WeakSet<object>(),
+  });
   const combined = [blockMrkdwn.trim(), attachmentMrkdwn.trim()].filter(Boolean).join("\n\n");
   if (combined) {
     return slackMrkdwnToMarkdown(combined).trim();
@@ -226,7 +231,10 @@ function extractMrkdwnFromRichTextElement(el: unknown): string {
   return "";
 }
 
-function extractMrkdwnFromAttachments(attachments: unknown): string {
+function extractMrkdwnFromAttachments(attachments: unknown, state: RenderState): string {
+  if (state.depth >= MAX_ATTACHMENT_DEPTH) {
+    return "";
+  }
   if (!Array.isArray(attachments)) {
     return "";
   }
@@ -236,6 +244,10 @@ function extractMrkdwnFromAttachments(attachments: unknown): string {
     if (!isRecord(a)) {
       continue;
     }
+    if (state.seen.has(a)) {
+      continue;
+    }
+    state.seen.add(a);
 
     const isSharedMessage = Boolean(
       a.is_share || (a.is_msg_unfurl && Array.isArray(a.message_blocks)),
@@ -246,15 +258,12 @@ function extractMrkdwnFromAttachments(attachments: unknown): string {
     if (isSharedMessage) {
       chunk.push(formatForwardHeader(a));
 
-      const msgBlocksContent = extractMrkdwnFromMessageBlocks(a.message_blocks);
-      const body = msgBlocksContent.trim() || getString(a.text).trim();
+      const body =
+        extractForwardedMessageBody(a, state).trim() ||
+        extractMrkdwnFromAttachments(a.attachments, nextState(state)).trim() ||
+        getString(a.text).trim();
       if (body) {
-        chunk.push(
-          body
-            .split("\n")
-            .map((line) => `> ${line}`)
-            .join("\n"),
-        );
+        chunk.push(quoteMarkdown(body));
       }
 
       if (chunk.length > 0) {
@@ -304,11 +313,15 @@ function extractMrkdwnFromAttachments(attachments: unknown): string {
     if (chunk.length === 0 && fallback) {
       chunk.push(fallback);
     }
+    const nestedAttachments = extractMrkdwnFromAttachments(a.attachments, nextState(state));
+    if (nestedAttachments.trim()) {
+      chunk.push(nestedAttachments);
+    }
     if (chunk.length > 0) {
-      parts.push(chunk.join("\n"));
+      parts.push(uniqueTexts(chunk).join("\n"));
     }
   }
-  return parts.join("\n\n");
+  return uniqueTexts(parts).join("\n\n");
 }
 
 function formatForwardHeader(a: Record<string, unknown>): string {
@@ -331,7 +344,11 @@ function formatForwardHeader(a: Record<string, unknown>): string {
   return "*Forwarded message*";
 }
 
-function extractMrkdwnFromMessageBlocks(messageBlocks: unknown): string {
+function extractForwardedMessageBody(
+  attachment: Record<string, unknown>,
+  state: RenderState,
+): string {
+  const messageBlocks = attachment.message_blocks;
   if (!Array.isArray(messageBlocks)) {
     return "";
   }
@@ -344,12 +361,43 @@ function extractMrkdwnFromMessageBlocks(messageBlocks: unknown): string {
     if (!message) {
       continue;
     }
-    const content = extractMrkdwnFromBlocks(message.blocks);
-    if (content.trim()) {
+    const messageText = getString(message.text).trim();
+    const blocksContent = extractMrkdwnFromBlocks(message.blocks).trim();
+    const attachmentsContent = extractMrkdwnFromAttachments(
+      message.attachments,
+      nextState(state),
+    ).trim();
+    const content = uniqueTexts([blocksContent, attachmentsContent, messageText]).join("\n\n");
+    if (content) {
       out.push(content);
     }
   }
-  return out.join("\n\n");
+  return uniqueTexts(out).join("\n\n");
+}
+
+function nextState(state: RenderState): RenderState {
+  return { depth: state.depth + 1, seen: state.seen };
+}
+
+function quoteMarkdown(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
+function uniqueTexts(values: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const text = value.trim();
+    if (!text || seen.has(text)) {
+      continue;
+    }
+    seen.add(text);
+    out.push(text);
+  }
+  return out;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
