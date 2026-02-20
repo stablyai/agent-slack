@@ -6,7 +6,7 @@ description: |
   - Browsing recent channel messages / channel history
   - Downloading Slack attachments (snippets, images, files) to local paths
   - Searching Slack messages or files
-  - Sending a reply or adding/removing a reaction
+  - Sending, editing, or deleting a message; adding/removing reactions
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
   Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages"
@@ -86,12 +86,21 @@ This returns the most recent messages in chronological order. Use `--limit` to c
 
 `message get/list` and `search` auto-download attachments and include absolute paths in JSON output (typically under `message.files[].path` / `files[].path`).
 
-## Reply or react (does the right thing)
+## Send, edit, delete, or react
 
 ```bash
 agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this."
+agent-slack message edit "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this today."
+agent-slack message delete "https://workspace.slack.com/archives/C123/p1700000000000000"
 agent-slack message react add "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
 agent-slack message react remove "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
+```
+
+Channel mode for edit/delete requires `--ts`:
+
+```bash
+agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "1770165109.628379"
+agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
 ## Search (messages + files)

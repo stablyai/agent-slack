@@ -15,6 +15,8 @@ Examples:
 - `agent-slack message get "<url>"`
 - `agent-slack message list "<url>"`
 - `agent-slack message send "<url>" "reply text"`
+- `agent-slack message edit "<url>" "updated text"`
+- `agent-slack message delete "<url>"`
 - `agent-slack message react add "<url>" "eyes"`
 
 ## Channel targets (when you don’t have a URL)
@@ -41,6 +43,13 @@ agent-slack message list "#general" --ts "1770165109.628379"  # resolves to its 
 
 ```bash
 agent-slack message react add "#general" "eyes" --ts "1770165109.628379"
+```
+
+### Edit/delete by channel + `--ts`
+
+```bash
+agent-slack message edit "#general" "updated text" --ts "1770165109.628379"
+agent-slack message delete "#general" --ts "1770165109.628379"
 ```
 
 ## Multi-workspace ambiguity (channel names only)

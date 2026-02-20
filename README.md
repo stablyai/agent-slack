@@ -26,7 +26,7 @@ npm i -g agent-slack
 - **Read**: fetch a message, browse channel history, list full threads
 - **Search**: messages + files (with filters)
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
-- **Write**: reply in thread, add reactions
+- **Write**: reply, edit/delete messages, add reactions
 - **Canvas**: fetch Slack canvases as Markdown
 
 ## Agent skill
@@ -60,6 +60,8 @@ agent-slack
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch thread or recent channel messages
 │   ├── send  <target> <text>      # send / reply (does the right thing)
+│   ├── edit  <target> <text>      # edit a message
+│   ├── delete <target>            # delete a message
 │   └── react
 │       ├── add    <target> <emoji>
 │       └── remove <target> <emoji>
@@ -158,6 +160,23 @@ Optional:
 ```bash
 # Include reactions + which users reacted
 agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000" --include-reactions
+```
+
+### Reply, edit, delete, and react
+
+```bash
+agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this."
+agent-slack message edit "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this today."
+agent-slack message delete "https://workspace.slack.com/archives/C123/p1700000000000000"
+agent-slack message react add "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
+agent-slack message react remove "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
+```
+
+Channel mode requires `--ts`:
+
+```bash
+agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "1770165109.628379"
+agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
 ### Message get vs list
