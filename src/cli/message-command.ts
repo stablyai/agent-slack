@@ -10,6 +10,10 @@ import {
   type MessageCommandOptions,
 } from "./message-actions.ts";
 
+function collectOptionValue(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
+
 export function registerMessageCommand(input: { program: Command; ctx: CliContext }): void {
   const messageCmd = input.program
     .command("message")
@@ -55,6 +59,18 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .option("--limit <n>", "Max messages to return for channel history (default 25, max 200)")
     .option("--oldest <ts>", "Only messages after this ts (channel history mode)")
     .option("--latest <ts>", "Only messages before this ts (channel history mode)")
+    .option(
+      "--with-reaction <emoji>",
+      "Only include messages with this reaction (repeatable; channel history mode)",
+      collectOptionValue,
+      [],
+    )
+    .option(
+      "--without-reaction <emoji>",
+      "Only include messages without this reaction (repeatable; channel history mode)",
+      collectOptionValue,
+      [],
+    )
     .option(
       "--max-body-chars <n>",
       "Max content characters to include (default 8000, -1 for unlimited)",
