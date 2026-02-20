@@ -2,12 +2,23 @@
 
 Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option list.
 
+## Table of contents
+
+- [Auth](#auth)
+- [Messages / threads](#messages--threads)
+- [Channels](#channels)
+- [Search](#search)
+- [Canvas](#canvas)
+- [Users](#users)
+- [Update](#update)
+
 ## Auth
 
 - `agent-slack auth whoami` — show configured workspaces + token sources (secrets redacted)
 - `agent-slack auth test [--workspace <url-or-unique-substring>]` — verify credentials (`auth.test`)
 - `agent-slack auth import-desktop` — import browser-style creds from Slack Desktop (macOS)
 - `agent-slack auth import-chrome` — import creds from Chrome (macOS)
+- `agent-slack auth import-brave` — import creds from Brave (macOS)
 - `agent-slack auth parse-curl` — read a copied Slack cURL command from stdin and save creds
 - `agent-slack auth add --workspace-url <url> [--token <xoxb/xoxp> | --xoxc <xoxc> --xoxd <xoxd>]`
 - `agent-slack auth set-default <workspace-url>`
@@ -107,3 +118,8 @@ Common options:
 
 - `agent-slack user list [--workspace <url-or-unique-substring>] [--limit <n>] [--cursor <cursor>] [--include-bots]`
 - `agent-slack user get <U...|@handle|handle> [--workspace <url-or-unique-substring>]`
+
+## Update
+
+- `agent-slack update` — update to latest version
+- `agent-slack update --check` — only check whether an update is available
