@@ -53,6 +53,12 @@ export type CompactSlackMessage = {
     users: string[];
     count?: number;
   }[];
+  forwarded_threads?: {
+    url: string;
+    thread_ts: string;
+    channel_id?: string;
+    has_more_replies: true;
+  }[];
 };
 
 export function toCompactMessage(
@@ -95,6 +101,7 @@ export function toCompactMessage(
     content: content ? content : undefined,
     files: files && files.length > 0 ? files : undefined,
     reactions: includeReactions ? compactReactions(msg.reactions) : undefined,
+    forwarded_threads: extractForwardedThreads(msg.attachments),
   };
 }
 
@@ -118,6 +125,58 @@ function compactReactions(
       : [];
     const count = typeof r.count === "number" && r.count !== users.length ? r.count : undefined;
     out.push({ name, users, count });
+  }
+  return out.length ? out : undefined;
+}
+
+function extractForwardedThreads(attachments: unknown[] | undefined):
+  | {
+      url: string;
+      thread_ts: string;
+      channel_id?: string;
+      has_more_replies: true;
+    }[]
+  | undefined {
+  if (!Array.isArray(attachments) || attachments.length === 0) {
+    return undefined;
+  }
+  const out: {
+    url: string;
+    thread_ts: string;
+    channel_id?: string;
+    has_more_replies: true;
+  }[] = [];
+  const seen = new Set<string>();
+  for (const attachment of attachments) {
+    if (!isRecord(attachment)) {
+      continue;
+    }
+    const fromUrl = getString(attachment.from_url)?.trim();
+    if (!fromUrl) {
+      continue;
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(fromUrl);
+    } catch {
+      continue;
+    }
+    const threadTs = parsed.searchParams.get("thread_ts")?.trim();
+    if (!threadTs || !/^\d{6,}\.\d{6}$/.test(threadTs)) {
+      continue;
+    }
+    const channelId = parsed.searchParams.get("cid")?.trim();
+    const key = `${fromUrl}::${threadTs}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push({
+      url: fromUrl,
+      thread_ts: threadTs,
+      channel_id: channelId || undefined,
+      has_more_replies: true,
+    });
   }
   return out.length ? out : undefined;
 }

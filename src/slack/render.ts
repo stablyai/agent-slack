@@ -349,8 +349,9 @@ function extractForwardedMessageBody(
   state: RenderState,
 ): string {
   const messageBlocks = attachment.message_blocks;
+  const topLevelFiles = extractFileMentions(attachment.files).trim();
   if (!Array.isArray(messageBlocks)) {
-    return "";
+    return topLevelFiles;
   }
   const out: string[] = [];
   for (const mb of messageBlocks) {
@@ -367,12 +368,18 @@ function extractForwardedMessageBody(
       message.attachments,
       nextState(state),
     ).trim();
-    const content = uniqueTexts([blocksContent, attachmentsContent, messageText]).join("\n\n");
+    const fileMentions = extractFileMentions(message.files).trim();
+    const content = uniqueTexts([
+      blocksContent,
+      attachmentsContent,
+      messageText,
+      fileMentions,
+    ]).join("\n\n");
     if (content) {
       out.push(content);
     }
   }
-  return uniqueTexts(out).join("\n\n");
+  return uniqueTexts([topLevelFiles, ...out]).join("\n");
 }
 
 function nextState(state: RenderState): RenderState {
@@ -398,6 +405,27 @@ function uniqueTexts(values: string[]): string[] {
     out.push(text);
   }
   return out;
+}
+
+function extractFileMentions(files: unknown): string {
+  if (!Array.isArray(files)) {
+    return "";
+  }
+  const lines: string[] = [];
+  for (const f of files) {
+    if (!isRecord(f)) {
+      continue;
+    }
+    const name = getString(f.title) || getString(f.name) || "file";
+    const url =
+      getString(f.permalink) || getString(f.url_private_download) || getString(f.url_private);
+    if (url) {
+      lines.push(`<${url}|${name}>`);
+      continue;
+    }
+    lines.push(name);
+  }
+  return uniqueTexts(lines).join("\n");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
