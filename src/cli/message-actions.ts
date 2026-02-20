@@ -21,6 +21,8 @@ export type MessageCommandOptions = {
   limit?: string;
   oldest?: string;
   latest?: string;
+  withReaction?: string[];
+  withoutReaction?: string[];
   includeReactions?: boolean;
 };
 
@@ -41,6 +43,38 @@ export function requireMessageTs(raw: string | undefined): string {
     throw new Error('When targeting a channel, you must pass --ts "<seconds>.<micros>"');
   }
   return ts;
+}
+
+export function parseReactionFilters(raw: string[] | undefined): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const value of raw) {
+    const normalized = normalizeSlackReactionName(String(value));
+    if (!out.includes(normalized)) {
+      out.push(normalized);
+    }
+  }
+  return out;
+}
+
+export function requireOldestWhenReactionFiltersUsed(input: {
+  oldest?: string;
+  withReactions: string[];
+  withoutReactions: string[];
+}): string | undefined {
+  const hasReactionFilters = input.withReactions.length > 0 || input.withoutReactions.length > 0;
+  const oldest = input.oldest?.trim();
+  if (!hasReactionFilters) {
+    return oldest;
+  }
+  if (!oldest) {
+    throw new Error(
+      'Reaction filters require --oldest "<seconds>.<micros>" to bound scan size. Example: --oldest "1770165109.628379"',
+    );
+  }
+  return oldest;
 }
 
 export async function handleMessageGet(input: {
@@ -109,7 +143,16 @@ export async function handleMessageList(input: {
   return input.ctx.withAutoRefresh({
     workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
     work: async () => {
+      const withReactions = parseReactionFilters(input.options.withReaction);
+      const withoutReactions = parseReactionFilters(input.options.withoutReaction);
+      const hasReactionFilters = withReactions.length > 0 || withoutReactions.length > 0;
+
       if (target.kind === "url") {
+        if (hasReactionFilters) {
+          throw new Error(
+            "Reaction filters are only supported for channel history mode (not message URL thread mode)",
+          );
+        }
         const { ref } = target;
         warnOnTruncatedSlackUrl(ref);
         const { client, auth } = await input.ctx.getClientForWorkspace(ref.workspace_url);
@@ -146,12 +189,19 @@ export async function handleMessageList(input: {
       if (!threadTs && !ts) {
         const includeReactions = Boolean(input.options.includeReactions);
         const limit = parseLimit(input.options.limit);
+        const oldest = requireOldestWhenReactionFiltersUsed({
+          oldest: input.options.oldest,
+          withReactions,
+          withoutReactions,
+        });
         const channelMessages = await fetchChannelHistory(client, {
           channelId,
           limit,
           latest: input.options.latest?.trim(),
-          oldest: input.options.oldest?.trim(),
-          includeReactions,
+          oldest,
+          includeReactions: includeReactions || hasReactionFilters,
+          withReactions,
+          withoutReactions,
         });
         const downloadedPaths = await downloadMessageFiles({ auth, messages: channelMessages });
         const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
@@ -161,6 +211,12 @@ export async function handleMessageList(input: {
             toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }),
           ),
         }) as Record<string, unknown>;
+      }
+
+      if (hasReactionFilters) {
+        throw new Error(
+          "Reaction filters are only supported for channel history mode (without --thread-ts/--ts)",
+        );
       }
 
       const rootTs =
