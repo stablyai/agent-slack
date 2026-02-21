@@ -7,6 +7,7 @@ description: |
   - Downloading Slack attachments (snippets, images, files) to local paths
   - Searching Slack messages or files
   - Sending, editing, or deleting a message; adding/removing reactions
+  - Creating channels and inviting users
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
   Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages"
@@ -105,6 +106,19 @@ Channel mode for edit/delete requires `--ts`:
 agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "1770165109.628379"
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
+
+## Create channels + invite users
+
+```bash
+agent-slack channel new --name "incident-war-room"
+agent-slack channel new --name "incident-leads" --private
+agent-slack channel invite --channel "incident-war-room" --users "U01AAAA,@alice,bob@example.com"
+agent-slack channel invite --channel "incident-war-room" --users "partner@vendor.com" --external
+agent-slack channel invite --channel "incident-war-room" --users "partner@vendor.com" --external --allow-external-user-invites
+```
+
+For `--external`, invite targets must be emails. By default, invitees are external-limited; add
+`--allow-external-user-invites` to allow them to invite other users.
 
 ## Search (messages + files)
 
