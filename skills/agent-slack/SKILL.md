@@ -17,23 +17,7 @@ description: |
 
 `agent-slack` is a CLI binary installed on `$PATH`. Invoke it directly (e.g. `agent-slack user list`)
 
-## Quick start (install + auth)
-
-If `agent-slack` is not installed on `$PATH`, install it first:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
-# or
-npm i -g agent-slack
-```
-
-Optional update command:
-
-```bash
-agent-slack update --check
-```
-
-### Authentication on macOS (automatic)
+## Quick start (auth)
 
 Authentication is automatic on macOS (Slack Desktop first, then Chrome fallback).
 
@@ -50,22 +34,6 @@ agent-slack auth test
 
 ```bash
 agent-slack auth import-chrome
-agent-slack auth test
-```
-
-- Brave fallback:
-
-```bash
-agent-slack auth import-brave
-agent-slack auth test
-```
-
-### Authentication on Linux/Windows (manual)
-
-- Parse cURL auth import:
-
-```bash
-agent-slack auth parse-curl
 agent-slack auth test
 ```
 
@@ -88,21 +56,6 @@ Check configured workspaces:
 
 ```bash
 agent-slack auth whoami
-```
-
-## Common commands (quick reference)
-
-```bash
-agent-slack message get "<message-url>"
-agent-slack message list "<message-url>"
-agent-slack message send "<message-url>" "I can take this."
-agent-slack message edit "<message-url>" "Updated text"
-agent-slack message delete "<message-url>"
-agent-slack message react add "<message-url>" "eyes"
-agent-slack search all "query" --channel "#alerts"
-agent-slack channel invite --channel "incident-war-room" --users "@alice,bob@example.com"
-agent-slack canvas get "https://workspace.slack.com/docs/T123/F456"
-agent-slack user get "@alice" --workspace "https://workspace.slack.com"
 ```
 
 ## Canonical workflow (given a Slack message URL)
