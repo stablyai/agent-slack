@@ -9,22 +9,10 @@ COMMANDS_FILE="$ROOT_DIR/skills/agent-slack/references/commands.md"
 
 failures=0
 
-has_command() {
-  command -v "$1" >/dev/null 2>&1
-}
-
 require_in_file() {
   local needle="$1"
   local file="$2"
-  if has_command rg; then
-    if rg -F -q "$needle" "$file"; then
-      return
-    fi
-  elif grep -F -q -- "$needle" "$file"; then
-    return
-  fi
-
-  if [[ -f "$file" ]]; then
+  if ! rg -F -q "$needle" "$file"; then
     echo "Missing in $(basename "$file"): $needle" >&2
     failures=$((failures + 1))
   fi
