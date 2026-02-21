@@ -72,6 +72,8 @@ agent-slack
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
 │   └── files    <query>
+├── conversation
+│   └── list                          # list channels, DMs, group DMs
 └── canvas
     └── get <canvas-url-or-id>     # canvas → markdown
 ```
@@ -251,6 +253,23 @@ agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq
 # Get one user by id or handle
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
+```
+
+### Conversations
+
+```bash
+# List all conversations (channels, DMs, group DMs)
+agent-slack conversation list
+
+# Filter by type (public, private, group-dm, dm). Repeatable.
+agent-slack conversation list --type public --type private
+
+# DMs only, exclude archived
+agent-slack conversation list --type dm --exclude-archived
+
+# Paginate
+agent-slack conversation list --limit 10
+agent-slack conversation list --limit 10 --cursor <next_cursor>
 ```
 
 ### Fetch a Canvas as Markdown
