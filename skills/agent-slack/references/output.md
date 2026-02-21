@@ -26,6 +26,25 @@ Use `--max-body-chars` to cap message bodies for token budget control.
 
 Use `--max-content-chars` (messages) and `--limit` to control size.
 
+## Channel admin shapes (high-level)
+
+- `channel new` returns:
+  - `channel: { id, name, is_private }`
+
+- `channel invite` returns:
+  - Internal invite mode:
+    - `channel_id`
+    - `invited_user_ids: [ ... ]`
+    - `already_in_channel_user_ids?: [ ... ]`
+    - `unresolved_users?: [ ... ]`
+  - External invite mode (`--external`):
+    - `channel_id`
+    - `external: true`
+    - `external_limited: boolean`
+    - `invited_emails: [ ... ]`
+    - `already_invited_emails?: [ ... ]`
+    - `invalid_external_targets?: [ ... ]`
+
 ## Attachment downloads
 
 Attachments are downloaded to an agent-friendly temp directory and returned as absolute paths in output.
