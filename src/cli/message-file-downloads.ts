@@ -1,7 +1,7 @@
 import type { SlackAuth } from "../slack/client.ts";
 import type { SlackMessageSummary } from "../slack/messages.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
-import { downloadSlackFile } from "../slack/files.ts";
+import { downloadSlackFile, looksLikeAuthPage } from "../slack/files.ts";
 import { htmlToMarkdown } from "../slack/html-to-md.ts";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -44,10 +44,6 @@ function inferFileExtension(file: {
 }
 
 const CANVAS_MODES = new Set(["canvas", "quip", "docs"]);
-
-function looksLikeAuthPage(html: string): boolean {
-  return /<form[^>]+signin|data-qa="signin|<title>[^<]*Sign\s*in/i.test(html);
-}
 
 async function downloadCanvasAsMarkdown(input: {
   auth: SlackAuth;

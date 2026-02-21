@@ -1,5 +1,5 @@
 import type { SlackApiClient, SlackAuth } from "./client.ts";
-import { downloadSlackFile } from "./files.ts";
+import { downloadSlackFile, looksLikeAuthPage } from "./files.ts";
 import { htmlToMarkdown } from "./html-to-md.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
 import { getString, isRecord } from "../lib/object-type-guards.ts";
@@ -55,6 +55,14 @@ export async function fetchCanvasMarkdown(
     throw new Error("Canvas not found (files.info returned no file)");
   }
 
+  const CANVAS_MODES = new Set(["canvas", "quip", "docs"]);
+  const fileMode = getString(file.mode);
+  if (fileMode && !CANVAS_MODES.has(fileMode)) {
+    throw new Error(
+      `File ${input.canvasId} is not a canvas (mode: "${fileMode}"). Use "agent-slack message read" to download regular files.`,
+    );
+  }
+
   const title = (getString(file.title) || getString(file.name) || "").trim() || undefined;
   const downloadUrl = getString(file.url_private_download) ?? getString(file.url_private);
   if (!downloadUrl) {
@@ -90,6 +98,12 @@ export async function fetchCanvasMarkdown(
       throw new Error(`Failed to download canvas HTML (${resp.status})`);
     }
     html = await resp.text();
+  }
+
+  if (looksLikeAuthPage(html)) {
+    throw new Error(
+      "Downloaded auth/login page instead of canvas content (token may be expired). Try running: agent-slack auth import-desktop",
+    );
   }
 
   const markdownRaw = htmlToMarkdown(html).trim();

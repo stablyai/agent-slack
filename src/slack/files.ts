@@ -49,6 +49,12 @@ export async function downloadSlackFile(input: {
   return path;
 }
 
+export function looksLikeAuthPage(html: string): boolean {
+  return /<form[^>]+signin|data-qa="signin|<title>[^<]*Sign\s*in|"shouldRedirect"\s*:\s*true|"redirectURL"\s*:\s*"[^"]*files-pri/i.test(
+    html,
+  );
+}
+
 function sanitizeFilename(name: string): string {
   return name.replace(/[\\/<>:"|?*]/g, "_");
 }
