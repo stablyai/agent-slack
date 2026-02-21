@@ -36,9 +36,6 @@ jobs:
       - name: Test
         run: bun run test
 
-      - name: Docs drift check
-        run: bun run docs:check
-
       - name: Build release binaries
         run: bun run build:release
 

@@ -56,7 +56,6 @@ agent-slack
 │   ├── test
 │   ├── import-desktop
 │   ├── import-chrome
-│   ├── import-brave
 │   └── parse-curl
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
@@ -77,9 +76,8 @@ agent-slack
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
 │   └── files    <query>
-├── canvas
-│   └── get <canvas-url-or-id>     # canvas → markdown
-└── update [options]               # self-update utility (--check to only check)
+└── canvas
+    └── get <canvas-url-or-id>     # canvas → markdown
 ```
 
 Notes:
@@ -100,7 +98,6 @@ You can also run manual imports:
 agent-slack auth whoami
 agent-slack auth import-desktop
 agent-slack auth import-chrome
-agent-slack auth import-brave
 agent-slack auth test
 ```
 
