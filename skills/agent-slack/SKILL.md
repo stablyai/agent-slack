@@ -90,6 +90,16 @@ When using `--with-reaction` or `--without-reaction`, you must also pass `--olde
 
 `message get/list` and `search` auto-download attachments and include absolute paths in JSON output (typically under `message.files[].path` / `files[].path`).
 
+## Draft a message (browser editor)
+
+Opens a Slack-like rich-text editor in the browser for composing messages with formatting toolbar (bold, italic, strikethrough, links, lists, quotes, code, code blocks). After sending, shows a "View in Slack" link.
+
+```bash
+agent-slack message draft "#general"
+agent-slack message draft "#general" "initial text"
+agent-slack message draft "https://workspace.slack.com/archives/C123/p1700000000000000"
+```
+
 ## Send, edit, delete, or react
 
 ```bash

@@ -44,6 +44,16 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--max-body-chars <n>` (default `8000`, `-1` unlimited)
     - `--include-reactions`
 
+- `agent-slack message draft <target> [text]`
+  - Opens a Slack-like WYSIWYG editor in the browser for composing and sending a message.
+  - Formatting toolbar: bold, italic, strikethrough, links, numbered/bulleted lists, quotes, inline code, code blocks.
+  - Toggle between rich-text editing and raw mrkdwn source view.
+  - After sending, shows a "View in Slack" permalink to the posted message.
+  - If `<target>` is a Slack message URL, the draft will reply in that thread.
+  - Options:
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
+    - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
+
 - `agent-slack message send <target> <text>`
   - If `<target>` is a Slack message URL, replies in that message’s thread.
   - Otherwise posts to the channel/DM.

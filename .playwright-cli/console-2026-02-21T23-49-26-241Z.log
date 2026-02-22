@@ -1,0 +1,5 @@
+Total messages: 2 (Errors: 2, Warnings: 0)
+
+[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:53885/favicon.ico:0
+ReferenceError: Cannot access 'editor' before initialization
+    at http://127.0.0.1:53885/:575:1

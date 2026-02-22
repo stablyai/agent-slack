@@ -1,0 +1,413 @@
+- generic [ref=e1]:
+    - generic [ref=e4]:
+        - application [ref=e6]
+        - toolbar "History Navigation" [ref=e853]:
+            - generic [ref=e10]:
+                - generic [ref=e13]:
+                    - generic [ref=e14]:
+                        - button "Back in history" [ref=e854] [cursor=pointer]:
+                            - img [ref=e16]
+                        - button "Forward in history" [disabled] [ref=e855]:
+                            - img [ref=e19]
+                    - button "Show history" [ref=e856] [cursor=pointer]:
+                        - img [ref=e23]
+                - button "Search" [ref=e857] [cursor=pointer]:
+                    - img [ref=e29]
+                    - generic [ref=e31]: Search Stably
+                - generic [ref=e32]:
+                    - button "Chat with Slackbot AI" [ref=e858] [cursor=pointer]:
+                        - img [ref=e39]
+                    - button "Help" [ref=e859] [cursor=pointer]:
+                        - img [ref=e44]
+        - tabpanel "Stably" [ref=e860]:
+            - generic [ref=e48]:
+                - button "Switch workspaces… (Stably)" [ref=e861] [cursor=pointer]:
+                    - img "Stably" [ref=e862]
+                - tablist "Stably" [ref=e863]:
+                    - tab "Home" [selected] [ref=e864] [cursor=pointer]:
+                        - generic [ref=e58]:
+                            - img [ref=e62]
+                            - generic: "1"
+                    - tab "DMs" [ref=e865] [cursor=pointer]:
+                        - generic [ref=e66]:
+                            - img [ref=e69]
+                            - generic: "2"
+                    - tab "Activity" [ref=e866] [cursor=pointer]:
+                        - generic [ref=e72]:
+                            - img [ref=e77]
+                            - generic: "3"
+                    - tab "Files" [ref=e867] [cursor=pointer]:
+                        - generic [ref=e81]:
+                            - img [ref=e84]
+                            - generic: "4"
+                    - tab "Later" [ref=e868] [cursor=pointer]:
+                        - generic [ref=e87]:
+                            - img [ref=e90]
+                            - generic: "5"
+                    - tab "More…" [ref=e869] [cursor=pointer]:
+                        - generic [ref=e93]:
+                            - img [ref=e96]
+                            - generic: "0"
+                    - separator [ref=e98]
+                    - tab "Admin" [ref=e870] [cursor=pointer]:
+                        - img [ref=e103]
+            - generic [ref=e108]:
+                - tabpanel "Home" [ref=e871]:
+                    - generic [ref=e111]:
+                        - group "Home" [ref=e872]:
+                            - generic [ref=e114]:
+                                - toolbar "Actions" [ref=e873]:
+                                    - button "Stably Actions" [ref=e874] [cursor=pointer]:
+                                        - generic [ref=e119]: Stably
+                                        - img [ref=e120]
+                                    - generic [ref=e122]:
+                                        - button "Manage my sidebar" [ref=e875] [cursor=pointer]:
+                                            - img [ref=e124]
+                                        - button "New message" [ref=e876] [cursor=pointer]:
+                                            - img [ref=e128]
+                                - generic [ref=e131]:
+                                    - generic:
+                                        - button "More unreads" [ref=e877] [cursor=pointer]:
+                                            - img [ref=e134]
+                                            - text: More unreads
+                                        - tree "Channels and direct messages" [ref=e878]:
+                                            - treeitem "Threads" [level=1] [ref=e879] [cursor=pointer]:
+                                                - generic [ref=e138]:
+                                                    - img [ref=e140]
+                                                    - generic [ref=e142]: Threads
+                                            - treeitem "Huddles" [level=1] [ref=e880] [cursor=pointer]:
+                                                - generic [ref=e146]:
+                                                    - generic [ref=e147]: 
+                                                    - generic [ref=e148]: Huddles
+                                            - treeitem "Recap" [level=1] [ref=e881] [cursor=pointer]:
+                                                - generic [ref=e151]:
+                                                    - img [ref=e153]
+                                                    - generic [ref=e155]: Recap
+                                            - treeitem "Drafts & sent 99+" [level=1] [ref=e882] [cursor=pointer]:
+                                                - generic [ref=e158]:
+                                                    - img [ref=e160]
+                                                    - generic [ref=e162]: Drafts & sent
+                                                    - generic [ref=e164]:
+                                                        - img [ref=e166]
+                                                        - text: 99+
+                                            - treeitem "Directories" [level=1] [ref=e883] [cursor=pointer]:
+                                                - generic [ref=e169]:
+                                                    - img [ref=e171]
+                                                    - generic [ref=e174]: Directories
+                                            - treeitem "VIP unreads" [expanded] [level=1] [ref=e884]:
+                                                - button [ref=e182] [cursor=pointer]:
+                                                    - img [ref=e184]
+                                                    - generic [ref=e188]: VIP unreads
+                                                - group
+                                            - treeitem "External connections" [level=1] [ref=e885]:
+                                                - button [ref=e193] [cursor=pointer]:
+                                                    - generic [ref=e194]:
+                                                        - img [ref=e196]
+                                                        - img [ref=e199]
+                                                    - generic [ref=e203]: External connections
+                                                - group
+                                            - treeitem "Starred" [level=1] [ref=e886]:
+                                                - button [ref=e208] [cursor=pointer]:
+                                                    - generic [ref=e209]:
+                                                        - img [ref=e211]
+                                                        - img [ref=e214]
+                                                    - generic [ref=e218]: Starred
+                                                - group
+                                            - treeitem "projects" [level=1] [ref=e887]:
+                                                - button [ref=e224] [cursor=pointer]:
+                                                    - generic [ref=e225]:
+                                                        - img [ref=e227]
+                                                        - img [ref=e232]
+                                                    - generic [ref=e236]: projects
+                                                - group
+                                            - treeitem "alerts" [level=1] [ref=e888]:
+                                                - button [ref=e241] [cursor=pointer]:
+                                                    - generic [ref=e242]:
+                                                        - img [ref=e244]
+                                                        - img [ref=e249]
+                                                    - generic [ref=e253]: alerts
+                                                - group
+                                            - treeitem "Channels" [level=1] [ref=e889]:
+                                                - button [ref=e258] [cursor=pointer]:
+                                                    - generic [ref=e259]:
+                                                        - img [ref=e261]
+                                                        - img [ref=e264]
+                                                    - generic [ref=e268]: Channels
+                                                - group
+                                            - treeitem "Direct Messages" [expanded] [level=1] [ref=e890]:
+                                                - button [ref=e273] [cursor=pointer]:
+                                                    - generic [ref=e274]:
+                                                        - img [ref=e276]
+                                                        - img [ref=e279]
+                                                    - generic [ref=e283]: Direct messages
+                                                - group:
+                                                    - treeitem "Active Jinjing" [level=2] [ref=e891] [cursor=pointer]:
+                                                        - generic [ref=e285]:
+                                                            - generic [ref=e287]:
+                                                                - img [ref=e288]
+                                                                - img [ref=e290]
+                                                                - img "Active" [ref=e892]
+                                                            - generic [ref=e294]: Jinjing
+                                                            - generic [ref=e296]: 
+                                                    - treeitem "Active Jinwoo" [level=2] [ref=e893] [cursor=pointer]:
+                                                        - generic [ref=e298]:
+                                                            - generic [ref=e300]:
+                                                                - img [ref=e301]
+                                                                - img [ref=e303]
+                                                                - img "Active" [ref=e894]
+                                                            - generic [ref=e307]: Jinwoo
+                                                            - button [ref=e308]:
+                                                                - img [ref=e309]
+                                                    - treeitem "Active Matheus" [level=2] [ref=e895] [cursor=pointer]:
+                                                        - generic [ref=e312]:
+                                                            - generic [ref=e314]:
+                                                                - img [ref=e315]
+                                                                - img [ref=e317]
+                                                                - img "Active" [ref=e896]
+                                                            - generic [ref=e321]: Matheus
+                                                            - button [ref=e322]:
+                                                                - img [ref=e323]
+                                                    - treeitem "Away Brennan" [level=2] [ref=e897] [cursor=pointer]:
+                                                        - generic [ref=e326]:
+                                                            - generic [ref=e328]:
+                                                                - img [ref=e329]
+                                                                - img [ref=e331]
+                                                                - img "Away" [ref=e898]
+                                                            - generic [ref=e335]: Brennan
+                                                            - button [ref=e336]:
+                                                                - img [ref=e337]
+                                                    - treeitem "Active Neilyou" [level=2] [ref=e899] [cursor=pointer]:
+                                                        - generic [ref=e340]:
+                                                            - generic [ref=e342]:
+                                                                - img [ref=e343]
+                                                                - img [ref=e345]
+                                                                - img "Active" [ref=e900]
+                                                            - generic [ref=e349]: Neilyou
+                                                            - button [ref=e350]:
+                                                                - img [ref=e351]
+                                            - treeitem "Apps" [expanded] [level=1] [ref=e901]:
+                                                - button [ref=e357] [cursor=pointer]:
+                                                    - generic [ref=e358]:
+                                                        - img [ref=e360]
+                                                        - img [ref=e363]
+                                                    - generic [ref=e367]: Apps
+                                                - group:
+                                                    - treeitem "Slackbot" [level=2] [ref=e902] [cursor=pointer]:
+                                                        - generic [ref=e369]:
+                                                            - img [ref=e373]
+                                                            - generic [ref=e374]: Slackbot
+                                                            - button [ref=e375]:
+                                                                - img [ref=e376]
+                                                    - treeitem "GitHub" [level=2] [ref=e903] [cursor=pointer]:
+                                                        - generic [ref=e379]:
+                                                            - img [ref=e383]
+                                                            - generic [ref=e384]: GitHub
+                                                            - button [ref=e385]:
+                                                                - img [ref=e386]
+                                                    - treeitem "Google Calendar" [level=2] [ref=e904] [cursor=pointer]:
+                                                        - generic [ref=e389]:
+                                                            - img [ref=e393]
+                                                            - generic [ref=e394]: Google Calendar
+                                                            - button [ref=e395]:
+                                                                - img [ref=e396]
+                                                    - treeitem "Vanta" [level=2] [ref=e905] [cursor=pointer]:
+                                                        - generic [ref=e399]:
+                                                            - img [ref=e403]
+                                                            - generic [ref=e404]: Vanta
+                                                            - button [ref=e405]:
+                                                                - img [ref=e406]
+                        - slider "Sidebar width" [ref=e906]: "300"
+                    - group "Conversation with Neil" [ref=e907]:
+                        - generic [ref=e414]:
+                            - toolbar "Primary view actions" [ref=e908]:
+                                - button "Move conversation" [ref=e909] [cursor=pointer]:
+                                    - img [ref=e419]
+                                - button "Neil" [ref=e910] [cursor=pointer]:
+                                    - generic [ref=e423]:
+                                        - generic [ref=e425]:
+                                            - img [ref=e426]
+                                            - img [ref=e428]
+                                            - img "Active" [ref=e911]
+                                        - generic [ref=e432]: Neil
+                                - generic [ref=e433]:
+                                    - button "Search in channel" [ref=e912] [cursor=pointer]:
+                                        - img [ref=e435]
+                                    - button "More channel actions" [ref=e913] [cursor=pointer]:
+                                        - img [ref=e438]
+                            - tablist "neil views" [ref=e914]:
+                                - tab "Messages" [selected] [ref=e915] [cursor=pointer]:
+                                    - generic [ref=e447]:
+                                        - img [ref=e449]
+                                        - generic [ref=e451]: Messages
+                                - tab "Untitled" [ref=e916] [cursor=pointer]:
+                                    - generic [ref=e460]:
+                                        - img [ref=e462]
+                                        - generic [ref=e469]: Untitled
+                                - tab "TODO" [ref=e917] [cursor=pointer]:
+                                    - generic [ref=e478]:
+                                        - img [ref=e480]
+                                        - generic [ref=e487]: TODO
+                                - tab "Files" [ref=e918] [cursor=pointer]:
+                                    - generic [ref=e492]:
+                                        - img [ref=e494]
+                                        - generic [ref=e496]: Files
+                                - tab "Feedback" [ref=e919] [cursor=pointer]:
+                                    - generic [ref=e505]:
+                                        - img [ref=e507]
+                                        - generic [ref=e514]: Feedback
+                                - tab "Resources" [ref=e920] [cursor=pointer]:
+                                    - generic [ref=e523]:
+                                        - img [ref=e525]
+                                        - generic [ref=e532]: Resources
+                                - tab "Re-usable Components" [ref=e921] [cursor=pointer]:
+                                    - generic [ref=e541]:
+                                        - img [ref=e543]
+                                        - generic [ref=e550]: Re-usable Components
+                                - button "Add and Edit Channel Tabs" [ref=e922] [cursor=pointer]:
+                                    - img [ref=e556]
+                            - generic [ref=e558]: Canvas
+                            - generic [ref=e559]: List
+                            - generic [ref=e560]: Folder
+                            - generic [ref=e562]:
+                                - generic [ref=e564]:
+                                    - generic:
+                                        - listitem [ref=e565]:
+                                            - button "Jump to date" [ref=e923] [cursor=pointer]:
+                                                - text: Tuesday, February 3rd
+                                                - img [ref=e568]
+                                        - listitem [ref=e570]:
+                                            - document [ref=e571]:
+                                                - generic [ref=e573]:
+                                                    - button [ref=e574] [cursor=pointer]:
+                                                        - img [ref=e576]
+                                                    - button "Neil" [ref=e924] [cursor=pointer]
+                                                    - link "Feb 3rd at 10:30:14 PM" [ref=e925] [cursor=pointer]:
+                                                        - /url: https://stablygroup.slack.com/archives/D05CB2ZQRDF/p1770186614432879
+                                                        - text: 10:30 PM
+                                                    - generic [ref=e584]:
+                                                        - generic [ref=e585]: "Code bleow:"
+                                                        - generic [ref=e587]: const x = 1;
+                                        - listitem [ref=e588]:
+                                            - button "Jump to date" [ref=e926] [cursor=pointer]:
+                                                - text: Wednesday, February 4th
+                                                - img [ref=e591]
+                                        - listitem [ref=e593]
+                                        - listitem [ref=e596]:
+                                            - document [ref=e597]:
+                                                - generic [ref=e599]:
+                                                    - button [ref=e600] [cursor=pointer]:
+                                                        - img [ref=e602]
+                                                    - button "Neil" [ref=e927] [cursor=pointer]
+                                                    - link "Feb 4th at 12:22:11 PM" [ref=e928] [cursor=pointer]:
+                                                        - /url: https://stablygroup.slack.com/archives/D05CB2ZQRDF/p1770236531341719
+                                                        - text: 12:22 PM
+                                                    - generic [ref=e611]:
+                                                        - text: "Testing emojis:"
+                                                        - img "rocket emoji" [ref=e929]
+                                                        - text: :rocket <— this should not convert
+                                                        - img "sweat smile emoji" [ref=e930]
+                                                        - img "bufo thumbsup emoji" [ref=e931]
+                                                        - text: (<— no matching eomji so should be text too I think)
+                                        - listitem [ref=e618]:
+                                            - button "Jump to date" [ref=e932] [cursor=pointer]:
+                                                - text: Thursday, February 19th
+                                                - img [ref=e621]
+                                        - listitem [ref=e623]
+                                        - 'listitem "Neil: test123 Brennan on Feb 19th in bugs-and-feedback: I liked when the AI Fix section was vertical on the right side of the page like before tbh, not sure what everyone else thinks though. 11:40 PM." [ref=e933]':
+                                            - document [ref=e627]:
+                                                - generic [ref=e629]:
+                                                    - button [ref=e630] [cursor=pointer]:
+                                                        - img [ref=e632]
+                                                    - button "Neil" [ref=e934] [cursor=pointer]
+                                                    - link "Feb 19th at 11:40:08 PM" [ref=e935] [cursor=pointer]:
+                                                        - /url: https://stablygroup.slack.com/archives/D05CB2ZQRDF/p1771573208707839
+                                                        - text: 11:40 PM
+                                                    - generic [ref=e641]: test123
+                                                    - generic [ref=e645]:
+                                                        - generic [ref=e648]:
+                                                            - button [ref=e649] [cursor=pointer]:
+                                                                - img [ref=e651]
+                                                            - button "Brennan" [ref=e936] [cursor=pointer]:
+                                                                - strong [ref=e655]: Brennan
+                                                        - generic [ref=e658]: I liked when the AI Fix section was vertical on the right side of the page like before tbh, not sure what everyone else thinks though
+                                                        - generic [ref=e660]:
+                                                            - generic [ref=e661]: image.png
+                                                            - button "Toggle file" [expanded] [ref=e937] [cursor=pointer]:
+                                                                - img [ref=e663]
+                                                        - link "image.png" [ref=e938]:
+                                                            - /url: https://files.slack.com/files-pri/T05BHT77GUF-F0AG76B1PT6/image.png
+                                                            - img "image.png" [ref=e939]
+                                                        - generic [ref=e674]:
+                                                            - link "Thread in bugs-and-feedback" [ref=e940] [cursor=pointer]:
+                                                                - /url: https://stablygroup.slack.com/archives/C060NMM0KEC/p1771564510386389?thread_ts=1771564510.386389&cid=C060NMM0KEC
+                                                                - text: Thread in
+                                                                - generic [ref=e678]:
+                                                                    - img [ref=e680]
+                                                                    - generic [ref=e683]: bugs-and-feedback
+                                                            - text: "|"
+                                                            - link "Feb 19th" [ref=e941] [cursor=pointer]:
+                                                                - /url: https://stablygroup.slack.com/archives/C060NMM0KEC/p1771564510386389?thread_ts=1771564510.386389&cid=C060NMM0KEC
+                                                            - text: "|"
+                                                            - link "View message" [ref=e942] [cursor=pointer]:
+                                                                - /url: https://stablygroup.slack.com/archives/C060NMM0KEC/p1771564510386389?thread_ts=1771564510.386389&cid=C060NMM0KEC
+                                        - listitem [ref=e688]
+                                        - list "Neil (direct message, active)" [ref=e943]
+                                - generic [ref=e694]:
+                                    - group "composer" [ref=e944]:
+                                        - generic [ref=e698]:
+                                            - toolbar "Formatting"
+                                            - generic [ref=e700]:
+                                                - textbox "Message to Neil" [active] [ref=e945]:
+                                                    - paragraph [ref=e702]
+                                                - generic:
+                                                    - generic:
+                                                        - generic: Jot something down
+                                            - toolbar "Composer actions" [ref=e946]:
+                                                - generic [ref=e781]:
+                                                    - button "Attach" [ref=e947] [cursor=pointer]:
+                                                        - img [ref=e783]
+                                                    - button [ref=e785]
+                                                - generic [ref=e787]:
+                                                    - button "Show formatting" [ref=e948] [cursor=pointer]:
+                                                        - img [ref=e789]
+                                                    - button "Emoji" [ref=e949] [cursor=pointer]:
+                                                        - img [ref=e793]
+                                                    - button "Mention someone" [ref=e950] [cursor=pointer]:
+                                                        - img [ref=e796]
+                                                    - button "Record video clip" [ref=e951] [cursor=pointer]:
+                                                        - img [ref=e800]
+                                                    - button "Record audio clip" [ref=e952] [cursor=pointer]:
+                                                        - img [ref=e803]
+                                                    - button "Run shortcut" [ref=e953] [cursor=pointer]:
+                                                        - img [ref=e807]
+                                                - generic [ref=e810]:
+                                                    - button "Send now" [disabled]:
+                                                        - img
+                                                    - button "Schedule for later" [disabled]:
+                                                        - img
+                                    - generic [ref=e811]:
+                                        - generic:
+                                            - generic:
+                                                - button: Shift + Return to add a new line
+                - toolbar "Control strip" [ref=e954]:
+                    - button "Create new" [ref=e955] [cursor=pointer]:
+                        - img [ref=e820]
+                    - 'button "User: Neil" [ref=e956] [cursor=pointer]':
+                        - generic [ref=e824]:
+                            - img [ref=e825]
+                            - img [ref=e827]
+                            - img "Active" [ref=e957]
+            - dialog "Information" [ref=e958]:
+                - generic [ref=e838]:
+                    - img "bell emoji" [ref=e959]
+                    - generic [ref=e841]:
+                        - text: Slack needs your permission to enable notifications.
+                        - button "Enable notifications" [ref=e960] [cursor=pointer]
+                - button "Close" [ref=e961] [cursor=pointer]:
+                    - img [ref=e844]
+            - generic:
+                - generic:
+                    - img
+    - generic [ref=e849]:
+        - alert [ref=e850]: Loading thread…
+        - log [ref=e851]: Channel

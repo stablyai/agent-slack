@@ -1,0 +1,3 @@
+[      26ms] ReferenceError: Cannot access 'editor' before initialization
+    at http://127.0.0.1:54240/:575:1
+[      45ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:54240/favicon.ico:0
