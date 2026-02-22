@@ -21,6 +21,26 @@ OR npm global install (requires Node >= 22.5):
 npm i -g agent-slack
 ```
 
+## Updating
+
+agent-slack auto-detects how it was installed and uses the right update strategy:
+
+```bash
+# Standalone binary (installed via curl)
+agent-slack update
+
+# npm global install
+npm install -g agent-slack@latest
+
+# bun global install
+bun install -g agent-slack@latest
+
+# Check for updates without installing
+agent-slack update --check
+```
+
+A background check runs once every 24 hours and prints a notice to stderr if a new version is available.
+
 ## At a glance
 
 - **Read**: fetch a message, browse channel history, list full threads
@@ -51,6 +71,7 @@ bash ./scripts/install-skill.sh
 
 ```text
 agent-slack
+├── update                            # self-update (detects npm/bun/binary)
 ├── auth
 │   ├── whoami
 │   ├── test
