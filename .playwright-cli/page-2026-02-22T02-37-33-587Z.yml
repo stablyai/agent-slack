@@ -1,0 +1,60 @@
+- generic [ref=e2]:
+    - generic [ref=e3]:
+        - generic [ref=e4]: Agent Slack
+        - generic [ref=e5]:
+            - text: By
+            - link [ref=e6] [cursor=pointer]:
+                - /url: https://stably.ai
+            - link "Stably.ai" [ref=e7] [cursor=pointer]:
+                - /url: https://stably.ai
+        - generic [ref=e8]: draft mode
+    - generic [ref=e9]:
+        - img [ref=e10]
+        - generic [ref=e13]: general
+        - generic [ref=e14]: myteam
+        - link "View thread" [ref=e15] [cursor=pointer]:
+            - /url: https://myteam.slack.com/archives/C123ABC/p1708531200123456
+            - generic [ref=e16]: View thread
+            - img [ref=e17]
+    - generic [ref=e20]:
+        - generic [ref=e21]:
+            - button "B Bold (⌘B)" [ref=e22] [cursor=pointer]:
+                - generic [ref=e23]: B
+                - text: Bold (⌘B)
+            - button "I Italic (⌘I)" [ref=e24] [cursor=pointer]:
+                - generic [ref=e25]: I
+                - text: Italic (⌘I)
+            - button "S Strikethrough (⌘⇧X)" [ref=e26] [cursor=pointer]:
+                - generic [ref=e27]: S
+                - text: Strikethrough (⌘⇧X)
+            - button "Link (⌘K)" [ref=e29] [cursor=pointer]:
+                - img [ref=e30]
+                - text: Link (⌘K)
+            - button "Numbered list (⌘⇧7)" [ref=e33] [cursor=pointer]:
+                - img [ref=e34]:
+                    - generic [ref=e35]: "1."
+                    - generic [ref=e36]: "2."
+                    - generic [ref=e37]: "3."
+                - text: Numbered list (⌘⇧7)
+            - button "Bulleted list (⌘⇧8)" [ref=e38] [cursor=pointer]:
+                - img [ref=e39]
+                - text: Bulleted list (⌘⇧8)
+            - button "Quote (⌘⇧9)" [ref=e44] [cursor=pointer]:
+                - img [ref=e45]
+                - text: Quote (⌘⇧9)
+            - button "Code (⌘E)" [ref=e48] [cursor=pointer]:
+                - img [ref=e49]
+                - text: Code (⌘E)
+            - button "Code block (⌘⇧C)" [ref=e52] [cursor=pointer]:
+                - img [ref=e53]
+                - text: Code block (⌘⇧C)
+        - generic [active] [ref=e57]: "Message #general"
+        - generic [ref=e58]:
+            - generic [ref=e59]:
+                - button "Aa" [ref=e60] [cursor=pointer]
+                - button "mrkdwn" [ref=e61] [cursor=pointer]
+                - generic [ref=e62]: ⌘Enter to send
+            - generic [ref=e63]:
+                - button "Cancel" [ref=e64] [cursor=pointer]
+                - button [disabled] [ref=e65]:
+                    - img [ref=e66]
