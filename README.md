@@ -12,7 +12,7 @@ Guiding principle:
 Install via Bun (recommended):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.sh | sh
 ```
 
 OR npm global install (requires Node >= 22.5):
