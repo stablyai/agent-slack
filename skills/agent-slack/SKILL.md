@@ -7,7 +7,7 @@ description: |
   - Downloading Slack attachments (snippets, images, files) to local paths
   - Searching Slack messages or files
   - Sending, editing, or deleting a message; adding/removing reactions
-  - Creating channels and inviting users
+  - Listing channels/conversations; creating channels and inviting users
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
   Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages"
@@ -117,9 +117,12 @@ agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "17
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-## Create channels + invite users
+## List channels + create/invite users
 
 ```bash
+agent-slack channel list
+agent-slack channel list --user "@alice" --limit 50
+agent-slack channel list --all --limit 100
 agent-slack channel new --name "incident-war-room"
 agent-slack channel new --name "incident-leads" --private
 agent-slack channel invite --channel "incident-war-room" --users "U01AAAA,@alice,bob@example.com"

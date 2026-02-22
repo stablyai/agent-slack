@@ -26,7 +26,11 @@ Use `--max-body-chars` to cap message bodies for token budget control.
 
 Use `--max-content-chars` (messages) and `--limit` to control size.
 
-## Channel admin shapes (high-level)
+## Channel shapes (high-level)
+
+- `channel list` returns:
+  - `channels: [ ... ]`
+  - `next_cursor?: string` (present when more pages are available)
 
 - `channel new` returns:
   - `channel: { id, name, is_private }`
