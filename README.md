@@ -61,6 +61,7 @@ agent-slack
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch thread or recent channel messages
 │   ├── send  <target> <text>      # send / reply (does the right thing)
+│   ├── draft <target> [text]      # open Slack-like editor in browser
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
 │   └── react
@@ -171,6 +172,23 @@ Optional:
 # Include reactions + which users reacted
 agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000" --include-reactions
 ```
+
+### Draft a message (browser editor)
+
+Opens a Slack-like WYSIWYG editor in your browser for composing messages with full formatting support (bold, italic, strikethrough, links, lists, quotes, code, code blocks).
+
+```bash
+# Open editor for a channel
+agent-slack message draft "#general"
+
+# Open editor with initial text
+agent-slack message draft "#general" "Here's my update"
+
+# Reply in a thread
+agent-slack message draft "https://workspace.slack.com/archives/C123/p1700000000000000"
+```
+
+After sending, the editor shows a "View in Slack" link to the posted message.
 
 ### Reply, edit, delete, and react
 
