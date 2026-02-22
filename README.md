@@ -42,9 +42,11 @@ npx skills add stablyai/agent-slack
 
 <details>
 <summary>Manual installation</summary>
+    
 ```bash
 bash ./scripts/install-skill.sh
 ```
+
 </details>
 
 ## Command map (high level)
