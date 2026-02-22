@@ -28,16 +28,21 @@ export function openDraftEditor(config: DraftEditorConfig): Promise<DraftResult>
         try {
           const body = await readBody(req);
           const data = JSON.parse(body) as { text: string };
+          if (typeof data.text !== "string" || !data.text.trim()) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: "text is required" }));
+            return;
+          }
           const sendResult = await config.onSend(data.text);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, ts: sendResult.ts }));
           settled = true;
           resolve({ sent: true, text: data.text });
+          setTimeout(() => server.close(), 300);
         } catch (err: unknown) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: false, error: String(err) }));
         }
-        setTimeout(() => server.close(), 300);
         return;
       }
 
@@ -61,11 +66,21 @@ export function openDraftEditor(config: DraftEditorConfig): Promise<DraftResult>
     });
 
     server.on("close", () => {
+      clearTimeout(idleTimeout);
       if (!settled) {
         settled = true;
         resolve({ cancelled: true });
       }
     });
+
+    const idleTimeout = setTimeout(
+      () => {
+        if (!settled) {
+          server.close();
+        }
+      },
+      30 * 60 * 1000,
+    );
 
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address();
@@ -129,7 +144,7 @@ function buildEditorHtml(config: DraftEditorConfig): string {
     initialText: config.initialText || "",
   });
 
-  return EDITOR_HTML.replace("__DRAFT_CONFIG__", injectedConfig);
+  return EDITOR_HTML.replace("__DRAFT_CONFIG__", injectedConfig.replace(/</g, "\\u003c"));
 }
 
 // ---------------------------------------------------------------------------
@@ -877,10 +892,10 @@ function htmlToMrkdwn(root) {
       case 'code': return '\`' + (el.textContent || '') + '\`';
       case 'pre': {
         // Collect adjacent pres into one code block
-        const lines = [(el.textContent || '').trim()];
+        const lines = [(el.textContent || '').trimEnd()];
         let next = el.nextElementSibling;
         while (next && next.tagName === 'PRE') {
-          lines.push((next.textContent || '').trim());
+          lines.push((next.textContent || '').trimEnd());
           visited.add(next);
           next = next.nextElementSibling;
         }
