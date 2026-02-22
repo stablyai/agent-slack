@@ -139,3 +139,4 @@ Common options:
 
 - `agent-slack user list [--workspace <url-or-unique-substring>] [--limit <n>] [--cursor <cursor>] [--include-bots]`
 - `agent-slack user get <U...|@handle|handle> [--workspace <url-or-unique-substring>]`
+- `agent-slack user dm-open <users...> [--workspace <url-or-unique-substring>]` — get DM or group DM channel ID for one or more users (max 8)
