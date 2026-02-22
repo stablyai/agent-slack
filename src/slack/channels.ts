@@ -5,6 +5,24 @@ export function isChannelId(input: string): boolean {
   return /^[CDG][A-Z0-9]{8,}$/.test(input);
 }
 
+export function isUserId(input: string): boolean {
+  return /^U[A-Z0-9]{8,}$/.test(input);
+}
+
+/**
+ * Open (or reuse) a DM channel with a user via conversations.open.
+ * Returns the DM channel ID.
+ */
+export async function openDmChannel(client: SlackApiClient, userId: string): Promise<string> {
+  const resp = await client.api("conversations.open", { users: userId });
+  const channel = isRecord(resp) ? resp.channel : null;
+  const channelId = isRecord(channel) ? getString(channel.id) : undefined;
+  if (!channelId) {
+    throw new Error(`Could not open DM channel for user: ${userId}`);
+  }
+  return channelId;
+}
+
 export function normalizeChannelInput(input: string): {
   kind: "id" | "name";
   value: string;
