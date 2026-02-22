@@ -1,5 +1,11 @@
 import type { Command } from "commander";
-import { checkForUpdate, performUpdate } from "../lib/update.ts";
+import {
+  checkForUpdate,
+  detectInstallMethod,
+  getUpdateCommand,
+  performPackageManagerUpdate,
+  performUpdate,
+} from "../lib/update.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
 
 export function registerUpdateCommand(input: { program: Command }): void {
@@ -9,6 +15,8 @@ export function registerUpdateCommand(input: { program: Command }): void {
     .option("--check", "Only check for updates (don't install)")
     .action(async (...args) => {
       const [options] = args as [{ check?: boolean }];
+      const method = detectInstallMethod();
+
       try {
         const result = await checkForUpdate(true);
 
@@ -19,19 +27,41 @@ export function registerUpdateCommand(input: { program: Command }): void {
         }
 
         if (!result.update_available) {
-          console.log(JSON.stringify(pruneEmpty({ ...result, status: "up_to_date" }), null, 2));
+          console.log(
+            JSON.stringify(
+              pruneEmpty({ ...result, install_method: method, status: "up_to_date" }),
+              null,
+              2,
+            ),
+          );
           return;
         }
 
         if (options.check) {
           console.log(
-            JSON.stringify(pruneEmpty({ ...result, status: "update_available" }), null, 2),
+            JSON.stringify(
+              pruneEmpty({
+                ...result,
+                install_method: method,
+                update_command: getUpdateCommand(method),
+                status: "update_available",
+              }),
+              null,
+              2,
+            ),
           );
           return;
         }
 
         process.stderr.write(`Updating agent-slack ${result.current} → ${result.latest}...\n`);
-        const outcome = await performUpdate(result.latest);
+
+        let outcome: { success: boolean; message: string };
+        if (method === "npm" || method === "bun") {
+          process.stderr.write(`Detected install method: ${method}\n`);
+          outcome = performPackageManagerUpdate(method);
+        } else {
+          outcome = await performUpdate(result.latest);
+        }
 
         if (!outcome.success) {
           console.error(outcome.message);
@@ -43,6 +73,7 @@ export function registerUpdateCommand(input: { program: Command }): void {
           JSON.stringify(
             pruneEmpty({
               status: "updated",
+              install_method: method,
               previous_version: result.current,
               new_version: result.latest,
               message: outcome.message,
