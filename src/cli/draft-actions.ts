@@ -31,11 +31,12 @@ export async function draftMessage(input: {
           threadTs,
           initialText: input.initialText,
           sendFn: async (text: string) => {
-            await client.api("chat.postMessage", {
+            const resp = await client.api("chat.postMessage", {
               channel: ref.channel_id,
               text,
               thread_ts: threadTs,
             });
+            return { ts: resp.ts as string };
           },
         });
       },
@@ -64,11 +65,12 @@ export async function draftMessage(input: {
         threadTs: input.options.threadTs,
         initialText: input.initialText,
         sendFn: async (text: string) => {
-          await client.api("chat.postMessage", {
+          const resp = await client.api("chat.postMessage", {
             channel: channelId,
             text,
             thread_ts: input.options.threadTs,
           });
+          return { ts: resp.ts as string };
         },
       });
     },
@@ -81,7 +83,7 @@ async function draftWithEditor(input: {
   workspaceUrl?: string;
   threadTs?: string;
   initialText?: string;
-  sendFn: (text: string) => Promise<void>;
+  sendFn: (text: string) => Promise<{ ts: string }>;
 }): Promise<Record<string, unknown>> {
   // In CI mode, skip the editor and send directly
   if (process.env.CI) {

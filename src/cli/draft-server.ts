@@ -7,7 +7,7 @@ export type DraftEditorConfig = {
   workspaceUrl?: string;
   threadTs?: string;
   initialText?: string;
-  onSend: (mrkdwn: string) => Promise<void>;
+  onSend: (mrkdwn: string) => Promise<{ ts: string }>;
 };
 
 export type DraftResult = { sent: true; text: string } | { cancelled: true };
@@ -28,9 +28,9 @@ export function openDraftEditor(config: DraftEditorConfig): Promise<DraftResult>
         try {
           const body = await readBody(req);
           const data = JSON.parse(body) as { text: string };
-          await config.onSend(data.text);
+          const sendResult = await config.onSend(data.text);
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ ok: true }));
+          res.end(JSON.stringify({ ok: true, ts: sendResult.ts }));
           settled = true;
           resolve({ sent: true, text: data.text });
         } catch (err: unknown) {
@@ -105,6 +105,7 @@ function buildEditorHtml(config: DraftEditorConfig): string {
   const injectedConfig = JSON.stringify({
     channelName: config.channelName,
     channelId: config.channelId || null,
+    workspaceUrl: config.workspaceUrl || null,
     threadTs: config.threadTs || null,
     threadUrl,
     initialText: config.initialText || "",
@@ -239,7 +240,7 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
   .composer {
     width: 100%;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid #818385;
     border-radius: 8px;
     overflow: hidden;
     transition: border-color 0.15s;
@@ -263,8 +264,8 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border: none;
     border-radius: 4px;
     background: transparent;
@@ -460,40 +461,59 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
     font-size: 11px;
   }
 
-  .btn {
-    padding: 4px 12px;
-    border: none;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.1s;
-    font-family: inherit;
-  }
-
   .btn-send {
     background: var(--green);
     color: #fff;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 14px;
-    border-radius: 6px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s;
+    flex-shrink: 0;
   }
   .btn-send:hover { background: var(--green-hover); }
-  .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-send:disabled { opacity: 0.3; cursor: not-allowed; }
   .btn-send svg { width: 16px; height: 16px; fill: currentColor; }
 
-  .btn-cancel {
-    background: transparent;
+  .cancel-link {
+    background: none;
+    border: none;
     color: var(--text-muted);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 4px 6px;
   }
-  .btn-cancel:hover { color: var(--text-secondary); }
+  .cancel-link:hover { color: var(--text-secondary); text-decoration: underline; }
+
+  .btn-aa {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    transition: all 0.08s;
+    flex-shrink: 0;
+  }
+  .btn-aa:hover { background: var(--surface-raised); color: var(--text); }
+  .btn-aa.active { background: var(--toolbar-active); color: var(--blue-link); }
 
   .btn-source {
     background: transparent;
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     padding: 3px 6px;
     border-radius: 4px;
@@ -668,14 +688,14 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
 
     <div class="bottom-bar">
       <div class="bottom-left">
+        <button class="btn-aa active" id="aaToggle" onclick="toggleToolbar()" data-tip="Formatting">Aa</button>
         <button class="btn-source" id="sourceToggle" onclick="toggleSourceMode()">mrkdwn</button>
         <span class="hint"><kbd id="modKey">&#8984;</kbd><kbd>Enter</kbd> to send</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <button class="btn btn-cancel" onclick="handleCancel()">Cancel</button>
-        <button class="btn btn-send" id="sendBtn" onclick="handleSend()">
+        <button class="cancel-link" onclick="handleCancel()">Cancel</button>
+        <button class="btn-send" id="sendBtn" onclick="handleSend()" disabled>
           <svg viewBox="0 0 20 20"><path d="M1.7 9.1l7.3 1 .01 0L1.7 9.1zm0 1.8l7.3-1-7.3 1zM1.5 2.1c-.2-.7.5-1.3 1.1-1L19 8.9c.6.3.6 1.2 0 1.5L2.6 18.9c-.7.3-1.3-.3-1.1-1l1.8-6.9L11 10 3.3 8.9 1.5 2.1z"/></svg>
-          Send
         </button>
       </div>
     </div>
@@ -1221,6 +1241,21 @@ document.addEventListener('mousedown', (e) => {
   }
 });
 
+// ─── Toolbar toggle (Aa button) ───
+let toolbarVisible = true;
+function toggleToolbar() {
+  toolbarVisible = !toolbarVisible;
+  document.getElementById('toolbar').style.display = toolbarVisible ? '' : 'none';
+  document.getElementById('aaToggle').classList.toggle('active', toolbarVisible);
+}
+
+// ─── Send button state ───
+function updateSendBtn() {
+  const text = sourceMode ? sourceEditor.value.trim() : (editor.textContent || '').trim();
+  document.getElementById('sendBtn').disabled = !text;
+}
+editor.addEventListener('input', updateSendBtn);
+
 // ─── Source mode ───
 function toggleSourceMode() {
   sourceMode = !sourceMode;
@@ -1230,19 +1265,23 @@ function toggleSourceMode() {
     editor.style.display = 'none';
     sourceEditor.style.display = 'block';
     document.getElementById('toolbar').style.display = 'none';
+    document.getElementById('aaToggle').style.display = 'none';
     sourceEditor.focus();
   } else {
     editor.innerHTML = mrkdwnToHtml(sourceEditor.value);
     sourceEditor.style.display = 'none';
     editor.style.display = '';
-    document.getElementById('toolbar').style.display = '';
+    document.getElementById('toolbar').style.display = toolbarVisible ? '' : 'none';
+    document.getElementById('aaToggle').style.display = '';
     editor.focus();
   }
+  updateSendBtn();
 }
 
 sourceEditor.addEventListener('keydown', (e) => {
   if (e[MOD] && e.key === 'Enter') { e.preventDefault(); handleSend(); }
 });
+sourceEditor.addEventListener('input', updateSendBtn);
 
 // ─── Send / Cancel ───
 let sending = false;
@@ -1255,7 +1294,7 @@ async function handleSend() {
   sending = true;
   const btn = document.getElementById('sendBtn');
   btn.disabled = true;
-  btn.innerHTML = 'Sending\\u2026';
+  btn.innerHTML = '\\u2026';
 
   try {
     const resp = await fetch('/send', {
@@ -1265,7 +1304,14 @@ async function handleSend() {
     });
     const data = await resp.json();
     if (data.ok) {
-      showOverlay('Message sent', 'You can close this tab.', 'success');
+      let sub = 'You can close this tab.';
+      if (data.ts && CONFIG.workspaceUrl && CONFIG.channelId) {
+        const tsNoDot = data.ts.replace('.', '');
+        const baseUrl = CONFIG.workspaceUrl.replace(/\\/$/, '');
+        const msgUrl = baseUrl + '/archives/' + CONFIG.channelId + '/p' + tsNoDot;
+        sub = '<a href="' + msgUrl + '" target="_blank" style="color:var(--accent);text-decoration:none;">View in Slack \\u2197</a><br><span style="opacity:0.6;font-size:12px;">You can close this tab.</span>';
+      }
+      showOverlay('Message sent \\u2705', sub, 'success');
     } else {
       throw new Error(data.error || 'Send failed');
     }
@@ -1273,7 +1319,7 @@ async function handleSend() {
     showOverlay('Failed to send', err.message, 'error');
     sending = false;
     btn.disabled = false;
-    btn.innerHTML = '<svg viewBox="0 0 20 20" style="width:16px;height:16px;fill:currentColor"><path d="M1.7 9.1l7.3 1 .01 0L1.7 9.1zm0 1.8l7.3-1-7.3 1zM1.5 2.1c-.2-.7.5-1.3 1.1-1L19 8.9c.6.3.6 1.2 0 1.5L2.6 18.9c-.7.3-1.3-.3-1.1-1l1.8-6.9L11 10 3.3 8.9 1.5 2.1z"/></svg> Send';
+    btn.innerHTML = '<svg viewBox="0 0 20 20" style="width:16px;height:16px;fill:currentColor"><path d="M1.7 9.1l7.3 1 .01 0L1.7 9.1zm0 1.8l7.3-1-7.3 1zM1.5 2.1c-.2-.7.5-1.3 1.1-1L19 8.9c.6.3.6 1.2 0 1.5L2.6 18.9c-.7.3-1.3-.3-1.1-1l1.8-6.9L11 10 3.3 8.9 1.5 2.1z"/></svg>';
   }
 }
 
@@ -1292,6 +1338,7 @@ function showOverlay(title, sub, type) {
 
 // ─── Focus ───
 editor.focus();
+updateSendBtn();
 </script>
 </body>
 </html>`;
