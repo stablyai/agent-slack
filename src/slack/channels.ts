@@ -80,3 +80,43 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
 
   throw new Error(`Could not resolve channel name: #${name}`);
 }
+
+/**
+ * Resolve a channel/DM ID to a human-readable name via conversations.info.
+ * Returns the channel name (e.g. "general") or DM user's display name,
+ * falling back to the raw ID on failure.
+ */
+export async function resolveChannelName(
+  client: SlackApiClient,
+  channelId: string,
+): Promise<string> {
+  try {
+    const resp = await client.api("conversations.info", { channel: channelId });
+    const channel = isRecord(resp) ? resp.channel : null;
+    if (!isRecord(channel)) {
+      return channelId;
+    }
+
+    // DM: resolve the other user's name
+    if (channel.is_im) {
+      const userId = getString(channel.user);
+      if (userId) {
+        try {
+          const userResp = await client.api("users.info", { user: userId });
+          const user = isRecord(userResp) ? userResp.user : null;
+          const profile = isRecord(user) ? user.profile : null;
+          if (isRecord(profile)) {
+            return getString(profile.display_name) || getString(profile.real_name) || channelId;
+          }
+        } catch {
+          // fall through
+        }
+      }
+      return channelId;
+    }
+
+    return getString(channel.name) || channelId;
+  } catch {
+    return channelId;
+  }
+}

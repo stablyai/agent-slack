@@ -1,7 +1,7 @@
 import type { CliContext } from "./context.ts";
 import { fetchMessage } from "../slack/messages.ts";
 import { parseMsgTarget } from "./targets.ts";
-import { resolveChannelId, normalizeChannelInput } from "../slack/channels.ts";
+import { resolveChannelId, resolveChannelName, normalizeChannelInput } from "../slack/channels.ts";
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { openDraftEditor } from "./draft-server.ts";
 
@@ -23,9 +23,10 @@ export async function draftMessage(input: {
         const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const msg = await fetchMessage(client, { ref });
         const threadTs = input.options.threadTs ?? msg.thread_ts ?? msg.ts;
+        const channelName = await resolveChannelName(client, ref.channel_id);
 
         return draftWithEditor({
-          channelName: ref.channel_id,
+          channelName,
           channelId: ref.channel_id,
           workspaceUrl: ref.workspace_url,
           threadTs,
@@ -56,7 +57,8 @@ export async function draftMessage(input: {
       const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveChannelId(client, String(target.channel));
       const normalized = normalizeChannelInput(target.channel);
-      const channelName = normalized.kind === "name" ? normalized.value : channelId;
+      const channelName =
+        normalized.kind === "name" ? normalized.value : await resolveChannelName(client, channelId);
 
       return draftWithEditor({
         channelName,
