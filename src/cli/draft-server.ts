@@ -159,6 +159,9 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Draft Message — Agent Slack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #1a1d21;
@@ -225,6 +228,7 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
     gap: 4px;
     margin-top: 2px;
     justify-content: center;
+    font-family: 'Inter', sans-serif;
     font-size: 10px;
     font-weight: 500;
     color: rgba(255,255,255,0.5);
@@ -244,19 +248,11 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
     color: var(--text-muted);
     margin-top: 4px;
   }
-  .brand-logo {
-    position: fixed;
-    right: 24px;
-    top: 24px;
-    opacity: 0.5;
-    transition: opacity 0.15s;
-  }
-  .brand-logo img {
-    width: 32px;
-    height: 32px;
-  }
-  .brand-logo:hover {
-    opacity: 0.75;
+  .brand-byline img {
+    width: 12px;
+    height: 12px;
+    opacity: 0.6;
+    vertical-align: -1px;
   }
 
   /* ── Context bar ── */
@@ -699,11 +695,8 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
   <!-- Branding -->
   <div class="brand">
     <div class="brand-name">Agent Slack</div>
-    <div class="brand-byline">By <a href="https://stably.ai" target="_blank" rel="noopener">Stably.ai</a></div>
+    <div class="brand-byline">By <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjM3OCIgaGVpZ2h0PSIyMzc4IiB2aWV3Qm94PSIwIDAgMjM3OCAyMzc4IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfMTZfNDcpIj4KPHBhdGggZD0iTTExODguOTQgNjE4LjY0NUMxNTAwLjY5IDYxOC42NDUgMTc1My4zNiA4NzEuMzIyIDE3NTMuMzYgMTE4My4wNEMxNzUzLjM2IDE0OTQuNzIgMTUwMC42OSAxNzQ3LjM5IDExODguOTQgMTc0Ny4zOUM4NzcuMjUyIDE3NDcuMzkgNjI0LjU0NyAxNDk0LjcyIDYyNC41NDcgMTE4My4wNEM2MjQuNTQ3IDg3MS4zMTcgODc3LjI1MiA2MTguNjQ1IDExODguOTQgNjE4LjY0NVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTg4Ljk0IDBDMTA0MC44MSAwIDg5OS40NiAyOC40NTgxIDc2OC42MTkgNzguMTc0MkM3OTcuMjAyIDEwNy4yMDMgODIwLjg0IDE0MC45OTIgODM4Ljk5IDE3OC4wNTJDOTQ4Ljg2MSAxMzkuODE4IDEwNjYuMzUgMTE4LjA1NSAxMTg5IDExOC4wNTVDMTc3OS41IDExOC4wNTUgMjI1OS44NSA1OTguNTYxIDIyNTkuODUgMTE4OC45NEMyMjU5Ljg1IDE3NzkuMzEgMTc3OS41IDIyNTkuOTEgMTE4OC45NCAyMjU5LjkxQzU5OC41MDEgMjI1OS45MSAxMTguMTIgMTc3OS4zNyAxMTguMTIgMTE4OUMxMTguMTIgOTkwLjEwNiAxNzMuNjA3IDgwNC40MDggMjY4LjQwOSA2NDQuNjNDMjM1LjkxOSA2MTkuNzU5IDIwNy4yNzEgNTg5LjkzNyAxODQuMzI4IDU1NS45NThDNjguMjEzNiA3MzkuNDkzIDAgOTU2LjE4NiAwIDExODlDMCAxODQ0LjYgNTMzLjMzIDIzNzguMDEgMTE4OC45NCAyMzc4LjAxQzE4NDQuNiAyMzc4LjAxIDIzNzggMTg0NC42MSAyMzc4IDExODlDMjM3OCA1MzMuMzk1IDE4NDQuNiAwIDExODguOTQgMFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik00OTguNjI0IDExMS4xMUM2MzMuMjA5IDExMS4xMSA3NDIuMjg3IDIyMC4xODggNzQyLjI4NyAzNTQuNzczQzc0Mi4yODcgNDg5LjM1OCA2MzMuMjA5IDU5OC40MzYgNDk4LjYyNCA1OTguNDM2QzM2NC4wNzEgNTk4LjQzNiAyNTQuOTYxIDQ4OS4zNTggMjU0Ljk2MSAzNTQuNzczQzI1NC45NjEgMjIwLjE4OCAzNjQuMDcxIDExMS4xMSA0OTguNjI0IDExMS4xMVoiIGZpbGw9IndoaXRlIi8+CjwvZz4KPGRlZnM+CjxjbGlwUGF0aCBpZD0iY2xpcDBfMTZfNDciPgo8cmVjdCB3aWR0aD0iMjM3OCIgaGVpZ2h0PSIyMzc4IiBmaWxsPSJ3aGl0ZSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=" alt="" /><a href="https://stably.ai" target="_blank" rel="noopener">Stably.ai</a></div>
     <div class="brand-sub">draft mode</div>
-    <a class="brand-logo" href="https://stably.ai" target="_blank" rel="noopener">
-      <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjM3OCIgaGVpZ2h0PSIyMzc4IiB2aWV3Qm94PSIwIDAgMjM3OCAyMzc4IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfMTZfNDcpIj4KPHBhdGggZD0iTTExODguOTQgNjE4LjY0NUMxNTAwLjY5IDYxOC42NDUgMTc1My4zNiA4NzEuMzIyIDE3NTMuMzYgMTE4My4wNEMxNzUzLjM2IDE0OTQuNzIgMTUwMC42OSAxNzQ3LjM5IDExODguOTQgMTc0Ny4zOUM4NzcuMjUyIDE3NDcuMzkgNjI0LjU0NyAxNDk0LjcyIDYyNC41NDcgMTE4My4wNEM2MjQuNTQ3IDg3MS4zMTcgODc3LjI1MiA2MTguNjQ1IDExODguOTQgNjE4LjY0NVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTg4Ljk0IDBDMTA0MC44MSAwIDg5OS40NiAyOC40NTgxIDc2OC42MTkgNzguMTc0MkM3OTcuMjAyIDEwNy4yMDMgODIwLjg0IDE0MC45OTIgODM4Ljk5IDE3OC4wNTJDOTQ4Ljg2MSAxMzkuODE4IDEwNjYuMzUgMTE4LjA1NSAxMTg5IDExOC4wNTVDMTc3OS41IDExOC4wNTUgMjI1OS44NSA1OTguNTYxIDIyNTkuODUgMTE4OC45NEMyMjU5Ljg1IDE3NzkuMzEgMTc3OS41IDIyNTkuOTEgMTE4OC45NCAyMjU5LjkxQzU5OC41MDEgMjI1OS45MSAxMTguMTIgMTc3OS4zNyAxMTguMTIgMTE4OUMxMTguMTIgOTkwLjEwNiAxNzMuNjA3IDgwNC40MDggMjY4LjQwOSA2NDQuNjNDMjM1LjkxOSA2MTkuNzU5IDIwNy4yNzEgNTg5LjkzNyAxODQuMzI4IDU1NS45NThDNjguMjEzNiA3MzkuNDkzIDAgOTU2LjE4NiAwIDExODlDMCAxODQ0LjYgNTMzLjMzIDIzNzguMDEgMTE4OC45NCAyMzc4LjAxQzE4NDQuNiAyMzc4LjAxIDIzNzggMTg0NC42MSAyMzc4IDExODlDMjM3OCA1MzMuMzk1IDE4NDQuNiAwIDExODguOTQgMFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik00OTguNjI0IDExMS4xMUM2MzMuMjA5IDExMS4xMSA3NDIuMjg3IDIyMC4xODggNzQyLjI4NyAzNTQuNzczQzc0Mi4yODcgNDg5LjM1OCA2MzMuMjA5IDU5OC40MzYgNDk4LjYyNCA1OTguNDM2QzM2NC4wNzEgNTk4LjQzNiAyNTQuOTYxIDQ4OS4zNTggMjU0Ljk2MSAzNTQuNzczQzI1NC45NjEgMjIwLjE4OCAzNjQuMDcxIDExMS4xMSA0OTguNjI0IDExMS4xMVoiIGZpbGw9IndoaXRlIi8+CjwvZz4KPGRlZnM+CjxjbGlwUGF0aCBpZD0iY2xpcDBfMTZfNDciPgo8cmVjdCB3aWR0aD0iMjM3OCIgaGVpZ2h0PSIyMzc4IiBmaWxsPSJ3aGl0ZSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=" alt="Stably" width="24" height="24" />
-    </a>
   </div>
 
   <!-- Context: channel + thread link -->
