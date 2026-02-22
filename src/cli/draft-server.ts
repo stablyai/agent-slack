@@ -100,12 +100,30 @@ function buildSlackThreadUrl(config: DraftEditorConfig): string | null {
   return `${config.workspaceUrl.replace(/\/$/, "")}/archives/${config.channelId}/p${tsNoDot}`;
 }
 
+function extractWorkspaceName(url?: string): string | null {
+  if (!url) {
+    return null;
+  }
+  try {
+    const host = new URL(url).hostname; // e.g. "stablygroup.slack.com"
+    const parts = host.split(".");
+    if (parts.length >= 3 && parts.at(-2) === "slack") {
+      return parts.slice(0, -2).join("."); // e.g. "stablygroup"
+    }
+    return host;
+  } catch {
+    return null;
+  }
+}
+
 function buildEditorHtml(config: DraftEditorConfig): string {
   const threadUrl = buildSlackThreadUrl(config);
+  const workspaceName = extractWorkspaceName(config.workspaceUrl);
   const injectedConfig = JSON.stringify({
     channelName: config.channelName,
     channelId: config.channelId || null,
     workspaceUrl: config.workspaceUrl || null,
+    workspaceName,
     threadTs: config.threadTs || null,
     threadUrl,
     initialText: config.initialText || "",
@@ -216,6 +234,12 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
   .context-bar .channel {
     font-weight: 700;
     color: var(--text);
+  }
+
+  .context-bar .workspace-label {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-left: 8px;
   }
 
   .context-bar .thread-link {
@@ -638,6 +662,7 @@ const EDITOR_HTML = /* html */ `<!DOCTYPE html>
       <line x1="3" y1="7" x2="17.5" y2="7"/><line x1="2.5" y1="13" x2="17" y2="13"/>
     </svg>
     <span class="channel" id="channelName"></span>
+    <span class="workspace-label" id="workspaceName"></span>
     <a class="thread-link" id="threadLink" style="display:none" target="_blank">
       <span>View thread</span>
       <svg viewBox="0 0 16 16" stroke-linecap="round" stroke-linejoin="round">
@@ -731,6 +756,9 @@ const MOD = IS_MAC ? 'metaKey' : 'ctrlKey';
 
 // ─── Init header ───
 document.getElementById('channelName').textContent = CONFIG.channelName;
+if (CONFIG.workspaceName) {
+  document.getElementById('workspaceName').textContent = CONFIG.workspaceName;
+}
 if (!IS_MAC) {
   document.getElementById('modKey').textContent = 'Ctrl';
   document.querySelectorAll('[data-tip]').forEach(el => {

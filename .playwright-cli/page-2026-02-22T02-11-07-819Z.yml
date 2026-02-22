@@ -1,0 +1,54 @@
+- generic [ref=e2]:
+    - generic [ref=e3]:
+        - generic [ref=e4]: Agent Slack
+        - generic [ref=e5]: draft mode
+    - generic [ref=e6]:
+        - img [ref=e7]
+        - generic [ref=e10]: Brennan Benson
+        - generic [ref=e11]: stablygroup
+        - link "View thread" [ref=e12] [cursor=pointer]:
+            - /url: https://stablygroup.slack.com/archives/D05CB2ZQRDF/p1708531200123456
+            - generic [ref=e13]: View thread
+            - img [ref=e14]
+    - generic [ref=e17]:
+        - generic [ref=e18]:
+            - button "B Bold (⌘B)" [ref=e19] [cursor=pointer]:
+                - generic [ref=e20]: B
+                - text: Bold (⌘B)
+            - button "I Italic (⌘I)" [ref=e21] [cursor=pointer]:
+                - generic [ref=e22]: I
+                - text: Italic (⌘I)
+            - button "S Strikethrough (⌘⇧X)" [ref=e23] [cursor=pointer]:
+                - generic [ref=e24]: S
+                - text: Strikethrough (⌘⇧X)
+            - button "Link (⌘K)" [ref=e26] [cursor=pointer]:
+                - img [ref=e27]
+                - text: Link (⌘K)
+            - button "Numbered list (⌘⇧7)" [ref=e30] [cursor=pointer]:
+                - img [ref=e31]:
+                    - generic [ref=e32]: "1."
+                    - generic [ref=e33]: "2."
+                    - generic [ref=e34]: "3."
+                - text: Numbered list (⌘⇧7)
+            - button "Bulleted list (⌘⇧8)" [ref=e35] [cursor=pointer]:
+                - img [ref=e36]
+                - text: Bulleted list (⌘⇧8)
+            - button "Quote (⌘⇧9)" [ref=e41] [cursor=pointer]:
+                - img [ref=e42]
+                - text: Quote (⌘⇧9)
+            - button "Code (⌘E)" [ref=e45] [cursor=pointer]:
+                - img [ref=e46]
+                - text: Code (⌘E)
+            - button "Code block (⌘⇧C)" [ref=e49] [cursor=pointer]:
+                - img [ref=e50]
+                - text: Code block (⌘⇧C)
+        - generic [active] [ref=e54]: "Message #Brennan Benson"
+        - generic [ref=e55]:
+            - generic [ref=e56]:
+                - button "Aa" [ref=e57] [cursor=pointer]
+                - button "mrkdwn" [ref=e58] [cursor=pointer]
+                - generic [ref=e59]: ⌘Enter to send
+            - generic [ref=e60]:
+                - button "Cancel" [ref=e61] [cursor=pointer]
+                - button [disabled] [ref=e62]:
+                    - img [ref=e63]
