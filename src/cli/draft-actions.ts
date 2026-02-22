@@ -12,6 +12,11 @@ export async function draftMessage(input: {
   options: { workspace?: string; threadTs?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
+  if (target.kind === "user") {
+    throw new Error(
+      "message draft does not support user ID targets. Use a channel name, channel ID, or message URL.",
+    );
+  }
 
   // URL target: resolve thread context and send
   if (target.kind === "url") {
