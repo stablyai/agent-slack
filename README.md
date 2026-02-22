@@ -51,6 +51,7 @@ bash ./scripts/install-skill.sh
 
 ```text
 agent-slack
+├── update                            # self-update (detects npm/bun/binary)
 ├── auth
 │   ├── whoami
 │   ├── test
