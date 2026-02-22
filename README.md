@@ -4,9 +4,9 @@ Slack automation CLI for AI agents (TypeScript + Bun).
 
 Guiding principle:
 
-- **Token-efficient** -- (compact JSON, minimal duplication, and empty/null fields pruned) so LLMs can consume results cheaply.
-- **Zero-config auth** -- Auth just works if you have Slack Desktop (with fallbacks available). No Python dependency.
-- **Human-in-the-loop** -- When appropriate (not in CI environments), loop humans in. Ex: `message draft`
+- **Token-efficient** — (compact JSON, minimal duplication, and empty/null fields pruned) so LLMs can consume results cheaply.
+- **Zero-config auth** — Auth just works if you have Slack Desktop (with fallbacks available). No Python dependency.
+- **Human-in-the-loop** — When appropriate (not in CI environments), loop humans in. Ex: `message draft`
 <img width="1228" height="741" alt="image" src="https://github.com/user-attachments/assets/92ecbb71-18ca-4516-a874-c83c154b0709" />
 
 ## Getting started
