@@ -170,7 +170,6 @@ export async function getDmChannelForUsers(
     throw new Error("conversations.open returned no channel");
   }
 
-  // D... = DM, G... = group DM (MPIM in Slack API)
   const channelType = channelId.startsWith("D") ? "dm" : "group_dm";
 
   return {

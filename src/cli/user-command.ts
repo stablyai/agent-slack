@@ -69,7 +69,9 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
 
   userCmd
     .command("dm-channel")
-    .description("Get DM/group DM channel ID for user(s) by id (U...) or handle (@name)")
+    .description(
+      "Get DM or group DM channel ID for one or more users by id (U...) or handle (@name)",
+    )
     .argument("<users...>", "One or more user ids or @handles (space-separated)")
     .option("--workspace <url>", "Workspace URL (required if you have multiple workspaces)")
     .action(async (...args) => {
