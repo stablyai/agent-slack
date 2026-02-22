@@ -1,7 +1,8 @@
+import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmod, copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { getAppDir } from "./app-dir.ts";
 import { readJsonFile, writeJsonFile } from "./fs.ts";
 import { getPackageVersion } from "./version.ts";
@@ -106,6 +107,66 @@ export async function checkForUpdate(force = false): Promise<{
   };
 }
 
+export type InstallMethod = "binary" | "npm" | "bun";
+
+/**
+ * Detect how agent-slack was installed so we can use the right update strategy.
+ *
+ * - "npm"    → running via Node.js (npm install -g agent-slack)
+ * - "bun"    → running via Bun runtime (bun install -g agent-slack / bunx)
+ * - "binary" → standalone compiled binary (GitHub release)
+ */
+export function detectInstallMethod(): InstallMethod {
+  // Running under Bun runtime (bun install -g, bunx, bun run, etc.)
+  // Note: compiled bun binaries also have process.versions.bun set,
+  // so we check that the executable is actually the bun runtime itself.
+  if (process.versions.bun && basename(process.execPath) === "bun") {
+    return "bun";
+  }
+
+  // Running under Node.js (npm install -g, npx, etc.)
+  const execName = basename(process.execPath);
+  if (["node", "nodejs", "node.exe"].includes(execName) || process.env.npm_execpath) {
+    return "npm";
+  }
+
+  // Standalone compiled binary
+  return "binary";
+}
+
+/**
+ * Return the shell command a user should run to update, based on install method.
+ */
+export function getUpdateCommand(method?: InstallMethod): string {
+  const m = method ?? detectInstallMethod();
+  switch (m) {
+    case "npm":
+      return "npm install -g agent-slack@latest";
+    case "bun":
+      return "bun install -g agent-slack@latest";
+    case "binary":
+      return "agent-slack update";
+  }
+}
+
+/**
+ * Update via a package manager (npm or bun).
+ * Spawns the package manager synchronously and returns the result.
+ */
+export function performPackageManagerUpdate(method: "npm" | "bun"): {
+  success: boolean;
+  message: string;
+} {
+  const cmd = getUpdateCommand(method);
+  try {
+    execSync(cmd, { stdio: ["inherit", "pipe", "inherit"] });
+    return { success: true, message: `Updated agent-slack via: ${cmd}` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, message: `Failed to run "${cmd}": ${msg}` };
+  }
+}
+
 function detectPlatformAsset(): string {
   const platform = process.platform === "win32" ? "windows" : process.platform;
   const archMap: Record<string, string> = { x64: "x64", arm64: "arm64" };
@@ -207,8 +268,9 @@ export async function backgroundUpdateCheck(): Promise<void> {
   try {
     const result = await checkForUpdate();
     if (result?.update_available) {
+      const cmd = getUpdateCommand();
       process.stderr.write(
-        `\nUpdate available: ${result.current} → ${result.latest}. Run "agent-slack update" to upgrade.\n`,
+        `\nUpdate available: ${result.current} → ${result.latest}. Run "${cmd}" to upgrade.\n`,
       );
     }
   } catch {
