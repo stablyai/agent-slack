@@ -1,0 +1,5 @@
+{
+  "browser": {
+    "cdpEndpoint": "http://localhost:9222"
+  }
+}

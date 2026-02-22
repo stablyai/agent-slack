@@ -9,6 +9,7 @@ import {
   sendMessage,
   type MessageCommandOptions,
 } from "./message-actions.ts";
+import { draftMessage } from "./draft-actions.ts";
 
 function collectOptionValue(value: string, previous: string[] = []): string[] {
   return [...previous, value];
@@ -163,6 +164,36 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
           ctx: input.ctx,
           targetInput,
           text,
+          options,
+        });
+        console.log(JSON.stringify(payload, null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  messageCmd
+    .command("draft")
+    .description("Open a rich Slack-like editor to compose and send a message")
+    .argument("<target>", "Slack message URL, #name/name, or channel id")
+    .argument("[text]", "Initial draft text (mrkdwn format)")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
+    )
+    .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
+    .action(async (...args) => {
+      const [targetInput, text, options] = args as [
+        string,
+        string | undefined,
+        { workspace?: string; threadTs?: string },
+      ];
+      try {
+        const payload = await draftMessage({
+          ctx: input.ctx,
+          targetInput,
+          initialText: text,
           options,
         });
         console.log(JSON.stringify(payload, null, 2));

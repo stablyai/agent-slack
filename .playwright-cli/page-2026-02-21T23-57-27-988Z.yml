@@ -1,0 +1,55 @@
+- generic [ref=e2]:
+    - generic [ref=e3]:
+        - generic [ref=e4]: Agent Slack
+        - generic [ref=e5]: draft mode
+    - generic [ref=e6]:
+        - img [ref=e7]
+        - generic [ref=e10]: general
+        - link "View thread" [ref=e11] [cursor=pointer]:
+            - /url: https://myteam.slack.com/archives/C123ABC/p1708531200123456
+            - generic [ref=e12]: View thread
+            - img [ref=e13]
+    - generic [ref=e16]:
+        - generic [ref=e17]:
+            - button "B Bold (⌘B)":
+                - generic: B
+                - text: Bold (⌘B)
+            - button "I Italic (⌘I)":
+                - generic: I
+                - text: Italic (⌘I)
+            - button "S Strikethrough (⌘⇧X)":
+                - generic: S
+                - text: Strikethrough (⌘⇧X)
+            - button "Link (⌘K)":
+                - img
+                - text: Link (⌘K)
+            - button "Numbered list (⌘⇧7)":
+                - img:
+                    - generic: "1."
+                    - generic: "2."
+                    - generic: "3."
+                - text: Numbered list (⌘⇧7)
+            - button "Bulleted list (⌘⇧8)":
+                - img
+                - text: Bulleted list (⌘⇧8)
+            - button "Quote (⌘⇧9)":
+                - img
+                - text: Quote (⌘⇧9)
+            - button "Code (⌘E)" [ref=e44] [cursor=pointer]:
+                - img [ref=e45]
+                - text: Code (⌘E)
+            - button "Code block (⌘⇧C)" [ref=e48] [cursor=pointer]:
+                - img [ref=e49]
+                - text: Code block (⌘⇧C)
+        - generic [active] [ref=e53]:
+            - text: Hello world
+            - generic [ref=e64]: line 1
+        - generic [ref=e54]:
+            - generic [ref=e55]:
+                - button "mrkdwn" [ref=e56] [cursor=pointer]
+                - generic [ref=e57]: ⌘Enter to send
+            - generic [ref=e58]:
+                - button "Cancel" [ref=e59] [cursor=pointer]
+                - button "Send" [ref=e60] [cursor=pointer]:
+                    - img [ref=e61]
+                    - text: Send

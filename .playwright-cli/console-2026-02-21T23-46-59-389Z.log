@@ -1,0 +1,3 @@
+Total messages: 1 (Errors: 1, Warnings: 0)
+
+[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:53614/favicon.ico:0
