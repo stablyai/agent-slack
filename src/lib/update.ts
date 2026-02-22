@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmod, copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { getAppDir } from "./app-dir.ts";
 import { readJsonFile, writeJsonFile } from "./fs.ts";
 import { getPackageVersion } from "./version.ts";
@@ -118,12 +118,15 @@ export type InstallMethod = "binary" | "npm" | "bun";
  */
 export function detectInstallMethod(): InstallMethod {
   // Running under Bun runtime (bun install -g, bunx, bun run, etc.)
-  if (process.versions.bun) {
+  // Note: compiled bun binaries also have process.versions.bun set,
+  // so we check that the executable is actually the bun runtime itself.
+  if (process.versions.bun && basename(process.execPath) === "bun") {
     return "bun";
   }
 
   // Running under Node.js (npm install -g, npx, etc.)
-  if (process.execPath.includes("node") || process.env.npm_execpath) {
+  const execName = basename(process.execPath);
+  if (["node", "nodejs", "node.exe"].includes(execName) || process.env.npm_execpath) {
     return "npm";
   }
 
@@ -156,7 +159,7 @@ export function performPackageManagerUpdate(method: "npm" | "bun"): {
 } {
   const cmd = getUpdateCommand(method);
   try {
-    execSync(cmd, { stdio: "inherit" });
+    execSync(cmd, { stdio: ["inherit", "pipe", "inherit"] });
     return { success: true, message: `Updated agent-slack via: ${cmd}` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
