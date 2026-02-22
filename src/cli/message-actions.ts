@@ -6,7 +6,7 @@ import {
   toCompactMessage,
 } from "../slack/messages.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
-import { parseMsgTarget } from "./targets.ts";
+import { parseMsgTarget, assertNotUserTarget } from "./targets.ts";
 import { resolveChannelId, openDmChannel } from "../slack/channels.ts";
 import { normalizeSlackReactionName } from "../slack/emoji.ts";
 import { downloadMessageFiles } from "./message-file-downloads.ts";
@@ -83,11 +83,7 @@ export async function handleMessageGet(input: {
   options: MessageCommandOptions;
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(input.targetInput);
-  if (target.kind === "user") {
-    throw new Error(
-      "message get does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
+  assertNotUserTarget(target, "message get");
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
 
   return input.ctx.withAutoRefresh({
@@ -143,11 +139,7 @@ export async function handleMessageList(input: {
   options: MessageCommandOptions;
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(input.targetInput);
-  if (target.kind === "user") {
-    throw new Error(
-      "message list does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
+  assertNotUserTarget(target, "message list");
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
 
   return input.ctx.withAutoRefresh({
@@ -288,18 +280,20 @@ export async function sendMessage(input: {
 
   if (target.kind === "user") {
     const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
+    let dmChannelId: string | undefined;
     await input.ctx.withAutoRefresh({
       workspaceUrl,
       work: async () => {
         const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
-        const dmChannelId = await openDmChannel(client, target.userId);
+        dmChannelId = await openDmChannel(client, target.userId);
         await client.api("chat.postMessage", {
           channel: dmChannelId,
           text: input.text,
+          thread_ts: input.options.threadTs ? String(input.options.threadTs) : undefined,
         });
       },
     });
-    return { ok: true };
+    return { ok: true, dm_channel_id: dmChannelId };
   }
 
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
@@ -329,11 +323,7 @@ export async function editMessage(input: {
   options: { workspace?: string; ts?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
-  if (target.kind === "user") {
-    throw new Error(
-      "message edit does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
+  assertNotUserTarget(target, "message edit");
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
 
   await input.ctx.withAutoRefresh({
@@ -375,11 +365,7 @@ export async function deleteMessage(input: {
   options: { workspace?: string; ts?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
-  if (target.kind === "user") {
-    throw new Error(
-      "message delete does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
+  assertNotUserTarget(target, "message delete");
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
 
   await input.ctx.withAutoRefresh({
@@ -421,11 +407,7 @@ export async function reactOnTarget(input: {
   options?: { workspace?: string; ts?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(input.targetInput);
-  if (target.kind === "user") {
-    throw new Error(
-      "react does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
+  assertNotUserTarget(target, "react");
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options?.workspace);
 
   await input.ctx.withAutoRefresh({

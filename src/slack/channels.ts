@@ -6,7 +6,7 @@ export function isChannelId(input: string): boolean {
 }
 
 export function isUserId(input: string): boolean {
-  return /^U[A-Z0-9]{8,}$/.test(input);
+  return /^[UW][A-Z0-9]{8,}$/.test(input);
 }
 
 /**
@@ -14,7 +14,19 @@ export function isUserId(input: string): boolean {
  * Returns the DM channel ID.
  */
 export async function openDmChannel(client: SlackApiClient, userId: string): Promise<string> {
-  const resp = await client.api("conversations.open", { users: userId });
+  let resp: Record<string, unknown>;
+  try {
+    resp = await client.api("conversations.open", { users: userId });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes("user_not_found") || msg.includes("user_not_visible")) {
+      throw new Error(`User ${userId} not found or not visible in this workspace`);
+    }
+    if (msg.includes("cannot_dm_user")) {
+      throw new Error(`Cannot send DM to user ${userId} (user may be deactivated or restricted)`);
+    }
+    throw error;
+  }
   const channel = isRecord(resp) ? resp.channel : null;
   const channelId = isRecord(channel) ? getString(channel.id) : undefined;
   if (!channelId) {

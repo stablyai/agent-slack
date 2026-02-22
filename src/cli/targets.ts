@@ -6,6 +6,17 @@ export type MsgTarget =
   | { kind: "channel"; channel: string }
   | { kind: "user"; userId: string };
 
+export function assertNotUserTarget(
+  target: MsgTarget,
+  command: string,
+): asserts target is Exclude<MsgTarget, { kind: "user" }> {
+  if (target.kind === "user") {
+    throw new Error(
+      `${command} does not support user ID targets. To interact with DMs, send a message first via 'message send ${target.userId} "text"', then use the DM channel ID or message URL.`,
+    );
+  }
+}
+
 export function parseMsgTarget(input: string): MsgTarget {
   const trimmed = input.trim();
   if (!trimmed) {

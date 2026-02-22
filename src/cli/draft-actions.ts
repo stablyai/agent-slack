@@ -1,6 +1,6 @@
 import type { CliContext } from "./context.ts";
 import { fetchMessage } from "../slack/messages.ts";
-import { parseMsgTarget } from "./targets.ts";
+import { parseMsgTarget, assertNotUserTarget } from "./targets.ts";
 import { resolveChannelId, resolveChannelName, normalizeChannelInput } from "../slack/channels.ts";
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { openDraftEditor } from "./draft-server.ts";
@@ -12,11 +12,7 @@ export async function draftMessage(input: {
   options: { workspace?: string; threadTs?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
-  if (target.kind === "user") {
-    throw new Error(
-      "message draft does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
+  assertNotUserTarget(target, "message draft");
 
   // URL target: resolve thread context and send
   if (target.kind === "url") {
