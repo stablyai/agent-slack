@@ -92,8 +92,8 @@ async function draftWithEditor(input: {
     if (!input.initialText) {
       throw new Error("In CI mode, initial text is required (no editor available)");
     }
-    await input.sendFn(input.initialText);
-    return { ok: true, sent: true, editor: "skipped" };
+    const result = await input.sendFn(input.initialText);
+    return { ok: true, sent: true, editor: "skipped", ts: result.ts };
   }
 
   const result = await openDraftEditor({
