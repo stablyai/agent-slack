@@ -1,9 +1,10 @@
 import { parseSlackMessageUrl, type SlackMessageRef } from "../slack/url.ts";
-import { isChannelId } from "../slack/channels.ts";
+import { isChannelId, isUserId } from "../slack/channels.ts";
 
 export type MsgTarget =
   | { kind: "url"; ref: SlackMessageRef }
-  | { kind: "channel"; channel: string };
+  | { kind: "channel"; channel: string }
+  | { kind: "user"; userId: string };
 
 export function parseMsgTarget(input: string): MsgTarget {
   const trimmed = input.trim();
@@ -18,6 +19,9 @@ export function parseMsgTarget(input: string): MsgTarget {
     // not a slack message URL
   }
 
+  if (isUserId(trimmed)) {
+    return { kind: "user", userId: trimmed };
+  }
   if (trimmed.startsWith("#")) {
     return { kind: "channel", channel: trimmed };
   }

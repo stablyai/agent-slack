@@ -40,4 +40,27 @@ describe("parseMsgTarget", () => {
     }
     expect(t.channel).toBe("C060RS20UMV");
   });
+
+  test("accepts user IDs as DM targets", () => {
+    const t = parseMsgTarget("U12345ABCDE");
+    expect(t.kind).toBe("user");
+    if (t.kind !== "user") {
+      throw new Error("expected user");
+    }
+    expect(t.userId).toBe("U12345ABCDE");
+  });
+
+  test("accepts user IDs with leading/trailing whitespace", () => {
+    const t = parseMsgTarget("  U09GDJJKCCW  ");
+    expect(t.kind).toBe("user");
+    if (t.kind !== "user") {
+      throw new Error("expected user");
+    }
+    expect(t.userId).toBe("U09GDJJKCCW");
+  });
+
+  test("does not treat short U-prefixed strings as user IDs", () => {
+    const t = parseMsgTarget("U1234");
+    expect(t.kind).toBe("channel");
+  });
 });
