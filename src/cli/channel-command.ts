@@ -1,7 +1,11 @@
 import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
-import { resolveChannelId } from "../slack/channels.ts";
+import {
+  listAllConversations,
+  listUserConversations,
+  resolveChannelId,
+} from "../slack/channels.ts";
 import {
   createChannel,
   inviteExternalUsersToChannel,
@@ -11,10 +15,78 @@ import {
 } from "../slack/channel-admin.ts";
 import { resolveUserId } from "../slack/users.ts";
 
+type ChannelListOptions = {
+  workspace?: string;
+  user?: string;
+  all?: boolean;
+  limit: string;
+  cursor?: string;
+};
+
 export function registerChannelCommand(input: { program: Command; ctx: CliContext }): void {
   const channelCmd = input.program
     .command("channel")
-    .description("Create channels and invite users");
+    .description("List conversations, create channels, and manage invites");
+
+  channelCmd
+    .command("list")
+    .description("List conversations for a user (or current user), or all conversations")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
+    )
+    .option("--user <user>", "User id (U...) or @handle/handle")
+    .option("--all", "List all conversations (conversations.list); incompatible with --user")
+    .option("--limit <n>", "Max conversations in one page (default 100)", "100")
+    .option("--cursor <cursor>", "Pagination cursor for the next page")
+    .action(async (...args) => {
+      const [options] = args as [ChannelListOptions];
+      try {
+        if (options.all && options.user) {
+          throw new Error("--all cannot be used with --user");
+        }
+
+        const limit = Number.parseInt(options.limit, 10);
+        if (!Number.isFinite(limit) || limit < 1) {
+          throw new Error(`Invalid --limit value "${options.limit}": must be a positive integer`);
+        }
+
+        const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
+        const payload = await input.ctx.withAutoRefresh({
+          workspaceUrl,
+          work: async () => {
+            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            if (options.all) {
+              return await listAllConversations(client, {
+                limit,
+                cursor: options.cursor,
+                excludeArchived: true,
+              });
+            }
+
+            let userId: string | undefined;
+            if (options.user) {
+              userId = await resolveUserId(client, options.user);
+              if (!userId) {
+                throw new Error(`Could not resolve user: ${options.user}`);
+              }
+            }
+
+            return await listUserConversations(client, {
+              user: userId,
+              limit,
+              cursor: options.cursor,
+              excludeArchived: true,
+            });
+          },
+        });
+
+        console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
 
   channelCmd
     .command("new")

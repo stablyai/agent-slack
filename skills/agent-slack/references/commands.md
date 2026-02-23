@@ -83,6 +83,11 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 
 ## Channels
 
+- `agent-slack channel list [--workspace <url-or-unique-substring>] [--user <U...|@handle|handle> | --all] [--limit <n>] [--cursor <cursor>]`
+  - Default mode calls `users.conversations` for the current user.
+  - `--user` resolves handles/ids and lists conversations for that user.
+  - `--all` switches to `conversations.list` (mutually exclusive with `--user`).
+  - Returns one page and optional `next_cursor`; pass `--cursor` to continue.
 - `agent-slack channel new --name <name> [--private] [--workspace <url-or-unique-substring>]`
 - `agent-slack channel invite --channel <id|name> --users "<U...,@handle,email,...>" [--workspace <url-or-unique-substring>]`
   - Internal invite (default): resolves users (`U...`, `@handle`, `handle`, `email`) and uses `conversations.invite`
