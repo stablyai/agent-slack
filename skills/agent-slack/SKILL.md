@@ -10,6 +10,7 @@ description: |
   - Creating channels and inviting users
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
+  - Opening DM or group DM channels
   Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages"
 ---
 
@@ -147,6 +148,15 @@ If you have multiple workspaces configured and you use a channel **name** (`#gen
 ```bash
 agent-slack message get "#general" --workspace "https://myteam.slack.com" --ts "1770165109.628379"
 agent-slack message get "#general" --workspace "myteam" --ts "1770165109.628379"
+```
+
+## DM / group DM channels
+
+Get the channel ID for a DM or group DM, useful for sending messages to a group of users:
+
+```bash
+agent-slack user dm-channel @alice @bob
+agent-slack user dm-channel U01AAAA U02BBBB U03CCCC
 ```
 
 ## Canvas + Users

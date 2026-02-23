@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
-import { getUser, listUsers } from "../slack/users.ts";
+import { getDmChannelForUsers, getUser, listUsers } from "../slack/users.ts";
 
 export function registerUserCommand(input: { program: Command; ctx: CliContext }): void {
   const userCmd = input.program.command("user").description("Workspace user directory");
@@ -58,6 +58,31 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
           work: async () => {
             const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
             return await getUser(client, user);
+          },
+        });
+        console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  userCmd
+    .command("dm-channel")
+    .description(
+      "Get DM or group DM channel ID for one or more users by id (U...) or handle (@name)",
+    )
+    .argument("<users...>", "One or more user ids or @handles (space-separated)")
+    .option("--workspace <url>", "Workspace URL (required if you have multiple workspaces)")
+    .action(async (...args) => {
+      const [users, options] = args as [string[], { workspace?: string }];
+      try {
+        const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
+        const payload = await input.ctx.withAutoRefresh({
+          workspaceUrl,
+          work: async () => {
+            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            return await getDmChannelForUsers(client, users);
           },
         });
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));
