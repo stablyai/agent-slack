@@ -106,6 +106,25 @@ describe("channel list command", () => {
     expect(calls.some((c) => c.method === "users.list")).toBe(true);
     const convoCall = calls.find((c) => c.method === "users.conversations");
     expect(convoCall?.params.user).toBe("U123");
+
+    const usersListIndex = calls.findIndex((c) => c.method === "users.list");
+    const convoIndex = calls.findIndex((c) => c.method === "users.conversations");
+    expect(usersListIndex).toBeGreaterThanOrEqual(0);
+    expect(convoIndex).toBeGreaterThanOrEqual(0);
+    expect(usersListIndex).toBeLessThan(convoIndex);
+  });
+
+  test("with --user unknown handle is a hard error", async () => {
+    const { ctx } = createContext();
+    const program = new Command();
+    registerChannelCommand({ program, ctx });
+    const err = mock(() => {});
+    console.error = err as typeof console.error;
+
+    await program.parseAsync(["channel", "list", "--user", "@unknown"], { from: "user" });
+
+    expect(err).toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 
   test("with --all uses conversations.list", async () => {

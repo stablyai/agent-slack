@@ -188,5 +188,5 @@ export function normalizeConversationsPage(resp: Record<string, unknown>): Conve
 }
 
 function normalizeConversationsLimit(value: number | undefined): number {
-  return Math.min(Math.max(value ?? 100, 10), 1000);
+  return Math.min(Math.max(value ?? 100, 1), 1000);
 }
