@@ -29,7 +29,7 @@ npm i -g agent-slack
 - **Search**: messages + files (with filters)
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
 - **Write**: reply, edit/delete messages, add reactions
-- **Channels**: create channels and invite users by id/handle/email
+- **Channels**: list conversations, create channels, and invite users by id/handle/email
 - **Canvas**: fetch Slack canvases as Markdown
 
 ## Agent skill
@@ -73,6 +73,7 @@ agent-slack
 │       ├── add    <target> <emoji>
 │       └── remove <target> <emoji>
 ├── channel
+│   ├── list                        # list conversations (user-scoped or all)
 │   ├── new                         # create channel
 │   └── invite                      # invite users to channel
 ├── user
@@ -212,9 +213,18 @@ agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "17
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-### Create channels and invite users
+### List, create, and invite channels
 
 ```bash
+# List conversations for current user (users.conversations)
+agent-slack channel list
+
+# List conversations for a specific user
+agent-slack channel list --user "@alice" --limit 50
+
+# List all workspace conversations (conversations.list)
+agent-slack channel list --all --limit 100
+
 # Create a public channel
 agent-slack channel new --name "incident-war-room"
 
@@ -233,6 +243,8 @@ agent-slack channel invite --channel "incident-war-room" --users "partner@vendor
 
 Notes:
 
+- `channel list` returns a single page plus `next_cursor`; use `--cursor` to fetch the next page.
+- `channel list --all` and `channel list --user` are mutually exclusive.
 - `--external` maps to `conversations.inviteShared` and expects email targets.
 - External invites default to restricted mode (`external_limited=true`); add `--allow-external-user-invites` to disable that restriction.
 - External invites require Slack Connect permissions/scopes in your workspace.
