@@ -63,12 +63,29 @@ describe("conversations list helpers", () => {
     });
   });
 
-  test("listUserConversations clamps low limits to 10", async () => {
+  test("listAllConversations forwards limit/cursor", async () => {
+    const { client, calls } = createClient({ channels: [] });
+    await listAllConversations(client, { limit: 50, cursor: "xyz" });
+    expect(calls[0]?.params).toEqual({
+      types: "public_channel,private_channel,im,mpim",
+      exclude_archived: true,
+      limit: 50,
+      cursor: "xyz",
+    });
+  });
+
+  test("listUserConversations passes through small limits", async () => {
     const { client, calls } = createClient({ channels: [] });
 
-    await listUserConversations(client, { limit: 1 });
+    await listUserConversations(client, { limit: 3 });
 
-    expect(calls[0]?.params.limit).toBe(10);
+    expect(calls[0]?.params.limit).toBe(3);
+  });
+
+  test("listUserConversations clamps high limits to 1000", async () => {
+    const { client, calls } = createClient({ channels: [] });
+    await listUserConversations(client, { limit: 5000 });
+    expect(calls[0]?.params.limit).toBe(1000);
   });
 
   test("normalizeConversationsPage extracts channels and next cursor", () => {
@@ -79,5 +96,20 @@ describe("conversations list helpers", () => {
 
     expect(normalized.channels).toHaveLength(2);
     expect(normalized.next_cursor).toBe("next123");
+  });
+
+  test("normalizeConversationsPage handles missing response_metadata", () => {
+    const normalized = normalizeConversationsPage({ channels: [] });
+    expect(normalized.channels).toHaveLength(0);
+    expect(normalized.next_cursor).toBeUndefined();
+  });
+
+  test("normalizeConversationsPage handles empty next_cursor", () => {
+    const normalized = normalizeConversationsPage({
+      channels: [],
+      response_metadata: { next_cursor: "" },
+    });
+    // Empty string from getString - falsy so consumers can check `if (page.next_cursor)`
+    expect(normalized.next_cursor).toBeFalsy();
   });
 });
