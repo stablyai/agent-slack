@@ -19,7 +19,7 @@ description: |
 
 ## Quick start (auth)
 
-Authentication is automatic on macOS (Slack Desktop first, then Chrome fallback).
+Authentication is automatic (Slack Desktop first, then Chrome/Firefox fallbacks).
 
 If credentials aren’t available, run one of:
 
@@ -34,6 +34,13 @@ agent-slack auth test
 
 ```bash
 agent-slack auth import-chrome
+agent-slack auth test
+```
+
+- Firefox fallback:
+
+```bash
+agent-slack auth import-firefox
 agent-slack auth test
 ```
 
