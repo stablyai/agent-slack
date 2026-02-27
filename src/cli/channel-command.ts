@@ -66,10 +66,11 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
 
             let userId: string | undefined;
             if (options.user) {
-              userId = await resolveUserId(client, options.user);
-              if (!userId) {
+              const resolvedUserId = await resolveUserId(client, options.user);
+              if (!resolvedUserId) {
                 throw new Error(`Could not resolve user: ${options.user}`);
               }
+              userId = resolvedUserId;
             }
 
             return await listUserConversations(client, {

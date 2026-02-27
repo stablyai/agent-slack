@@ -47,6 +47,7 @@ function createContext() {
     }),
     importChrome: () => ({ cookie_d: "", teams: [] }),
     importBrave: async () => null,
+    importFirefox: async () => null,
   };
 
   return { ctx, calls };
