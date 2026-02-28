@@ -2,6 +2,7 @@ import { extractFromBrave } from "../auth/brave.ts";
 import { extractFromChrome } from "../auth/chrome.ts";
 import { parseSlackCurlCommand } from "../auth/curl.ts";
 import { extractFromSlackDesktop } from "../auth/desktop.ts";
+import { extractFromFirefox } from "../auth/firefox.ts";
 import {
   loadCredentials,
   resolveDefaultWorkspace,
@@ -35,6 +36,7 @@ export type CliContext = {
   importDesktop: () => ReturnType<typeof extractFromSlackDesktop>;
   importChrome: () => ReturnType<typeof extractFromChrome>;
   importBrave: () => ReturnType<typeof extractFromBrave>;
+  importFirefox: () => ReturnType<typeof extractFromFirefox>;
 };
 
 function isEnvAuthConfigured(): boolean {
@@ -312,6 +314,64 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
     };
   }
 
+  const firefox = await extractFromFirefox();
+  if (firefox && firefox.teams.length > 0) {
+    let chosen = firefox.teams[0]!;
+    if (selector) {
+      const normalizedSelector = selector.toLowerCase();
+      const matches = firefox.teams.filter((t) => {
+        const normalizedUrl = normalizeUrl(t.url).toLowerCase();
+        const host = new URL(t.url).host.toLowerCase();
+        const hostWithoutSlackSuffix = host.replace(/\.slack\.com$/i, "");
+        const name = t.name?.toLowerCase() ?? "";
+        return (
+          normalizedUrl.includes(normalizedSelector) ||
+          host.includes(normalizedSelector) ||
+          hostWithoutSlackSuffix.includes(normalizedSelector) ||
+          name.includes(normalizedSelector)
+        );
+      });
+      if (matches.length > 1) {
+        throw new Error(
+          `Workspace selector "${selector}" is ambiguous in Firefox workspaces. Matches: ${matches.map((t) => normalizeUrl(t.url)).join(", ")}. Pass a more specific selector or full workspace URL.`,
+        );
+      }
+      if (matches.length === 1) {
+        chosen = matches[0]!;
+      } else if (normalizedSelectorUrl) {
+        try {
+          chosen =
+            firefox.teams.find((t) => normalizeUrl(t.url) === normalizeUrl(selector)) ?? chosen;
+        } catch {}
+      } else {
+        throw new Error(
+          `No configured workspace matches selector "${selector}". Run "agent-slack auth whoami" to list available workspaces.`,
+        );
+      }
+    }
+    const auth: SlackAuth = {
+      auth_type: "browser",
+      xoxc_token: chosen.token,
+      xoxd_cookie: firefox.cookie_d,
+    };
+    await upsertWorkspace({
+      workspace_url: normalizeUrl(chosen.url),
+      workspace_name: chosen.name,
+      auth: {
+        auth_type: "browser",
+        xoxc_token: chosen.token,
+        xoxd_cookie: firefox.cookie_d,
+      },
+    });
+    return {
+      client: new SlackApiClient(auth, {
+        workspaceUrl: normalizeUrl(chosen.url),
+      }),
+      auth,
+      workspace_url: normalizeUrl(chosen.url),
+    };
+  }
+
   if (selector && !normalizedSelectorUrl) {
     throw new Error(
       `No configured workspace matches selector "${selector}". Run "agent-slack auth whoami" to list available workspaces.`,
@@ -319,7 +379,7 @@ async function getClientForWorkspace(workspaceUrl?: string): Promise<{
   }
 
   throw new Error(
-    'No Slack credentials available. Try "agent-slack auth import-desktop", "agent-slack auth import-chrome", "agent-slack auth import-brave", or set SLACK_TOKEN / SLACK_COOKIE_D.',
+    'No Slack credentials available. Try "agent-slack auth import-desktop", "agent-slack auth import-chrome", "agent-slack auth import-brave", "agent-slack auth import-firefox", or set SLACK_TOKEN / SLACK_COOKIE_D.',
   );
 }
 
@@ -336,5 +396,6 @@ export function createCliContext(): CliContext {
     importDesktop: extractFromSlackDesktop,
     importChrome: extractFromChrome,
     importBrave: extractFromBrave,
+    importFirefox: extractFromFirefox,
   };
 }

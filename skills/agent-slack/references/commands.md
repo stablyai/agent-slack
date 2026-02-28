@@ -8,6 +8,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 - `agent-slack auth test [--workspace <url-or-unique-substring>]` — verify credentials (`auth.test`)
 - `agent-slack auth import-desktop` — import browser-style creds from Slack Desktop (macOS)
 - `agent-slack auth import-chrome` — import creds from Chrome (macOS)
+- `agent-slack auth import-firefox` — import creds from Firefox profile storage (macOS/Linux)
 - `agent-slack auth parse-curl` — read a copied Slack cURL command from stdin and save creds
 - `agent-slack auth add --workspace-url <url> [--token <xoxb/xoxp> | --xoxc <xoxc> --xoxd <xoxd>]`
 - `agent-slack auth set-default <workspace-url>`

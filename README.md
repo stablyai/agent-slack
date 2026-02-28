@@ -61,6 +61,7 @@ agent-slack
 │   ├── test
 │   ├── import-desktop
 │   ├── import-chrome
+│   ├── import-firefox
 │   └── parse-curl
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
@@ -97,7 +98,7 @@ Notes:
 On macOS, authentication happens automatically:
 
 - Default: reads Slack Desktop local data (no need to quit Slack)
-- Fallback: if that fails, tries Chrome extraction (if Slack is open in Chrome)
+- Fallbacks: if that fails, tries Chrome/Firefox extraction
 
 You can also run manual imports:
 
@@ -105,6 +106,7 @@ You can also run manual imports:
 agent-slack auth whoami
 agent-slack auth import-desktop
 agent-slack auth import-chrome
+agent-slack auth import-firefox
 agent-slack auth test
 ```
 
