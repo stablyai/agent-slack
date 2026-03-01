@@ -1,6 +1,6 @@
 {
   "name": "agent-slack",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Slack automation CLI for AI agents",
   "license": "MIT",
   "repository": {
