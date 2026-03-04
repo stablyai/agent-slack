@@ -57,7 +57,7 @@ export class SlackApiClient {
     const url = `${input.workspaceUrl.replace(/\/$/, "")}/api/${input.method}`;
     const cleanedEntries = Object.entries(input.params)
       .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, String(v)]);
+      .map(([k, v]) => [k, typeof v === "object" ? JSON.stringify(v) : String(v)]);
     const formBody = new URLSearchParams({
       token: input.auth.xoxc_token,
       ...Object.fromEntries(cleanedEntries),

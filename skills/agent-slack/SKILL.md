@@ -113,6 +113,12 @@ agent-slack message draft "https://workspace.slack.com/archives/C123/p1700000000
 agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this."
 agent-slack message edit "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this today."
 agent-slack message delete "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Bullet lists are auto-detected and rendered as native Slack rich text:
+agent-slack message send "#general" "Here's the plan:
+- Step 1: do the thing
+- Step 2: verify it worked
+  - Sub-step: check logs"
 agent-slack message react add "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
 agent-slack message react remove "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
 ```
