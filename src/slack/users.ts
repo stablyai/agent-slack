@@ -36,14 +36,14 @@ export async function listUsers(
         const members = asArray(resp.members).filter(isRecord);
         for (const m of members) {
           const id = getString(m.id);
-          if (!id) continue;
-          if (!includeBots && m.is_bot) continue;
+          if (!id) { continue; }
+          if (!includeBots && m.is_bot) { continue; }
           users.push(toCompactUser(m));
-          if (users.length >= limit) break;
+          if (users.length >= limit) { break; }
         }
         const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
         const next = meta ? getString(meta.next_cursor) : undefined;
-        if (!next) break;
+        if (!next) { break; }
         cursor = next;
         next_cursor = next;
       }
@@ -54,7 +54,7 @@ export async function listUsers(
 
   for (const u of out) {
     const dmId = dmMap.get(u.id);
-    if (dmId) u.dm_id = dmId;
+    if (dmId) { u.dm_id = dmId; }
   }
 
   return { users: out, next_cursor };
@@ -148,11 +148,11 @@ async function fetchDmMap(client: SlackApiClient): Promise<Map<string, string>> 
     for (const ch of channels) {
       const id = getString(ch.id);
       const user = getString(ch.user);
-      if (id && user) map.set(user, id);
+      if (id && user) { map.set(user, id); }
     }
     const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
     const next = meta ? getString(meta.next_cursor) : undefined;
-    if (!next) break;
+    if (!next) { break; }
     cursor = next;
   }
   return map;
