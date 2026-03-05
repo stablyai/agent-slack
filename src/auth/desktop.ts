@@ -1,10 +1,10 @@
 // Desktop auth extraction approach inspired by:
 // - slacktokens: https://github.com/hraftery/slacktokens
 import { cp, mkdir, rm, unlink } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync, copyFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { execFileSync, execSync } from "node:child_process";
 import { pbkdf2Sync, createDecipheriv } from "node:crypto";
-import { homedir, platform } from "node:os";
+import { homedir, platform, tmpdir } from "node:os";
 import { join } from "node:path";
 import { findKeysContaining } from "../lib/leveldb-reader.js";
 
@@ -70,6 +70,7 @@ export type DesktopExtracted = {
 const PLATFORM = platform();
 const IS_MACOS = PLATFORM === "darwin";
 const IS_LINUX = PLATFORM === "linux";
+const IS_WIN32 = PLATFORM === "win32";
 
 // Electron (direct download) paths
 const SLACK_SUPPORT_DIR_ELECTRON = join(homedir(), "Library", "Application Support", "Slack");
@@ -96,12 +97,49 @@ const SLACK_SUPPORT_DIR_LINUX_FLATPAK = join(
   "Slack",
 );
 
-function getSlackPaths(): { leveldbDir: string; cookiesDb: string } {
-  const candidates = IS_MACOS
-    ? [SLACK_SUPPORT_DIR_ELECTRON, SLACK_SUPPORT_DIR_APPSTORE]
-    : IS_LINUX
-      ? [SLACK_SUPPORT_DIR_LINUX_FLATPAK, SLACK_SUPPORT_DIR_LINUX]
-      : [];
+// Windows: regular installer stores data in %APPDATA%\Slack
+const SLACK_SUPPORT_DIR_WIN_APPDATA = join(
+  process.env.APPDATA || join(homedir(), "AppData", "Roaming"),
+  "Slack",
+);
+
+/**
+ * Find the Microsoft Store Slack app data directory.
+ * The package folder name includes a publisher hash suffix that varies per machine,
+ * so we search for the matching prefix.
+ */
+function getWindowsStoreSlackPath(): string | null {
+  const pkgBase = join(
+    process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local"),
+    "Packages",
+  );
+  try {
+    const entries = readdirSync(pkgBase);
+    const slackPkg = entries.find((e) => e.startsWith("com.tinyspeck.slackdesktop_"));
+    if (slackPkg) {
+      return join(pkgBase, slackPkg, "LocalCache", "Roaming", "Slack");
+    }
+  } catch {
+    // directory may not exist
+  }
+  return null;
+}
+
+function getSlackPaths(): { leveldbDir: string; cookiesDb: string; baseDir: string } {
+  let candidates: string[];
+  if (IS_MACOS) {
+    candidates = [SLACK_SUPPORT_DIR_ELECTRON, SLACK_SUPPORT_DIR_APPSTORE];
+  } else if (IS_LINUX) {
+    candidates = [SLACK_SUPPORT_DIR_LINUX_FLATPAK, SLACK_SUPPORT_DIR_LINUX];
+  } else if (IS_WIN32) {
+    candidates = [SLACK_SUPPORT_DIR_WIN_APPDATA];
+    const storePath = getWindowsStoreSlackPath();
+    if (storePath) {
+      candidates.push(storePath);
+    }
+  } else {
+    candidates = [];
+  }
 
   if (candidates.length === 0) {
     throw new Error(`Slack Desktop extraction is not supported on ${PLATFORM}.`);
@@ -113,7 +151,7 @@ function getSlackPaths(): { leveldbDir: string; cookiesDb: string } {
       const cookiesDbCandidates = [join(dir, "Network", "Cookies"), join(dir, "Cookies")];
       const cookiesDb =
         cookiesDbCandidates.find((candidate) => existsSync(candidate)) || cookiesDbCandidates[0]!;
-      return { leveldbDir, cookiesDb };
+      return { leveldbDir, cookiesDb, baseDir: dir };
     }
   }
 
@@ -356,20 +394,96 @@ function decryptChromiumCookieValue(data: Buffer, password: string): string {
   }
 }
 
-async function extractCookieDFromSlackCookiesDb(cookiesPath: string): Promise<string> {
+/**
+ * Decrypt a Chromium cookie on Windows using DPAPI + AES-256-GCM.
+ *
+ * On Windows (Chromium v80+), cookies are encrypted as:
+ *   v10 + 12-byte nonce + AES-256-GCM ciphertext + 16-byte auth tag
+ *
+ * The AES key is stored DPAPI-encrypted in the "Local State" file under
+ * os_crypt.encrypted_key (base64, prefixed with "DPAPI").
+ */
+function decryptCookieWindows(encrypted: Buffer, slackDataDir: string): string {
+  const { createDecipheriv: createDecipherivGcm } = require("node:crypto") as typeof import("node:crypto");
+
+  // Read the DPAPI-protected AES key from Local State
+  const localStatePath = join(slackDataDir, "Local State");
+  if (!existsSync(localStatePath)) {
+    throw new Error(`Local State file not found: ${localStatePath}`);
+  }
+  const localState = JSON.parse(readFileSync(localStatePath, "utf8"));
+  if (!localState.os_crypt?.encrypted_key) {
+    throw new Error("No os_crypt.encrypted_key in Local State");
+  }
+  const encKeyFull = Buffer.from(localState.os_crypt.encrypted_key, "base64");
+  // Skip "DPAPI" prefix (5 bytes)
+  const encKeyBlob = encKeyFull.subarray(5);
+
+  // Decrypt AES key via Windows DPAPI using PowerShell
+  const encKeyFile = join(tmpdir(), `as-key-enc-${Date.now()}.bin`);
+  const decKeyFile = join(tmpdir(), `as-key-dec-${Date.now()}.bin`);
+  writeFileSync(encKeyFile, encKeyBlob);
+  try {
+    const psCmd = [
+      "Add-Type -AssemblyName System.Security",
+      `$e=[System.IO.File]::ReadAllBytes('${encKeyFile}')`,
+      "$d=[System.Security.Cryptography.ProtectedData]::Unprotect($e,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser)",
+      `[System.IO.File]::WriteAllBytes('${decKeyFile}',$d)`,
+    ].join("; ");
+    execSync(`powershell -ExecutionPolicy Bypass -Command "${psCmd}"`, { stdio: "pipe" });
+    const aesKey = readFileSync(decKeyFile);
+
+    // AES-256-GCM: v10(3) + nonce(12) + ciphertext(N-16) + tag(16)
+    const nonce = encrypted.subarray(3, 15);
+    const ciphertextWithTag = encrypted.subarray(15);
+    const tag = ciphertextWithTag.subarray(ciphertextWithTag.length - 16);
+    const ciphertext = ciphertextWithTag.subarray(0, ciphertextWithTag.length - 16);
+
+    const decipher = createDecipherivGcm("aes-256-gcm", aesKey, nonce);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(ciphertext, undefined, "utf8");
+    decrypted += decipher.final("utf8");
+
+    return decrypted;
+  } finally {
+    try { unlinkSync(encKeyFile); } catch { /* ignore */ }
+    try { unlinkSync(decKeyFile); } catch { /* ignore */ }
+  }
+}
+
+async function extractCookieDFromSlackCookiesDb(
+  cookiesPath: string,
+  slackDataDir: string,
+): Promise<string> {
   if (!existsSync(cookiesPath)) {
     throw new Error(`Slack Cookies DB not found: ${cookiesPath}`);
   }
 
-  const rows = (await queryReadonlySqlite(
-    cookiesPath,
-    "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
-  )) as {
+  // On Windows, Slack holds an exclusive lock on the Cookies DB while running.
+  // Copy it to a temp location before reading.
+  let dbPathToQuery = cookiesPath;
+  if (IS_WIN32) {
+    const tmpCopy = join(tmpdir(), `agent-slack-cookies-${Date.now()}`);
+    copyFileSync(cookiesPath, tmpCopy);
+    dbPathToQuery = tmpCopy;
+  }
+
+  let rows: {
     host_key: string;
     name: string;
     value: string;
     encrypted_value: Uint8Array;
   }[];
+  try {
+    rows = (await queryReadonlySqlite(
+      dbPathToQuery,
+      "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
+    )) as typeof rows;
+  } finally {
+    if (IS_WIN32 && dbPathToQuery !== cookiesPath) {
+      try { unlinkSync(dbPathToQuery); } catch { /* ignore */ }
+    }
+  }
 
   if (!rows || rows.length === 0) {
     throw new Error("No Slack 'd' cookie found");
@@ -385,6 +499,22 @@ async function extractCookieDFromSlackCookiesDb(cookiesPath: string): Promise<st
   }
 
   const prefix = encrypted.subarray(0, 3).toString("utf8");
+
+  // Windows uses DPAPI + AES-256-GCM (Chromium v80+)
+  if (IS_WIN32 && (prefix === "v10" || prefix === "v11")) {
+    const decrypted = decryptCookieWindows(encrypted, slackDataDir);
+    const match = decrypted.match(/xoxd-[A-Za-z0-9%/+_=.-]+/);
+    if (match) {
+      try {
+        return decodeURIComponent(match[0]!);
+      } catch {
+        return match[0]!;
+      }
+    }
+    throw new Error("Could not locate xoxd-* in DPAPI-decrypted Slack cookie");
+  }
+
+  // macOS / Linux: password-based AES-128-CBC
   const data = prefix === "v10" || prefix === "v11" ? encrypted.subarray(3) : encrypted;
   const passwords = getSafeStoragePasswords(prefix);
 
@@ -404,9 +534,9 @@ async function extractCookieDFromSlackCookiesDb(cookiesPath: string): Promise<st
 }
 
 export async function extractFromSlackDesktop(): Promise<DesktopExtracted> {
-  const { leveldbDir, cookiesDb } = getSlackPaths();
+  const { leveldbDir, cookiesDb, baseDir } = getSlackPaths();
   const teams = await extractTeamsFromSlackLevelDb(leveldbDir);
-  const cookie_d = await extractCookieDFromSlackCookiesDb(cookiesDb);
+  const cookie_d = await extractCookieDFromSlackCookiesDb(cookiesDb, baseDir);
   return {
     cookie_d,
     teams,

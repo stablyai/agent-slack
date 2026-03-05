@@ -98,7 +98,7 @@ function tryNormalizeUrl(u: string): string | undefined {
 }
 
 async function refreshFromDesktopIfPossible(): Promise<boolean> {
-  if (process.platform !== "darwin" && process.platform !== "linux") {
+  if (process.platform !== "darwin" && process.platform !== "linux" && process.platform !== "win32") {
     return false;
   }
   try {
