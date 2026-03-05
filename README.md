@@ -28,7 +28,7 @@ npm i -g agent-slack
 - **Read**: fetch a message, browse channel history, list full threads
 - **Search**: messages + files (with filters)
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
-- **Write**: reply, edit/delete messages, add reactions
+- **Write**: reply, edit/delete messages, add reactions (bullet lists auto-render as native Slack rich text)
 - **Channels**: list conversations, create channels, and invite users by id/handle/email
 - **Canvas**: fetch Slack canvases as Markdown
 

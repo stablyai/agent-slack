@@ -11,6 +11,7 @@ import { resolveChannelId, openDmChannel } from "../slack/channels.ts";
 import { normalizeSlackReactionName } from "../slack/emoji.ts";
 import { downloadMessageFiles } from "./message-file-downloads.ts";
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
+import { textToRichTextBlocks } from "../slack/rich-text.ts";
 import { getThreadSummary, toThreadListMessage } from "./message-thread-info.ts";
 
 export type MessageCommandOptions = {
@@ -267,6 +268,8 @@ export async function sendMessage(input: {
   options: { workspace?: string; threadTs?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
+  const blocks = textToRichTextBlocks(input.text);
+
   if (target.kind === "url") {
     const { ref } = target;
     warnOnTruncatedSlackUrl(ref);
@@ -280,6 +283,7 @@ export async function sendMessage(input: {
           channel: ref.channel_id,
           text: input.text,
           thread_ts: threadTs,
+          ...(blocks ? { blocks } : {}),
         });
       },
     });
@@ -296,6 +300,7 @@ export async function sendMessage(input: {
         await client.api("chat.postMessage", {
           channel: dmChannelId,
           text: input.text,
+          ...(blocks ? { blocks } : {}),
         });
       },
     });
@@ -316,6 +321,7 @@ export async function sendMessage(input: {
         channel: channelId,
         text: input.text,
         thread_ts: input.options.threadTs ? String(input.options.threadTs) : undefined,
+        ...(blocks ? { blocks } : {}),
       });
     },
   });
