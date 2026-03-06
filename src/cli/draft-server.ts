@@ -165,14 +165,21 @@ function buildEditorHtml(config: DraftEditorConfig): string {
   // JSON.stringify handles quotes/backslashes; escape < and > to prevent
   // </script> breakout and other HTML injection in <script> context.
   const safeConfig = injectedConfig.replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
-  return EDITOR_HTML.replace("__DRAFT_CONFIG__", safeConfig);
+  return getEditorHtml().replace("__DRAFT_CONFIG__", safeConfig);
 }
 
 // ---------------------------------------------------------------------------
-// Self-contained HTML editor — loaded from draft-editor.html
+// Self-contained HTML editor — lazy-loaded from draft-editor.html
 // ---------------------------------------------------------------------------
 
-const EDITOR_HTML = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "draft-editor.html"),
-  "utf-8",
-);
+let _editorHtml: string | undefined;
+
+function getEditorHtml(): string {
+  if (!_editorHtml) {
+    _editorHtml = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "draft-editor.html"),
+      "utf-8",
+    );
+  }
+  return _editorHtml;
+}
