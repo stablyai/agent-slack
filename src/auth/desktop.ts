@@ -404,8 +404,6 @@ function decryptChromiumCookieValue(data: Buffer, password: string): string {
  * os_crypt.encrypted_key (base64, prefixed with "DPAPI").
  */
 function decryptCookieWindows(encrypted: Buffer, slackDataDir: string): string {
-  const { createDecipheriv: createDecipherivGcm } = require("node:crypto") as typeof import("node:crypto");
-
   // Read the DPAPI-protected AES key from Local State
   const localStatePath = join(slackDataDir, "Local State");
   if (!existsSync(localStatePath)) {
@@ -424,11 +422,14 @@ function decryptCookieWindows(encrypted: Buffer, slackDataDir: string): string {
   const decKeyFile = join(tmpdir(), `as-key-dec-${Date.now()}.bin`);
   writeFileSync(encKeyFile, encKeyBlob);
   try {
+    // Escape single quotes for PowerShell single-quoted strings (' → '')
+    const psEncKeyFile = encKeyFile.replaceAll("'", "''");
+    const psDecKeyFile = decKeyFile.replaceAll("'", "''");
     const psCmd = [
       "Add-Type -AssemblyName System.Security",
-      `$e=[System.IO.File]::ReadAllBytes('${encKeyFile}')`,
+      `$e=[System.IO.File]::ReadAllBytes('${psEncKeyFile}')`,
       "$d=[System.Security.Cryptography.ProtectedData]::Unprotect($e,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser)",
-      `[System.IO.File]::WriteAllBytes('${decKeyFile}',$d)`,
+      `[System.IO.File]::WriteAllBytes('${psDecKeyFile}',$d)`,
     ].join("; ");
     execSync(`powershell -ExecutionPolicy Bypass -Command "${psCmd}"`, { stdio: "pipe" });
     const aesKey = readFileSync(decKeyFile);
@@ -439,7 +440,7 @@ function decryptCookieWindows(encrypted: Buffer, slackDataDir: string): string {
     const tag = ciphertextWithTag.subarray(ciphertextWithTag.length - 16);
     const ciphertext = ciphertextWithTag.subarray(0, ciphertextWithTag.length - 16);
 
-    const decipher = createDecipherivGcm("aes-256-gcm", aesKey, nonce);
+    const decipher = createDecipheriv("aes-256-gcm", aesKey, nonce);
     decipher.setAuthTag(tag);
     let decrypted = decipher.update(ciphertext, undefined, "utf8");
     decrypted += decipher.final("utf8");
