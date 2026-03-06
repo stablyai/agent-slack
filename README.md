@@ -23,6 +23,12 @@ OR npm global install (requires Node >= 22.5):
 npm i -g agent-slack
 ```
 
+OR run via Nix flake:
+
+```bash
+nix run github:stablyai/agent-slack
+```
+
 ## At a glance
 
 - **Read**: fetch a message, browse channel history, list full threads
