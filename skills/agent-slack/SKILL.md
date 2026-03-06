@@ -19,11 +19,11 @@ description: |
 
 ## Quick start (auth)
 
-Authentication is automatic (Slack Desktop first, then Chrome/Firefox fallbacks).
+Authentication is automatic on macOS and Windows (Slack Desktop first, then Chrome/Firefox fallbacks on macOS).
 
 If credentials aren’t available, run one of:
 
-- Slack Desktop (default):
+- Slack Desktop import (macOS/Windows):
 
 ```bash
 agent-slack auth import-desktop
