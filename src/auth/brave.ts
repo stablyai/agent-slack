@@ -1,8 +1,9 @@
-import { execSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { pbkdf2Sync, createDecipheriv } from "node:crypto";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
+import { queryReadonlySqlite } from "./firefox-profile.ts";
 
 type BraveExtractedTeam = { url: string; name?: string; token: string };
 
@@ -15,12 +16,8 @@ const IS_MACOS = platform() === "darwin";
 
 // --- AppleScript helpers (for extracting teams from Brave tabs) ---
 
-function escapeOsaScript(script: string): string {
-  return script.replace(/'/g, `'"'"'`);
-}
-
 function osascript(script: string): string {
-  return execSync(`osascript -e '${escapeOsaScript(script)}'`, {
+  return execFileSync("osascript", ["-e", script], {
     encoding: "utf8",
     timeout: 7000,
     stdio: ["ignore", "pipe", "pipe"],
@@ -95,53 +92,6 @@ const BRAVE_COOKIES_DB = join(
   "Default",
   "Cookies",
 );
-
-function isMissingBunSqliteModule(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-  const err = error as { code?: unknown; message?: unknown };
-  const code = typeof err.code === "string" ? err.code : "";
-  const message = typeof err.message === "string" ? err.message : "";
-
-  if (code === "ERR_MODULE_NOT_FOUND" || code === "ERR_UNSUPPORTED_ESM_URL_SCHEME") {
-    return true;
-  }
-  if (!message.includes("bun:sqlite")) {
-    return false;
-  }
-  return (
-    message.includes("Cannot find module") ||
-    message.includes("Unknown builtin module") ||
-    message.includes("unsupported URL scheme") ||
-    message.includes("Only URLs with a scheme in")
-  );
-}
-
-type SqliteRow = Record<string, unknown>;
-
-async function queryReadonlySqlite(dbPath: string, sql: string): Promise<SqliteRow[]> {
-  try {
-    const { Database } = await import("bun:sqlite");
-    const db = new Database(dbPath, { readonly: true });
-    try {
-      return db.query(sql).all() as SqliteRow[];
-    } finally {
-      db.close();
-    }
-  } catch (error) {
-    if (!isMissingBunSqliteModule(error)) {
-      throw error;
-    }
-    const { DatabaseSync } = await import("node:sqlite");
-    const db = new DatabaseSync(dbPath, { readOnly: true });
-    try {
-      return db.prepare(sql).all() as SqliteRow[];
-    } finally {
-      db.close();
-    }
-  }
-}
 
 function getSafeStoragePasswords(): string[] {
   const services = [

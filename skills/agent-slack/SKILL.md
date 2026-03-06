@@ -111,6 +111,7 @@ agent-slack message draft "https://workspace.slack.com/archives/C123/p1700000000
 
 ```bash
 agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this."
+agent-slack message send "#alerts-staging" "here's the report" --attach ./report.md
 agent-slack message edit "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this today."
 agent-slack message delete "https://workspace.slack.com/archives/C123/p1700000000000000"
 
@@ -129,6 +130,10 @@ Channel mode for edit/delete requires `--ts`:
 agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "1770165109.628379"
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
+
+Attach options for `message send`:
+
+- `--attach <path>` upload a local file (repeatable)
 
 ## List channels + create/invite users
 

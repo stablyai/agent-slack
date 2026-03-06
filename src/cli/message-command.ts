@@ -147,23 +147,30 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .command("send")
     .description("Send a message (optionally into a thread)")
     .argument("<target>", "Slack message URL, #name/name, or channel id")
-    .argument("<text>", "Message text to post")
+    .argument("[text]", "Message text to post (optional when using --attach)")
     .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
+    .option("--attach <path>", "Attach a local file path (repeatable)", collectOptionValue, [])
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
-        string,
-        { workspace?: string; threadTs?: string },
+        string | undefined,
+        { workspace?: string; threadTs?: string; attach?: string[] },
       ];
+      const hasAttach = (options.attach ?? []).length > 0;
+      if (!text && !hasAttach) {
+        console.error("Error: <text> is required when no --attach files are provided.");
+        process.exitCode = 1;
+        return;
+      }
       try {
         const payload = await sendMessage({
           ctx: input.ctx,
           targetInput,
-          text,
+          text: text ?? "",
           options,
         });
         console.log(JSON.stringify(payload, null, 2));

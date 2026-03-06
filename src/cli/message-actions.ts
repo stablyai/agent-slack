@@ -1,18 +1,13 @@
 import type { CliContext } from "./context.ts";
-import {
-  fetchMessage,
-  fetchThread,
-  fetchChannelHistory,
-  toCompactMessage,
-} from "../slack/messages.ts";
-import { pruneEmpty } from "../lib/compact-json.ts";
+import { fetchMessage } from "../slack/messages.ts";
 import { parseMsgTarget } from "./targets.ts";
 import { resolveChannelId, openDmChannel } from "../slack/channels.ts";
 import { normalizeSlackReactionName } from "../slack/emoji.ts";
-import { downloadMessageFiles } from "./message-file-downloads.ts";
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { textToRichTextBlocks } from "../slack/rich-text.ts";
 import { getThreadSummary, toThreadListMessage } from "./message-thread-info.ts";
+import type { SlackApiClient } from "../slack/client.ts";
+import { uploadLocalFileToSlack } from "../slack/upload.ts";
 
 export type MessageCommandOptions = {
   maxBodyChars: string;
@@ -78,197 +73,15 @@ export function requireOldestWhenReactionFiltersUsed(input: {
   return oldest;
 }
 
-export async function handleMessageGet(input: {
-  ctx: CliContext;
-  targetInput: string;
-  options: MessageCommandOptions;
-}): Promise<Record<string, unknown>> {
-  const target = parseMsgTarget(input.targetInput);
-  if (target.kind === "user") {
-    throw new Error(
-      "message get does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
-  const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
-
-  return input.ctx.withAutoRefresh({
-    workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
-    work: async () => {
-      if (target.kind === "url") {
-        const { ref } = target;
-        warnOnTruncatedSlackUrl(ref);
-        const { client, auth } = await input.ctx.getClientForWorkspace(ref.workspace_url);
-        const includeReactions = Boolean(input.options.includeReactions);
-        const msg = await fetchMessage(client, { ref, includeReactions });
-        const thread = await getThreadSummary(client, { channelId: ref.channel_id, msg });
-        const downloadedPaths = await downloadMessageFiles({ auth, messages: [msg] });
-        const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
-        const message = toCompactMessage(msg, { maxBodyChars, includeReactions, downloadedPaths });
-        return pruneEmpty({ message, thread }) as Record<string, unknown>;
-      }
-
-      const ts = input.options.ts?.trim();
-      if (!ts) {
-        throw new Error('When targeting a channel, you must pass --ts "<seconds>.<micros>"');
-      }
-
-      await input.ctx.assertWorkspaceSpecifiedForChannelNames({
-        workspaceUrl,
-        channels: [target.channel],
-      });
-
-      const includeReactions = Boolean(input.options.includeReactions);
-      const { client, auth, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
-      const channelId = await resolveChannelId(client, target.channel);
-      const ref = {
-        workspace_url: workspace_url ?? workspaceUrl ?? "",
-        channel_id: channelId,
-        message_ts: ts,
-        thread_ts_hint: input.options.threadTs?.trim() || undefined,
-        raw: input.targetInput,
-      };
-
-      const msg = await fetchMessage(client, { ref, includeReactions });
-      const thread = await getThreadSummary(client, { channelId, msg });
-      const downloadedPaths = await downloadMessageFiles({ auth, messages: [msg] });
-      const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
-      const message = toCompactMessage(msg, { maxBodyChars, includeReactions, downloadedPaths });
-      return pruneEmpty({ message, thread }) as Record<string, unknown>;
-    },
-  });
-}
-
-export async function handleMessageList(input: {
-  ctx: CliContext;
-  targetInput: string;
-  options: MessageCommandOptions;
-}): Promise<Record<string, unknown>> {
-  const target = parseMsgTarget(input.targetInput);
-  if (target.kind === "user") {
-    throw new Error(
-      "message list does not support user ID targets. Use a channel name, channel ID, or message URL.",
-    );
-  }
-  const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
-
-  return input.ctx.withAutoRefresh({
-    workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
-    work: async () => {
-      const withReactions = parseReactionFilters(input.options.withReaction);
-      const withoutReactions = parseReactionFilters(input.options.withoutReaction);
-      const hasReactionFilters = withReactions.length > 0 || withoutReactions.length > 0;
-
-      if (target.kind === "url") {
-        if (hasReactionFilters) {
-          throw new Error(
-            "Reaction filters are only supported for channel history mode (not message URL thread mode)",
-          );
-        }
-        const { ref } = target;
-        warnOnTruncatedSlackUrl(ref);
-        const { client, auth } = await input.ctx.getClientForWorkspace(ref.workspace_url);
-        const includeReactions = Boolean(input.options.includeReactions);
-        const msg = await fetchMessage(client, { ref, includeReactions });
-        const rootTs = msg.thread_ts ?? msg.ts;
-        const threadMessages = await fetchThread(client, {
-          channelId: ref.channel_id,
-          threadTs: rootTs,
-          includeReactions,
-        });
-        const downloadedPaths = await downloadMessageFiles({ auth, messages: threadMessages });
-        const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
-        return pruneEmpty({
-          messages: threadMessages
-            .map((m) => toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }))
-            .map(toThreadListMessage),
-        }) as Record<string, unknown>;
-      }
-
-      const { client, auth, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
-
-      await input.ctx.assertWorkspaceSpecifiedForChannelNames({
-        workspaceUrl,
-        channels: [target.channel],
-      });
-
-      const channelId = await resolveChannelId(client, target.channel);
-
-      const threadTs = input.options.threadTs?.trim();
-      const ts = input.options.ts?.trim();
-
-      // No thread specifier → list recent channel messages
-      if (!threadTs && !ts) {
-        const includeReactions = Boolean(input.options.includeReactions);
-        const limit = parseLimit(input.options.limit);
-        const oldest = requireOldestWhenReactionFiltersUsed({
-          oldest: input.options.oldest,
-          withReactions,
-          withoutReactions,
-        });
-        const channelMessages = await fetchChannelHistory(client, {
-          channelId,
-          limit,
-          latest: input.options.latest?.trim(),
-          oldest,
-          includeReactions: includeReactions || hasReactionFilters,
-          withReactions,
-          withoutReactions,
-        });
-        const downloadedPaths = await downloadMessageFiles({ auth, messages: channelMessages });
-        const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
-        return pruneEmpty({
-          channel_id: channelId,
-          messages: channelMessages.map((m) =>
-            toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }),
-          ),
-        }) as Record<string, unknown>;
-      }
-
-      if (hasReactionFilters) {
-        throw new Error(
-          "Reaction filters are only supported for channel history mode (without --thread-ts/--ts)",
-        );
-      }
-
-      const rootTs =
-        threadTs ??
-        (await (async () => {
-          const ref = {
-            workspace_url: workspace_url ?? workspaceUrl ?? "",
-            channel_id: channelId,
-            message_ts: ts!,
-            raw: input.targetInput,
-          };
-          const includeReactions = Boolean(input.options.includeReactions);
-          const msg = await fetchMessage(client, { ref, includeReactions });
-          return msg.thread_ts ?? msg.ts;
-        })());
-
-      const includeReactions = Boolean(input.options.includeReactions);
-      const threadMessages = await fetchThread(client, {
-        channelId,
-        threadTs: rootTs,
-        includeReactions,
-      });
-      const downloadedPaths = await downloadMessageFiles({ auth, messages: threadMessages });
-      const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
-      return pruneEmpty({
-        messages: threadMessages
-          .map((m) => toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }))
-          .map(toThreadListMessage),
-      }) as Record<string, unknown>;
-    },
-  });
-}
-
 export async function sendMessage(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; threadTs?: string };
+  options: { workspace?: string; threadTs?: string; attach?: string[] };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
-  const blocks = textToRichTextBlocks(input.text);
+  const blocks = input.text ? textToRichTextBlocks(input.text) : null;
+  const attachPaths = normalizeAttachPaths(input.options.attach);
 
   if (target.kind === "url") {
     const { ref } = target;
@@ -279,11 +92,13 @@ export async function sendMessage(input: {
         const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const msg = await fetchMessage(client, { ref });
         const threadTs = msg.thread_ts ?? msg.ts;
-        await client.api("chat.postMessage", {
-          channel: ref.channel_id,
+        await sendMessageToChannel({
+          client,
+          channelId: ref.channel_id,
           text: input.text,
-          thread_ts: threadTs,
-          ...(blocks ? { blocks } : {}),
+          blocks,
+          threadTs,
+          attachPaths,
         });
       },
     });
@@ -297,10 +112,12 @@ export async function sendMessage(input: {
       work: async () => {
         const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
         const dmChannelId = await openDmChannel(client, target.userId);
-        await client.api("chat.postMessage", {
-          channel: dmChannelId,
+        await sendMessageToChannel({
+          client,
+          channelId: dmChannelId,
           text: input.text,
-          ...(blocks ? { blocks } : {}),
+          blocks,
+          attachPaths,
         });
       },
     });
@@ -317,15 +134,67 @@ export async function sendMessage(input: {
     work: async () => {
       const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveChannelId(client, String(target.channel));
-      await client.api("chat.postMessage", {
-        channel: channelId,
+      await sendMessageToChannel({
+        client,
+        channelId,
         text: input.text,
-        thread_ts: input.options.threadTs ? String(input.options.threadTs) : undefined,
-        ...(blocks ? { blocks } : {}),
+        blocks,
+        threadTs: input.options.threadTs ? String(input.options.threadTs) : undefined,
+        attachPaths,
       });
     },
   });
   return { ok: true };
+}
+
+function normalizeAttachPaths(raw: string[] | undefined): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const p of raw.map((v) => String(v).trim()).filter(Boolean)) {
+    if (!out.includes(p)) {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+async function sendMessageToChannel(input: {
+  client: SlackApiClient;
+  channelId: string;
+  text: string;
+  blocks?: unknown[] | null;
+  threadTs?: string;
+  attachPaths: string[];
+}): Promise<void> {
+  if (input.attachPaths.length === 0) {
+    await input.client.api("chat.postMessage", {
+      channel: input.channelId,
+      text: input.text,
+      thread_ts: input.threadTs,
+      ...(input.blocks ? { blocks: input.blocks } : {}),
+    });
+    return;
+  }
+
+  if (input.blocks) {
+    process.stderr.write(
+      "Warning: rich text formatting is not supported with file attachments; sending as plain text.\n",
+    );
+  }
+
+  let initialComment = input.text;
+  for (const filePath of input.attachPaths) {
+    await uploadLocalFileToSlack({
+      client: input.client,
+      channelId: input.channelId,
+      filePath,
+      threadTs: input.threadTs,
+      initialComment,
+    });
+    initialComment = "";
+  }
 }
 
 export async function editMessage(input: {
@@ -470,3 +339,5 @@ export async function reactOnTarget(input: {
 
   return { ok: true };
 }
+
+export { handleMessageGet, handleMessageList } from "./message-read-actions.ts";

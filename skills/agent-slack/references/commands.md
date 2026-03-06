@@ -62,6 +62,21 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
+    - `--attach <path>` (repeatable; upload local files as attachments)
+
+- `agent-slack message edit <target> <text>`
+  - URL target edits that exact message.
+  - Channel target requires `--ts`.
+  - Options:
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
+    - `--ts <seconds>.<micros>` (required for channel targets)
+
+- `agent-slack message delete <target>`
+  - URL target deletes that exact message.
+  - Channel target requires `--ts`.
+  - Options:
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
+    - `--ts <seconds>.<micros>` (required for channel targets)
 
 - `agent-slack message edit <target> <text>`
   - URL target edits that exact message.

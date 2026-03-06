@@ -66,7 +66,7 @@ agent-slack
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch thread or recent channel messages
-│   ├── send  <target> <text>      # send / reply (does the right thing)
+│   ├── send  <target> <text>      # send / reply (supports --attach)
 │   ├── draft <target> [text]      # open Slack-like editor in browser
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
@@ -202,6 +202,7 @@ After sending, the editor shows a "View in Slack" link to the posted message.
 
 ```bash
 agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this."
+agent-slack message send "#alerts-staging" "here's the report" --attach ./report.md
 agent-slack message edit "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this today."
 agent-slack message delete "https://workspace.slack.com/archives/C123/p1700000000000000"
 agent-slack message react add "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
@@ -214,6 +215,10 @@ Channel mode requires `--ts`:
 agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "1770165109.628379"
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
+
+Attach options for `message send`:
+
+- `--attach <path>` upload a local file (repeatable)
 
 ### List, create, and invite channels
 

@@ -27,3 +27,9 @@ yarn-error.log*
 
 # design docs
 design-docs/
+
+# playwright-cli artifacts
+.playwright-cli/
+
+# context artifacts
+.context/
