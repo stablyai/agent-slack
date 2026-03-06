@@ -133,4 +133,31 @@ describe("sendMessage", () => {
     expect(completes[1]?.params.initial_comment).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  test("uploads attachment without text when text is empty", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const filePath = join(dir, "data.csv");
+    await writeFile(filePath, "a,b\n1,2\n");
+
+    const fetchMock = mock(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "",
+        options: { attach: [filePath] },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    expect(calls[0]?.method).toBe("files.getUploadURLExternal");
+    expect(calls[1]?.method).toBe("files.completeUploadExternal");
+    expect(calls[1]?.params.initial_comment).toBeUndefined();
+    expect(calls.some((c) => c.method === "chat.postMessage")).toBe(false);
+  });
 });

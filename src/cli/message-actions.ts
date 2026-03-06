@@ -80,7 +80,7 @@ export async function sendMessage(input: {
   options: { workspace?: string; threadTs?: string; attach?: string[] };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
-  const blocks = textToRichTextBlocks(input.text);
+  const blocks = input.text ? textToRichTextBlocks(input.text) : null;
   const attachPaths = normalizeAttachPaths(input.options.attach);
 
   if (target.kind === "url") {
