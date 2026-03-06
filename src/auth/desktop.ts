@@ -2,7 +2,7 @@
 // - slacktokens: https://github.com/hraftery/slacktokens
 import { cp, mkdir, rm, unlink } from "node:fs/promises";
 import { existsSync, readFileSync, readdirSync, copyFileSync, writeFileSync, unlinkSync } from "node:fs";
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { pbkdf2Sync, createDecipheriv } from "node:crypto";
 import { homedir, platform, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -398,7 +398,7 @@ function decryptChromiumCookieValue(data: Buffer, password: string): string {
  * Decrypt a Chromium cookie on Windows using DPAPI + AES-256-GCM.
  *
  * On Windows (Chromium v80+), cookies are encrypted as:
- *   v10 + 12-byte nonce + AES-256-GCM ciphertext + 16-byte auth tag
+ *   v10/v11 + 12-byte nonce + AES-256-GCM ciphertext + 16-byte auth tag
  *
  * The AES key is stored DPAPI-encrypted in the "Local State" file under
  * os_crypt.encrypted_key (base64, prefixed with "DPAPI").
@@ -431,7 +431,10 @@ function decryptCookieWindows(encrypted: Buffer, slackDataDir: string): string {
       "$d=[System.Security.Cryptography.ProtectedData]::Unprotect($e,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser)",
       `[System.IO.File]::WriteAllBytes('${psDecKeyFile}',$d)`,
     ].join("; ");
-    execSync(`powershell -ExecutionPolicy Bypass -Command "${psCmd}"`, { stdio: "pipe" });
+    execFileSync("powershell", ["-ExecutionPolicy", "Bypass", "-Command", psCmd], { stdio: "pipe" });
+    if (!existsSync(decKeyFile)) {
+      throw new Error("DPAPI decryption failed: PowerShell did not produce the decrypted key file");
+    }
     const aesKey = readFileSync(decKeyFile);
 
     // AES-256-GCM: v10(3) + nonce(12) + ciphertext(N-16) + tag(16)
