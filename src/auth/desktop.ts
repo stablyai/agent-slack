@@ -10,61 +10,13 @@ import {
   unlinkSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { pbkdf2Sync, createDecipheriv } from "node:crypto";
+import { createDecipheriv, randomUUID } from "node:crypto";
 import { homedir, platform, tmpdir } from "node:os";
 import { join } from "node:path";
 import { findKeysContaining } from "../lib/leveldb-reader.js";
-
-type SqliteRow = Record<string, unknown>;
-
-function isMissingBunSqliteModule(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-  const err = error as { code?: unknown; message?: unknown };
-  const code = typeof err.code === "string" ? err.code : "";
-  const message = typeof err.message === "string" ? err.message : "";
-
-  if (code === "ERR_MODULE_NOT_FOUND" || code === "ERR_UNSUPPORTED_ESM_URL_SCHEME") {
-    return true;
-  }
-  if (!message.includes("bun:sqlite")) {
-    return false;
-  }
-  return (
-    message.includes("Cannot find module") ||
-    message.includes("Unknown builtin module") ||
-    message.includes("unsupported URL scheme") ||
-    message.includes("Only URLs with a scheme in")
-  );
-}
-
-/**
- * Query a SQLite database in read-only mode.
- * Uses bun:sqlite when running under Bun, falls back to node:sqlite (Node >= 22.5).
- */
-async function queryReadonlySqlite(dbPath: string, sql: string): Promise<SqliteRow[]> {
-  try {
-    const { Database } = await import("bun:sqlite");
-    const db = new Database(dbPath, { readonly: true });
-    try {
-      return db.query(sql).all() as SqliteRow[];
-    } finally {
-      db.close();
-    }
-  } catch (error) {
-    if (!isMissingBunSqliteModule(error)) {
-      throw error;
-    }
-    const { DatabaseSync } = await import("node:sqlite");
-    const db = new DatabaseSync(dbPath, { readOnly: true });
-    try {
-      return db.prepare(sql).all() as SqliteRow[];
-    } finally {
-      db.close();
-    }
-  }
-}
+import { isRecord } from "../lib/object-type-guards.ts";
+import { queryReadonlySqlite } from "./firefox-profile.ts";
+import { decryptChromiumCookieValue } from "./chromium-cookie.ts";
 
 type DesktopTeam = { url: string; name?: string; token: string };
 
@@ -162,10 +114,6 @@ function getSlackPaths(): { leveldbDir: string; cookiesDb: string; baseDir: stri
   throw new Error(
     `Slack Desktop data not found. Checked:\n  - ${candidates.map((d) => join(d, "Local Storage", "leveldb")).join("\n  - ")}`,
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function toDesktopTeam(value: unknown): DesktopTeam | null {
@@ -364,40 +312,6 @@ function getSafeStoragePasswords(prefix: string): string[] {
   throw new Error("Could not read Safe Storage password from desktop keychain.");
 }
 
-function decryptChromiumCookieValue(data: Buffer, password: string): string {
-  if (!data || data.length === 0) {
-    return "";
-  }
-
-  const salt = Buffer.from("saltysalt", "utf8");
-  const iv = Buffer.alloc(16, " ");
-  const key = pbkdf2Sync(password, salt, IS_LINUX ? 1 : 1003, 16, "sha1");
-
-  const decipher = createDecipheriv("aes-128-cbc", key, iv);
-  decipher.setAutoPadding(true);
-  const plain = Buffer.concat([decipher.update(data), decipher.final()]);
-  const marker = Buffer.from("xoxd-");
-  const idx = plain.indexOf(marker);
-  if (idx === -1) {
-    return plain.toString("utf8");
-  }
-
-  let end = idx;
-  while (end < plain.length) {
-    const b = plain[end]!;
-    if (b < 0x21 || b > 0x7e) {
-      break;
-    }
-    end++;
-  }
-  const rawToken = plain.subarray(idx, end).toString("utf8");
-  try {
-    return decodeURIComponent(rawToken);
-  } catch {
-    return rawToken;
-  }
-}
-
 /**
  * Decrypt a Chromium cookie on Windows using DPAPI + AES-256-GCM.
  *
@@ -413,17 +327,24 @@ function decryptCookieWindows(encrypted: Buffer, slackDataDir: string): string {
   if (!existsSync(localStatePath)) {
     throw new Error(`Local State file not found: ${localStatePath}`);
   }
-  const localState = JSON.parse(readFileSync(localStatePath, "utf8"));
-  if (!localState.os_crypt?.encrypted_key) {
+  let localState: unknown;
+  try {
+    localState = JSON.parse(readFileSync(localStatePath, "utf8"));
+  } catch {
+    throw new Error(`Failed to parse Local State file: ${localStatePath}`);
+  }
+  const osCrypt = isRecord(localState) ? localState.os_crypt : undefined;
+  if (!isRecord(osCrypt) || !osCrypt.encrypted_key) {
     throw new Error("No os_crypt.encrypted_key in Local State");
   }
-  const encKeyFull = Buffer.from(localState.os_crypt.encrypted_key, "base64");
+  const encKeyFull = Buffer.from(osCrypt.encrypted_key as string, "base64");
   // Skip "DPAPI" prefix (5 bytes)
   const encKeyBlob = encKeyFull.subarray(5);
 
   // Decrypt AES key via Windows DPAPI using PowerShell
-  const encKeyFile = join(tmpdir(), `as-key-enc-${Date.now()}.bin`);
-  const decKeyFile = join(tmpdir(), `as-key-dec-${Date.now()}.bin`);
+  const id = randomUUID();
+  const encKeyFile = join(tmpdir(), `as-key-enc-${id}.bin`);
+  const decKeyFile = join(tmpdir(), `as-key-dec-${id}.bin`);
   writeFileSync(encKeyFile, encKeyBlob);
   try {
     // Escape single quotes for PowerShell single-quoted strings (' → '')
@@ -542,7 +463,7 @@ async function extractCookieDFromSlackCookiesDb(
 
   for (const password of passwords) {
     try {
-      const decrypted = decryptChromiumCookieValue(data, password);
+      const decrypted = decryptChromiumCookieValue(data, password, IS_LINUX ? 1 : 1003);
       const match = decrypted.match(/xoxd-[A-Za-z0-9%/+_=.-]+/);
       if (match) {
         return match[0]!;

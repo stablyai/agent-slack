@@ -2,9 +2,7 @@
  * Rich-text block rendering helpers extracted from render.ts.
  */
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+import { isRecord } from "../lib/object-type-guards.ts";
 
 function getString(value: unknown): string {
   return typeof value === "string" ? value : "";

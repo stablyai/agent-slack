@@ -222,6 +222,10 @@ export async function fetchChannelHistory(
       break;
     }
 
+    if (!resp.has_more) {
+      break;
+    }
+
     const last = messages.at(-1);
     const nextLatest = isRecord(last) ? getString(last.ts) : undefined;
     if (!nextLatest || nextLatest === cursorLatest) {
