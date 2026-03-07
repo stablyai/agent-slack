@@ -14,7 +14,12 @@ if ! command -v nix >/dev/null 2>&1; then
   exit 1
 fi
 
-tag="$(curl -fsSL "$latest_api" | jq -r '.tag_name')"
+curl_opts=(-fsSL)
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  curl_opts+=(-H "Authorization: token $GITHUB_TOKEN")
+fi
+
+tag="$(curl "${curl_opts[@]}" "$latest_api" | jq -r '.tag_name')"
 if [[ -z "$tag" || "$tag" == "null" ]]; then
   echo "error: unable to resolve latest release tag" >&2
   exit 1
@@ -22,7 +27,7 @@ fi
 
 version="${tag#v}"
 checksums_url="https://github.com/${repo}/releases/download/${tag}/checksums-sha256.txt"
-checksums="$(curl -fsSL "$checksums_url")"
+checksums="$(curl "${curl_opts[@]}" "$checksums_url")"
 
 get_sri() {
   local asset="$1"
