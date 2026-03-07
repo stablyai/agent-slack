@@ -1,14 +1,13 @@
-name: Release
+name: Release (RC)
 
 on:
   push:
     tags:
-      - "v*"
-      - "!v*-rc.*"
+      - "v*-rc.*"
 
 jobs:
-  release:
-    name: Build + Release
+  release-rc:
+    name: Build + Publish RC
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,9 +46,10 @@ jobs:
             release/agent-slack-*
             release/checksums-sha256.txt
           generate_release_notes: true
+          prerelease: true
 
       - name: Build for npm
         run: bun run build:npm
 
-      - name: Publish to npm
-        run: npm publish --provenance --access public
+      - name: Publish to npm (rc tag)
+        run: npm publish --provenance --access public --tag rc
