@@ -223,7 +223,7 @@ function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
   return {
     id: getString(u.id) ?? "",
     name: getString(u.name) ?? undefined,
-    real_name: getString(u.real_name) ?? undefined,
+    real_name: getString(u.real_name) ?? getString(profile.real_name) ?? undefined,
     display_name: getString(profile.display_name) ?? undefined,
     email: getString(profile.email) ?? undefined,
     title: getString(profile.title) ?? undefined,
