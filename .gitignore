@@ -9,6 +9,7 @@ bun.lockb
 # build
 dist
 release
+*.bun-build
 
 # local
 .cache
