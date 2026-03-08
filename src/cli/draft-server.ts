@@ -1,8 +1,7 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+// @ts-ignore — import attributes need module:"esnext" in tsconfig; Bun handles this fine
+import _editorHtmlContent from "./draft-editor.html" with { type: "text" };
 
 export type DraftEditorConfig = {
   channelName: string;
@@ -168,18 +167,6 @@ function buildEditorHtml(config: DraftEditorConfig): string {
   return getEditorHtml().replace("__DRAFT_CONFIG__", safeConfig);
 }
 
-// ---------------------------------------------------------------------------
-// Self-contained HTML editor — lazy-loaded from draft-editor.html
-// ---------------------------------------------------------------------------
-
-let _editorHtml: string | undefined;
-
 function getEditorHtml(): string {
-  if (!_editorHtml) {
-    _editorHtml = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), "draft-editor.html"),
-      "utf-8",
-    );
-  }
-  return _editorHtml;
+  return _editorHtmlContent;
 }
