@@ -2,12 +2,13 @@ import { pbkdf2Sync, createDecipheriv } from "node:crypto";
 
 export function decryptChromiumCookieValue(
   data: Buffer,
-  password: string,
-  iterations: number,
+  options: { password: string; iterations: number },
 ): string {
   if (!data || data.length === 0) {
     return "";
   }
+
+  const { password, iterations } = options;
 
   if (iterations < 1) {
     throw new RangeError(`iterations must be >= 1, got ${iterations}`);

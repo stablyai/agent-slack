@@ -3,14 +3,7 @@ import { extractFromChrome } from "../auth/chrome.ts";
 import { parseSlackCurlCommand } from "../auth/curl.ts";
 import { extractFromSlackDesktop } from "../auth/desktop.ts";
 import { extractFromFirefox } from "../auth/firefox.ts";
-import {
-  loadCredentials,
-  resolveDefaultWorkspace,
-  resolveWorkspaceForUrl,
-  upsertWorkspace,
-  upsertWorkspaces,
-} from "../auth/store.ts";
-import { resolveWorkspaceSelector } from "./workspace-selector.ts";
+import { loadCredentials, upsertWorkspaces } from "../auth/store.ts";
 import { normalizeChannelInput } from "../slack/channels.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { type SlackAuth } from "../slack/client.ts";

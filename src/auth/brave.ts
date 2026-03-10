@@ -148,7 +148,7 @@ async function extractCookieDFromBrave(): Promise<string> {
 
   for (const password of passwords) {
     try {
-      const decrypted = decryptChromiumCookieValue(data, password, 1003);
+      const decrypted = decryptChromiumCookieValue(data, { password, iterations: 1003 });
       const match = decrypted.match(/xoxd-[A-Za-z0-9%/+_=.-]+/);
       if (match) {
         return match[0]!;
