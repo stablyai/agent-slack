@@ -96,6 +96,10 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - Internal invite (default): resolves users (`U...`, `@handle`, `handle`, `email`) and uses `conversations.invite`
   - External invite: add `--external` (email targets only) to use `conversations.inviteShared`
   - Optional: `--allow-external-user-invites` sets `external_limited=false` for external invites
+- `agent-slack channel mark <target> [--ts <seconds>.<micros>] [--workspace <url-or-unique-substring>]`
+  - Marks a channel/DM as read up to the given message timestamp (`conversations.mark`)
+  - URL target extracts channel and ts automatically; `--ts` override is optional
+  - Channel name/ID target requires `--ts`
 
 ## Search
 

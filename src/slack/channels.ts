@@ -190,3 +190,11 @@ export function normalizeConversationsPage(resp: Record<string, unknown>): Conve
 function normalizeConversationsLimit(value: number | undefined): number {
   return Math.min(Math.max(value ?? 100, 1), 1000);
 }
+
+export async function markConversation(
+  client: SlackApiClient,
+  options: { channelId: string; ts: string },
+): Promise<void> {
+  const { channelId, ts } = options;
+  await client.api("conversations.mark", { channel: channelId, ts });
+}

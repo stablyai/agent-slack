@@ -49,6 +49,11 @@ Use `--max-content-chars` (messages) and `--limit` to control size.
     - `already_invited_emails?: [ ... ]`
     - `invalid_external_targets?: [ ... ]`
 
+- `channel mark` returns:
+  - `ok: boolean`
+  - `channel: string` (resolved channel ID)
+  - `ts: string`
+
 ## Attachment downloads
 
 Attachments are downloaded to an agent-friendly temp directory and returned as absolute paths in output.
