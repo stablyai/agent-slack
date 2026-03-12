@@ -244,6 +244,9 @@ agent-slack workflow get "Wf456DEF"
 
 # Trip a workflow trigger
 agent-slack workflow run "Ft123ABC" --channel "#ops"
+
+# Trip and submit form data (requires browser auth)
+agent-slack workflow run "Ft123ABC" --channel "#ops" --field "Title=My request" --field "Priority=High"
 ```
 
 ## Later (saved messages)

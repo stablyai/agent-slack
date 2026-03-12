@@ -168,7 +168,7 @@ Common options:
 - `agent-slack workflow list <channel> [--workspace <url-or-unique-substring>]` — list workflows bookmarked or featured in a channel
 - `agent-slack workflow preview <trigger-id> [--workspace <url-or-unique-substring>]` — get workflow metadata from a trigger ID (no side effects)
 - `agent-slack workflow get <id> [--workspace <url-or-unique-substring>]` — get workflow definition including form fields and steps (accepts `Ft...` or `Wf...`)
-- `agent-slack workflow run <trigger-id> --channel <id-or-name> [--workspace <url-or-unique-substring>]` — trip a workflow trigger
+- `agent-slack workflow run <trigger-id> --channel <id-or-name> [--field <title=value>]... [--workspace <url-or-unique-substring>]` — trip a workflow trigger; with `--field`, submits form data via RTM WebSocket (requires browser auth)
 
 ## Users
 
