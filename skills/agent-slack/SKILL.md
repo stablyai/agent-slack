@@ -12,6 +12,7 @@ description: |
   - Looking up Slack users
   - Marking channels/DMs as read
   - Opening DM or group DM channels
+  - Discovering and running Slack workflows
   Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read"
 ---
 
@@ -216,6 +217,25 @@ To make a specific message appear unread, set `--ts` to just before it (subtract
 
 ```bash
 agent-slack channel mark "general" --workspace "myteam" --ts "1770165109.628378"
+```
+
+## Workflows
+
+Discover and run Slack workflows bookmarked in channels:
+
+```bash
+# List workflows in a channel
+agent-slack workflow list "#ops"
+
+# Preview trigger metadata (no side effects)
+agent-slack workflow preview "Ft123ABC"
+
+# Get workflow definition including form fields and steps
+agent-slack workflow get "Ft123ABC"
+agent-slack workflow get "Wf456DEF"
+
+# Trip a workflow trigger
+agent-slack workflow run "Ft123ABC" --channel "#ops"
 ```
 
 ## Canvas + Users
