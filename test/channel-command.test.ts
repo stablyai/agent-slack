@@ -14,6 +14,16 @@ function createContext() {
           response_metadata: { next_cursor: "" },
         };
       }
+      if (method === "search.messages") {
+        return {
+          messages: {
+            matches: [{ channel: { id: "C1", name: "general" } }],
+          },
+        };
+      }
+      if (method === "conversations.mark") {
+        return { ok: true };
+      }
       return {
         channels: [{ id: "C1", name: "general" }],
         response_metadata: { next_cursor: "n1" },
@@ -196,5 +206,118 @@ describe("channel list command", () => {
 
     expect(limitOpt?.description).toContain("one page");
     expect(cursorOpt?.description).toContain("next page");
+  });
+});
+
+describe("channel mark command", () => {
+  const originalLog = console.log;
+  const originalError = console.error;
+
+  beforeEach(() => {
+    process.exitCode = 0;
+  });
+
+  afterEach(() => {
+    process.exitCode = 0;
+    console.log = originalLog;
+    console.error = originalError;
+  });
+
+  test("URL target extracts workspace from URL", async () => {
+    const { ctx, calls } = createContext();
+    const program = new Command();
+    registerChannelCommand({ program, ctx });
+    const log = mock(() => {});
+    console.log = log as typeof console.log;
+
+    await program.parseAsync(
+      ["channel", "mark", "https://workspace.slack.com/archives/C12345/p1234567890123456"],
+      { from: "user" },
+    );
+
+    expect(calls.some((c) => c.method === "conversations.mark")).toBe(true);
+    expect(process.exitCode).toBe(0);
+  });
+
+  test("URL target rejects --workspace flag", async () => {
+    const { ctx } = createContext();
+    const program = new Command();
+    registerChannelCommand({ program, ctx });
+    const err = mock(() => {});
+    console.error = err as typeof console.error;
+
+    await program.parseAsync(
+      [
+        "channel",
+        "mark",
+        "https://workspace.slack.com/archives/C12345/p1234567890123456",
+        "--workspace",
+        "https://other.slack.com",
+      ],
+      { from: "user" },
+    );
+
+    expect(err).toHaveBeenCalled();
+    expect(String((err as ReturnType<typeof mock>).mock.calls[0]?.[0])).toContain(
+      "--workspace cannot be used with a URL target",
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  test("channel target requires --ts", async () => {
+    const { ctx } = createContext();
+    const program = new Command();
+    registerChannelCommand({ program, ctx });
+    const err = mock(() => {});
+    console.error = err as typeof console.error;
+
+    await program.parseAsync(["channel", "mark", "#general"], { from: "user" });
+
+    expect(err).toHaveBeenCalled();
+    expect(String((err as ReturnType<typeof mock>).mock.calls[0]?.[0])).toContain(
+      "--ts is required",
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  test("URL target allows --ts override", async () => {
+    const { ctx, calls } = createContext();
+    const program = new Command();
+    registerChannelCommand({ program, ctx });
+    const log = mock(() => {});
+    console.log = log as typeof console.log;
+
+    await program.parseAsync(
+      [
+        "channel",
+        "mark",
+        "https://workspace.slack.com/archives/C12345/p1234567890123456",
+        "--ts",
+        "9999999999.999999",
+      ],
+      { from: "user" },
+    );
+
+    const markCall = calls.find((c) => c.method === "conversations.mark");
+    expect(markCall).toBeDefined();
+    expect(markCall?.params.ts).toBe("9999999999.999999");
+    expect(process.exitCode).toBe(0);
+  });
+
+  test("channel target with --ts calls conversations.mark", async () => {
+    const { ctx, calls } = createContext();
+    const program = new Command();
+    registerChannelCommand({ program, ctx });
+    const log = mock(() => {});
+    console.log = log as typeof console.log;
+
+    await program.parseAsync(["channel", "mark", "#general", "--ts", "1234567890.123456"], {
+      from: "user",
+    });
+
+    const markCall = calls.find((c) => c.method === "conversations.mark");
+    expect(markCall).toBeDefined();
+    expect(markCall?.params.ts).toBe("1234567890.123456");
+    expect(process.exitCode).toBe(0);
   });
 });

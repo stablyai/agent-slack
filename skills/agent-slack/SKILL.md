@@ -10,8 +10,9 @@ description: |
   - Listing channels/conversations; creating channels and inviting users
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
+  - Marking channels/DMs as read
   - Opening DM or group DM channels
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages"
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read"
 ---
 
 # Slack automation with `agent-slack`
@@ -179,6 +180,22 @@ Get the channel ID for a DM or group DM, useful for sending messages to a group 
 ```bash
 agent-slack user dm-open @alice @bob
 agent-slack user dm-open U01AAAA U02BBBB U03CCCC
+```
+
+## Mark as read
+
+Mark a channel, DM, or group DM as read up to a given message:
+
+```bash
+agent-slack channel mark "https://workspace.slack.com/archives/C123/p1700000000000000"
+agent-slack channel mark "#general" --workspace "myteam" --ts "1770165109.628379"
+agent-slack channel mark "D0A04PB2QBW" --workspace "myteam" --ts "1770165109.628379"
+```
+
+To make a specific message appear unread, set `--ts` to just before it (subtract `0.000001`). This moves the read cursor so that message and everything after it appear as new:
+
+```bash
+agent-slack channel mark "#general" --workspace "myteam" --ts "1770165109.628378"
 ```
 
 ## Canvas + Users

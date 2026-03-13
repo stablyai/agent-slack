@@ -4,6 +4,7 @@ import { pruneEmpty } from "../lib/compact-json.ts";
 import {
   listAllConversations,
   listUserConversations,
+  markConversation,
   resolveChannelId,
 } from "../slack/channels.ts";
 import {
@@ -14,6 +15,7 @@ import {
   splitEmailsFromInviteTargets,
 } from "../slack/channel-admin.ts";
 import { resolveUserId } from "../slack/users.ts";
+import { parseMsgTarget } from "./targets.ts";
 
 type ChannelListOptions = {
   workspace?: string;
@@ -212,6 +214,65 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
           },
         });
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  channelCmd
+    .command("mark")
+    .description("Mark a channel/DM as read up to a given message")
+    .argument("<target>", "Slack message URL, #channel, or channel ID")
+    .option("--ts <ts>", "Message ts to mark as read (required when target is a channel name/ID)")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
+    )
+    .action(async (...args) => {
+      const [targetArg, options] = args as [string, { ts?: string; workspace?: string }];
+      try {
+        const target = parseMsgTarget(targetArg);
+        let channelId: string;
+        let ts: string;
+        let workspaceUrl: string | undefined;
+
+        if (target.kind === "url") {
+          if (options.workspace) {
+            throw new Error(
+              "--workspace cannot be used with a URL target; the workspace is derived from the URL",
+            );
+          }
+          channelId = target.ref.channel_id;
+          ts = options.ts ?? target.ref.message_ts;
+          workspaceUrl = input.ctx.effectiveWorkspaceUrl(target.ref.workspace_url);
+        } else if (target.kind === "channel") {
+          if (!options.ts) {
+            throw new Error("--ts is required when target is a channel name or ID");
+          }
+          ({ ts } = options);
+          workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
+          channelId = target.channel;
+        } else {
+          throw new Error("User targets are not supported for channel mark");
+        }
+
+        await input.ctx.assertWorkspaceSpecifiedForChannelNames({
+          workspaceUrl,
+          channels: [channelId],
+        });
+
+        const resolvedId = await input.ctx.withAutoRefresh({
+          workspaceUrl,
+          work: async () => {
+            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            const resolved = await resolveChannelId(client, channelId);
+            await markConversation(client, { channelId: resolved, ts });
+            return resolved;
+          },
+        });
+
+        console.log(JSON.stringify({ ok: true, channel: resolvedId, ts }, null, 2));
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
         process.exitCode = 1;

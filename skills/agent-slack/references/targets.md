@@ -18,6 +18,7 @@ Examples:
 - `agent-slack message edit "<url>" "updated text"`
 - `agent-slack message delete "<url>"`
 - `agent-slack message react add "<url>" "eyes"`
+- `agent-slack channel mark "<url>"`
 
 ## Channel targets (when you don’t have a URL)
 
@@ -51,6 +52,13 @@ agent-slack message react add "#general" "eyes" --ts "1770165109.628379"
 ```bash
 agent-slack message edit "#general" "updated text" --ts "1770165109.628379"
 agent-slack message delete "#general" --ts "1770165109.628379"
+```
+
+### Mark as read by channel + `--ts`
+
+```bash
+agent-slack channel mark "#general" --ts "1770165109.628379"
+agent-slack channel mark "D0A04PB2QBW" --ts "1770165109.628379"
 ```
 
 ### Channel admin by id/name
