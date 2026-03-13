@@ -243,13 +243,8 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
               "--workspace cannot be used with a URL target; the workspace is derived from the URL",
             );
           }
-          if (options.ts) {
-            throw new Error(
-              "--ts cannot be used with a URL target; the timestamp is derived from the URL",
-            );
-          }
           channelId = target.ref.channel_id;
-          ts = target.ref.message_ts;
+          ts = options.ts ?? target.ref.message_ts;
           workspaceUrl = input.ctx.effectiveWorkspaceUrl(target.ref.workspace_url);
         } else if (target.kind === "channel") {
           if (!options.ts) {

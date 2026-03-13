@@ -280,12 +280,12 @@ describe("channel mark command", () => {
     expect(process.exitCode).toBe(1);
   });
 
-  test("URL target rejects --ts flag", async () => {
-    const { ctx } = createContext();
+  test("URL target allows --ts override", async () => {
+    const { ctx, calls } = createContext();
     const program = new Command();
     registerChannelCommand({ program, ctx });
-    const err = mock(() => {});
-    console.error = err as typeof console.error;
+    const log = mock(() => {});
+    console.log = log as typeof console.log;
 
     await program.parseAsync(
       [
@@ -298,11 +298,10 @@ describe("channel mark command", () => {
       { from: "user" },
     );
 
-    expect(err).toHaveBeenCalled();
-    expect(String((err as ReturnType<typeof mock>).mock.calls[0]?.[0])).toContain(
-      "--ts cannot be used with a URL target",
-    );
-    expect(process.exitCode).toBe(1);
+    const markCall = calls.find((c) => c.method === "conversations.mark");
+    expect(markCall).toBeDefined();
+    expect(markCall?.params.ts).toBe("9999999999.999999");
+    expect(process.exitCode).toBe(0);
   });
 
   test("channel target with --ts calls conversations.mark", async () => {
