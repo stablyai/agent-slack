@@ -28,11 +28,11 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 - `agent-slack message list <target>`
   - Lists recent channel messages (channel history), or fetches all thread replies
   - **Channel history** (default when targeting a channel without `--thread-ts`):
-    - `agent-slack message list "#general"` — latest 25 messages
-    - `agent-slack message list "#general" --limit 50` — latest 50 messages
+    - `agent-slack message list "general"` — latest 25 messages
+    - `agent-slack message list "general" --limit 50` — latest 50 messages
   - **Thread mode** (when `--thread-ts` or `--ts` is provided, or target is a message URL):
     - `agent-slack message list "<url>"` — all replies in that thread
-    - `agent-slack message list "#general" --thread-ts "1770165109.000001"` — thread replies
+    - `agent-slack message list "general" --thread-ts "1770165109.000001"` — thread replies
   - Options:
     - `--workspace <url-or-unique-substring>` (same rules as above)
     - `--thread-ts <seconds>.<micros>` (switches to thread mode; fetches replies)
