@@ -125,6 +125,13 @@ Common options:
     - `--workspace <url-or-unique-substring>` (required when passing an id and multiple workspaces)
     - `--max-chars <n>` (default `20000`, `-1` unlimited)
 
+## Workflows
+
+- `agent-slack workflow list <channel> [--workspace <url-or-unique-substring>]` — list workflows bookmarked or featured in a channel
+- `agent-slack workflow preview <trigger-id> [--workspace <url-or-unique-substring>]` — get workflow metadata from a trigger ID (no side effects)
+- `agent-slack workflow get <id> [--workspace <url-or-unique-substring>]` — get workflow definition including form fields and steps (accepts `Ft...` or `Wf...`)
+- `agent-slack workflow run <trigger-id> --channel <id-or-name> [--workspace <url-or-unique-substring>]` — trip a workflow trigger
+
 ## Users
 
 - `agent-slack user list [--workspace <url-or-unique-substring>] [--limit <n>] [--cursor <cursor>] [--include-bots]`
