@@ -9,6 +9,7 @@ export type CompactSlackMessage = {
   author?: { user_id?: string; bot_id?: string };
   content?: string;
   files?: {
+    name?: string;
     mimetype?: string;
     mode?: string;
     path: string;
@@ -51,6 +52,7 @@ export function toCompactMessage(
         return null;
       }
       return {
+        name: f.name || f.title || undefined,
         mimetype: f.mimetype,
         mode: f.mode,
         path,
