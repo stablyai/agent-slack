@@ -24,55 +24,55 @@ Examples:
 
 Channel references can be:
 
-- channel name: `#general` or `general`
+- channel name: `general` (bare name, without `#` prefix)
 - channel id: `C...` (or `G...`/`D...`)
 
 ### `message get` by channel + `--ts`
 
 ```bash
-agent-slack message get "#general" --ts "1770165109.628379"
+agent-slack message get "general" --ts "1770165109.628379"
 ```
 
 ### `message list` by channel + `--thread-ts` (or `--ts` to resolve)
 
 ```bash
-agent-slack message list "#general" --thread-ts "1770165109.000001"
-agent-slack message list "#general" --ts "1770165109.628379"  # resolves to its thread
-agent-slack message list "#general" --without-reaction dart --limit 20  # channel history filter
+agent-slack message list "general" --thread-ts "1770165109.000001"
+agent-slack message list "general" --ts "1770165109.628379"
+agent-slack message list "general" --without-reaction dart --limit 20
 ```
 
 ### Reactions by channel + `--ts`
 
 ```bash
-agent-slack message react add "#general" "eyes" --ts "1770165109.628379"
+agent-slack message react add "general" "eyes" --ts "1770165109.628379"
 ```
 
 ### Edit/delete by channel + `--ts`
 
 ```bash
-agent-slack message edit "#general" "updated text" --ts "1770165109.628379"
-agent-slack message delete "#general" --ts "1770165109.628379"
+agent-slack message edit "general" "updated text" --ts "1770165109.628379"
+agent-slack message delete "general" --ts "1770165109.628379"
 ```
 
 ### Mark as read by channel + `--ts`
 
 ```bash
-agent-slack channel mark "#general" --ts "1770165109.628379"
+agent-slack channel mark "general" --ts "1770165109.628379"
 agent-slack channel mark "D0A04PB2QBW" --ts "1770165109.628379"
 ```
 
 ### Channel admin by id/name
 
 ```bash
-agent-slack channel invite --channel "#general" --users "@alice,bob@example.com"
+agent-slack channel invite --channel "general" --users "@alice,bob@example.com"
 agent-slack channel invite --channel "C0123ABCDEF" --users "U01234567"
-agent-slack channel invite --channel "#shared-room" --users "partner@vendor.com" --external
-agent-slack channel invite --channel "#shared-room" --users "partner@vendor.com" --external --allow-external-user-invites
+agent-slack channel invite --channel "shared-room" --users "partner@vendor.com" --external
+agent-slack channel invite --channel "shared-room" --users "partner@vendor.com" --external --allow-external-user-invites
 ```
 
 ## Multi-workspace ambiguity (channel names only)
 
-If you have multiple workspaces configured and your target is a channel **name** (`#general` / `general`), you must disambiguate:
+If you have multiple workspaces configured and your target is a channel **name** (e.g. `general`), you must disambiguate:
 
 - pass `--workspace "https://myteam.slack.com"` (or a unique substring like `--workspace "myteam"`), or
 - set `SLACK_WORKSPACE_URL` to the same selector format
