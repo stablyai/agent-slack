@@ -1,0 +1,29 @@
+# Agent Slack — Slack CLI for AI Agents
+
+> The Slack CLI that gives AI agents full access to Slack. Read messages, search conversations, send replies, manage channels, and download file attachments — all from the command line. Token-efficient JSON output, zero-config auth, multi-workspace support. Works with Claude Code, Cursor, Codex, and any AI agent framework. One install, zero API fees.
+
+## Quick Start
+
+- [README](https://github.com/stablyai/agent-slack/blob/main/README.md): Full documentation with installation, authentication, and usage examples
+- [Agent Skill (SKILL.md)](https://github.com/stablyai/agent-slack/blob/main/skills/agent-slack/SKILL.md): Integration guide for Claude Code, Cursor, Codex, and custom AI agents
+- [Command References](https://github.com/stablyai/agent-slack/blob/main/skills/agent-slack/references/): Detailed per-command documentation with examples
+
+## Key Features
+
+- Read Slack messages, threads, and channel history from any URL or channel name
+- Search Slack messages and files with filters for channel, user, date, and content type
+- Send, edit, delete Slack messages and add/remove emoji reactions programmatically
+- Auto-download Slack file attachments (snippets, images, files) to local paths for AI agent consumption
+- Token-efficient compact JSON output so LLMs can consume Slack data cheaply
+- Zero-config auth: auto-detects Slack Desktop credentials on macOS, Windows, and Linux — with Chrome, Brave, and Firefox fallbacks
+- Multi-workspace Slack management with automatic workspace resolution
+- Human-in-the-loop message drafting via browser-based WYSIWYG rich text editor
+- Slack canvas export to Markdown
+- Slack channel creation, user invites, and Slack Connect external invites
+
+## Optional
+
+- [npm Package](https://www.npmjs.com/package/agent-slack): `npm i -g agent-slack`
+- [GitHub Repository](https://github.com/stablyai/agent-slack): Source code, issues, and releases
+- [Contributing Guide](https://github.com/stablyai/agent-slack/blob/main/CONTRIBUTING.md): Development setup and build instructions
+- [Stably AI](https://stably.ai): The team behind agent-slack
