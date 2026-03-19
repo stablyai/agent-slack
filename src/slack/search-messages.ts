@@ -1,17 +1,40 @@
 import type { SlackApiClient, SlackAuth } from "./client.ts";
-import type { CompactSlackMessage, SlackFileSummary, SlackMessageSummary } from "./messages.ts";
+import type {
+  CompactSlackMessage,
+  SlackFileSummary,
+  SlackMessageSummary,
+} from "./messages.ts";
 import { fetchMessage, toCompactMessage } from "./messages.ts";
 import { resolveChannelId } from "./channels.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
-import { type DownloadResult, tryDownloadSlackFile, writeDownloadErrorFile } from "./files.ts";
+import {
+  type DownloadResult,
+  tryDownloadSlackFile,
+  writeDownloadErrorFile,
+} from "./files.ts";
 import { renderSlackMessageContent } from "./render.ts";
 import { parseSlackMessageUrl } from "./url.ts";
 import { inferExt } from "./search-file-ext.ts";
 import { dateToUnixSeconds, resolveUserId } from "./search-query.ts";
-import { asArray, getNumber, getString, isRecord } from "../lib/object-type-guards.ts";
+import {
+  asArray,
+  getNumber,
+  getString,
+  isRecord,
+} from "../lib/object-type-guards.ts";
 import { slackMrkdwnToMarkdown } from "./mrkdwn.ts";
+import {
+  collectReferencedUserIds,
+  resolveUsersById,
+  toReferencedUsers,
+} from "./user-cache.ts";
+import type { CompactSlackUser } from "./users.ts";
 
 export type ContentType = "any" | "text" | "image" | "snippet" | "file";
+export type SearchMessageResult = {
+  messages: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[];
+  referenced_users?: Record<string, CompactSlackUser>;
+};
 
 export async function searchMessagesViaSearchApi(
   client: SlackApiClient,
@@ -24,11 +47,12 @@ export async function searchMessagesViaSearchApi(
     contentType: ContentType;
     download: boolean;
     rawMatches: Record<string, unknown>[];
+    refreshUsers?: boolean;
   },
-): Promise<Omit<CompactSlackMessage, "channel_id" | "thread_ts">[]> {
+): Promise<SearchMessageResult> {
   const matches = input.rawMatches;
   if (matches.length === 0) {
-    return [];
+    return { messages: [] };
   }
 
   const messageRefs: {
@@ -63,6 +87,7 @@ export async function searchMessagesViaSearchApi(
 
   const downloadedPaths: Record<string, DownloadResult> = {};
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
+  const resolvedMessages: SlackMessageSummary[] = [];
   const out: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
 
   for (const ref of messageRefs) {
@@ -85,7 +110,10 @@ export async function searchMessagesViaSearchApi(
           channel_id: ref.channel_id,
           message_ts: ref.message_ts,
           thread_ts_hint: parsed?.thread_ts_hint,
-          raw: parsed?.raw ?? ref.permalink ?? `${ref.channel_id}:${ref.message_ts}`,
+          raw:
+            parsed?.raw ??
+            ref.permalink ??
+            `${ref.channel_id}:${ref.message_ts}`,
         },
       });
     } catch {
@@ -108,19 +136,33 @@ export async function searchMessagesViaSearchApi(
     if (!passesContentTypeFilter(compact, input.contentType)) {
       continue;
     }
+    resolvedMessages.push(full);
     out.push(stripThreadListFields(compact));
     if (out.length >= input.limit) {
       break;
     }
   }
 
-  return out;
+  const referencedUserIds = collectReferencedUserIds(resolvedMessages, {
+    includeReactions: false,
+  });
+  const usersById = await resolveUsersById({
+    client,
+    workspaceUrl: input.workspace_url ?? "",
+    userIds: referencedUserIds,
+    forceRefresh: Boolean(input.refreshUsers),
+  });
+  return {
+    messages: out,
+    referenced_users: toReferencedUsers(referencedUserIds, usersById),
+  };
 }
 
 export async function searchMessagesInChannelsFallback(
   client: SlackApiClient,
   input: {
     auth: SlackAuth;
+    workspace_url?: string;
     query: string;
     channels: string[];
     user?: string;
@@ -130,18 +172,26 @@ export async function searchMessagesInChannelsFallback(
     maxContentChars: number;
     contentType: ContentType;
     download: boolean;
+    refreshUsers?: boolean;
   },
-): Promise<Omit<CompactSlackMessage, "channel_id" | "thread_ts">[]> {
-  const channelIds = await Promise.all(input.channels.map((c) => resolveChannelId(client, c)));
+): Promise<SearchMessageResult> {
+  const channelIds = await Promise.all(
+    input.channels.map((c) => resolveChannelId(client, c)),
+  );
   const queryLower = input.query.trim().toLowerCase();
 
-  const userId = input.user ? await resolveUserId(client, input.user) : undefined;
+  const userId = input.user
+    ? await resolveUserId(client, input.user)
+    : undefined;
 
   const afterSec = input.after ? dateToUnixSeconds(input.after, "start") : null;
-  const beforeSec = input.before ? dateToUnixSeconds(input.before, "end") : null;
+  const beforeSec = input.before
+    ? dateToUnixSeconds(input.before, "end")
+    : null;
 
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
   const downloadedPaths: Record<string, DownloadResult> = {};
+  const matchedSummaries: SlackMessageSummary[] = [];
 
   const results: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
 
@@ -153,7 +203,9 @@ export async function searchMessagesInChannelsFallback(
         limit: 200,
         latest: cursorLatest,
       });
-      const messages = isRecord(resp) ? asArray(resp.messages).filter(isRecord) : [];
+      const messages = isRecord(resp)
+        ? asArray(resp.messages).filter(isRecord)
+        : [];
       if (messages.length === 0) {
         break;
       }
@@ -198,9 +250,22 @@ export async function searchMessagesInChannelsFallback(
           continue;
         }
 
+        matchedSummaries.push(summary);
         results.push(stripThreadListFields(compact));
         if (results.length >= input.limit) {
-          return results;
+          const referencedUserIds = collectReferencedUserIds(matchedSummaries, {
+            includeReactions: false,
+          });
+          const usersById = await resolveUsersById({
+            client,
+            workspaceUrl: input.workspace_url ?? "",
+            userIds: referencedUserIds,
+            forceRefresh: Boolean(input.refreshUsers),
+          });
+          return {
+            messages: results,
+            referenced_users: toReferencedUsers(referencedUserIds, usersById),
+          };
         }
       }
 
@@ -216,10 +281,25 @@ export async function searchMessagesInChannelsFallback(
     }
   }
 
-  return results;
+  const referencedUserIds = collectReferencedUserIds(matchedSummaries, {
+    includeReactions: false,
+  });
+  const usersById = await resolveUsersById({
+    client,
+    workspaceUrl: input.workspace_url ?? "",
+    userIds: referencedUserIds,
+    forceRefresh: Boolean(input.refreshUsers),
+  });
+  return {
+    messages: results,
+    referenced_users: toReferencedUsers(referencedUserIds, usersById),
+  };
 }
 
-export function passesContentTypeFilter(m: CompactSlackMessage, contentType: ContentType): boolean {
+export function passesContentTypeFilter(
+  m: CompactSlackMessage,
+  contentType: ContentType,
+): boolean {
   if (contentType === "any") {
     return true;
   }
@@ -238,7 +318,9 @@ export function passesContentTypeFilter(m: CompactSlackMessage, contentType: Con
     return (m.files ?? []).some((f) => f.mode === "snippet");
   }
   if (contentType === "image") {
-    return (m.files ?? []).some((f) => String(f.mimetype ?? "").startsWith("image/"));
+    return (m.files ?? []).some((f) =>
+      String(f.mimetype ?? "").startsWith("image/"),
+    );
   }
   return true;
 }
@@ -306,9 +388,13 @@ function messageSummaryFromApiMessage(
     text,
     markdown: slackMrkdwnToMarkdown(text),
     blocks: Array.isArray(msg.blocks) ? (msg.blocks as unknown[]) : undefined,
-    attachments: Array.isArray(msg.attachments) ? (msg.attachments as unknown[]) : undefined,
+    attachments: Array.isArray(msg.attachments)
+      ? (msg.attachments as unknown[])
+      : undefined,
     files: files.length > 0 ? files : undefined,
-    reactions: Array.isArray(msg.reactions) ? (msg.reactions as unknown[]) : undefined,
+    reactions: Array.isArray(msg.reactions)
+      ? (msg.reactions as unknown[])
+      : undefined,
   };
 }
 

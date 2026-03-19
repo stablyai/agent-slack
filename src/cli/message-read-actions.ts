@@ -17,6 +17,11 @@ import {
   parseReactionFilters,
   requireOldestWhenReactionFiltersUsed,
 } from "./message-actions.ts";
+import {
+  collectReferencedUserIds,
+  resolveUsersById,
+  toReferencedUsers,
+} from "../slack/user-cache.ts";
 
 export async function handleMessageGet(input: {
   ctx: CliContext;
@@ -43,8 +48,25 @@ export async function handleMessageGet(input: {
         const thread = await getThreadSummary(client, { channelId: ref.channel_id, msg });
         const downloadedPaths = await downloadMessageFiles({ auth, messages: [msg] });
         const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
-        const message = toCompactMessage(msg, { maxBodyChars, includeReactions, downloadedPaths });
-        return pruneEmpty({ message, thread }) as Record<string, unknown>;
+        const referencedUserIds = collectReferencedUserIds([msg], {
+          includeReactions,
+        });
+        const usersById = await resolveUsersById({
+          client,
+          workspaceUrl: ref.workspace_url,
+          userIds: referencedUserIds,
+          forceRefresh: Boolean(input.options.refreshUsers),
+        });
+        const message = toCompactMessage(msg, {
+          maxBodyChars,
+          includeReactions,
+          downloadedPaths,
+        });
+        return pruneEmpty({
+          message,
+          thread,
+          referenced_users: toReferencedUsers(referencedUserIds, usersById),
+        }) as Record<string, unknown>;
       }
 
       const ts = input.options.ts?.trim();
@@ -72,8 +94,25 @@ export async function handleMessageGet(input: {
       const thread = await getThreadSummary(client, { channelId, msg });
       const downloadedPaths = await downloadMessageFiles({ auth, messages: [msg] });
       const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
-      const message = toCompactMessage(msg, { maxBodyChars, includeReactions, downloadedPaths });
-      return pruneEmpty({ message, thread }) as Record<string, unknown>;
+      const referencedUserIds = collectReferencedUserIds([msg], {
+        includeReactions,
+      });
+      const usersById = await resolveUsersById({
+        client,
+        workspaceUrl: ref.workspace_url,
+        userIds: referencedUserIds,
+        forceRefresh: Boolean(input.options.refreshUsers),
+      });
+      const message = toCompactMessage(msg, {
+        maxBodyChars,
+        includeReactions,
+        downloadedPaths,
+      });
+      return pruneEmpty({
+        message,
+        thread,
+        referenced_users: toReferencedUsers(referencedUserIds, usersById),
+      }) as Record<string, unknown>;
     },
   });
 }
@@ -117,10 +156,20 @@ export async function handleMessageList(input: {
         });
         const downloadedPaths = await downloadMessageFiles({ auth, messages: threadMessages });
         const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
+        const referencedUserIds = collectReferencedUserIds(threadMessages, {
+          includeReactions,
+        });
+        const usersById = await resolveUsersById({
+          client,
+          workspaceUrl: ref.workspace_url,
+          userIds: referencedUserIds,
+          forceRefresh: Boolean(input.options.refreshUsers),
+        });
         return pruneEmpty({
           messages: threadMessages
             .map((m) => toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }))
             .map(toThreadListMessage),
+          referenced_users: toReferencedUsers(referencedUserIds, usersById),
         }) as Record<string, unknown>;
       }
 
@@ -156,11 +205,21 @@ export async function handleMessageList(input: {
         });
         const downloadedPaths = await downloadMessageFiles({ auth, messages: channelMessages });
         const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
+        const referencedUserIds = collectReferencedUserIds(channelMessages, {
+          includeReactions,
+        });
+        const usersById = await resolveUsersById({
+          client,
+          workspaceUrl: workspace_url ?? workspaceUrl ?? "",
+          userIds: referencedUserIds,
+          forceRefresh: Boolean(input.options.refreshUsers),
+        });
         return pruneEmpty({
           channel_id: channelId,
           messages: channelMessages.map((m) =>
             toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }),
           ),
+          referenced_users: toReferencedUsers(referencedUserIds, usersById),
         }) as Record<string, unknown>;
       }
 
@@ -192,10 +251,20 @@ export async function handleMessageList(input: {
       });
       const downloadedPaths = await downloadMessageFiles({ auth, messages: threadMessages });
       const maxBodyChars = Number.parseInt(input.options.maxBodyChars, 10);
+      const referencedUserIds = collectReferencedUserIds(threadMessages, {
+        includeReactions,
+      });
+      const usersById = await resolveUsersById({
+        client,
+        workspaceUrl: workspace_url ?? workspaceUrl ?? "",
+        userIds: referencedUserIds,
+        forceRefresh: Boolean(input.options.refreshUsers),
+      });
       return pruneEmpty({
         messages: threadMessages
           .map((m) => toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }))
           .map(toThreadListMessage),
+        referenced_users: toReferencedUsers(referencedUserIds, usersById),
       }) as Record<string, unknown>;
     },
   });

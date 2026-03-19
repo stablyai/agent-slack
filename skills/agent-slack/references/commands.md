@@ -24,6 +24,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--thread-ts <seconds>.<micros>` (optional hint for thread permalinks)
     - `--max-body-chars <n>` (default `8000`, `-1` unlimited)
     - `--include-reactions`
+    - `--refresh-users` (force refresh of user profile cache used for mention/author/reaction resolution)
 
 - `agent-slack message list <target>`
   - Lists recent channel messages (channel history), or fetches all thread replies
@@ -44,6 +45,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--without-reaction <emoji>` (repeatable; include only messages that do not have this reaction; channel history mode; requires `--oldest`)
     - `--max-body-chars <n>` (default `8000`, `-1` unlimited)
     - `--include-reactions`
+    - `--refresh-users` (force refresh of user profile cache used for mention/author/reaction resolution)
 
 - `agent-slack message draft <target> [text]`
   - Opens a Slack-like WYSIWYG editor in the browser for composing and sending a message.
@@ -117,6 +119,7 @@ Common options:
 - `--content-type any|text|image|snippet|file`
 - `--limit <n>` (default `20`)
 - `--max-content-chars <n>` (default `4000`, `-1` unlimited; messages only)
+- `--refresh-users` (force refresh of user profile cache used for message `referenced_users`; applies to `search messages` / `search all`)
 
 ## Canvas
 

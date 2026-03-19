@@ -1,5 +1,6 @@
 import type { SlackApiClient, SlackAuth } from "./client.ts";
 import type { CompactSlackMessage } from "./messages.ts";
+import type { CompactSlackUser } from "./users.ts";
 import { buildSlackSearchQuery } from "./search-query.ts";
 import { searchFilesRaw, searchMessagesRaw } from "./search-raw.ts";
 import { searchFilesInChannelsFallback, searchFilesViaSearchApi } from "./search-files.ts";
@@ -20,11 +21,13 @@ export type SearchOptions = {
   limit?: number;
   max_content_chars?: number;
   download?: boolean;
+  refresh_users?: boolean;
 };
 
 export type SearchResult = {
   messages?: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[];
   files?: { title?: string; mimetype?: string; mode?: string; path: string }[];
+  referenced_users?: Record<string, CompactSlackUser>;
 };
 
 export async function searchSlack(input: {
@@ -52,8 +55,9 @@ export async function searchSlack(input: {
 
   if (input.options.kind === "messages" || input.options.kind === "all") {
     if (input.options.channels?.length) {
-      out.messages = await searchMessagesInChannelsFallback(input.client, {
+      const messageResult = await searchMessagesInChannelsFallback(input.client, {
         auth: input.auth,
+        workspace_url: input.options.workspace_url,
         query: input.options.query,
         channels: input.options.channels,
         user: input.options.user,
@@ -63,10 +67,13 @@ export async function searchSlack(input: {
         maxContentChars,
         contentType,
         download,
+        refreshUsers: input.options.refresh_users,
       });
+      out.messages = messageResult.messages;
+      out.referenced_users = messageResult.referenced_users;
     } else {
       const rawMatches = await searchMessagesRaw(input.client, { query: slackQuery, limit });
-      out.messages = await searchMessagesViaSearchApi(input.client, {
+      const messageResult = await searchMessagesViaSearchApi(input.client, {
         auth: input.auth,
         workspace_url: input.options.workspace_url,
         slack_query: slackQuery,
@@ -75,7 +82,10 @@ export async function searchSlack(input: {
         contentType,
         download,
         rawMatches,
+        refreshUsers: input.options.refresh_users,
       });
+      out.messages = messageResult.messages;
+      out.referenced_users = messageResult.referenced_users;
     }
   }
 

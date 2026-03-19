@@ -12,16 +12,23 @@ All commands print JSON to stdout.
 - `message get` returns:
   - `message: { ... }`
   - `thread?: { ts, length }` (summary only; present when threaded)
+  - `referenced_users?: { [user_id]: { id, name?, real_name?, display_name?, ... } }`
 
 - `message list` returns:
   - `messages: [ ... ]` (the full thread)
+  - `referenced_users?: { [user_id]: { id, name?, real_name?, display_name?, ... } }`
   - Messages are compact and omit redundant fields on each item where possible.
+
+Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` mentions in rendered content).
+`referenced_users` provides display metadata for those IDs. The cache is per-workspace with a 24-hour per-entry TTL.
+Use `--refresh-users` to force fresh lookups.
 
 Use `--max-body-chars` to cap message bodies for token budget control.
 
 ## Search shapes (high-level)
 
 - `search messages|all` returns `messages: [ ... ]`
+- `search messages|all` may include `referenced_users?: { [user_id]: { id, name?, real_name?, display_name?, ... } }`
 - `search files|all` returns `files: [ ... ]`
 
 Use `--max-content-chars` (messages) and `--limit` to control size.
