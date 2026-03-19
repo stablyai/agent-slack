@@ -17,8 +17,15 @@ description: |
 
 # Slack automation with `agent-slack`
 
-`agent-slack` is a CLI binary installed on `$PATH`. Invoke it directly (e.g. `agent-slack user list`).
-If installed via Nix flake only, run commands with `nix run github:stablyai/agent-slack -- <args>`.
+`agent-slack` is a CLI binary on `$PATH`. Invoke directly (e.g. `agent-slack user list`).
+
+## Installation
+
+If `agent-slack` is not found on `$PATH`, install it:
+
+- `curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.sh | sh` (recommended)
+- `npm i -g agent-slack` (requires Node >= 22.5)
+- `nix run github:stablyai/agent-slack -- <args>` (no install needed, prefix all commands)
 
 ## CRITICAL: Bash command formatting rules
 
