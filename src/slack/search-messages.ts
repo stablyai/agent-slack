@@ -265,13 +265,17 @@ async function downloadFilesForMessage(input: {
       continue;
     }
     const ext = inferExt(f);
-    const path = await downloadSlackFile({
-      auth: input.auth,
-      url,
-      destDir: input.downloadsDir,
-      preferredName: `${f.id}${ext ? `.${ext}` : ""}`,
-    });
-    input.downloadedPaths[f.id] = path;
+    try {
+      const path = await downloadSlackFile({
+        auth: input.auth,
+        url,
+        destDir: input.downloadsDir,
+        preferredName: `${f.id}${ext ? `.${ext}` : ""}`,
+      });
+      input.downloadedPaths[f.id] = path;
+    } catch {
+      continue;
+    }
   }
 }
 

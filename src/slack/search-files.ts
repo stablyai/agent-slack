@@ -46,12 +46,17 @@ export async function searchFilesViaSearchApi(
     if (!id) {
       continue;
     }
-    const path = await downloadSlackFile({
-      auth: input.auth,
-      url,
-      destDir: downloadsDir,
-      preferredName: `${id}${ext ? `.${ext}` : ""}`,
-    });
+    let path: string;
+    try {
+      path = await downloadSlackFile({
+        auth: input.auth,
+        url,
+        destDir: downloadsDir,
+        preferredName: `${id}${ext ? `.${ext}` : ""}`,
+      });
+    } catch {
+      continue;
+    }
     const title = (getString(f.title) || getString(f.name) || "").trim();
     out.push({
       title: title || undefined,
@@ -133,12 +138,17 @@ export async function searchFilesInChannelsFallback(
         if (!id) {
           continue;
         }
-        const path = await downloadSlackFile({
-          auth: input.auth,
-          url,
-          destDir: downloadsDir,
-          preferredName: `${id}${ext ? `.${ext}` : ""}`,
-        });
+        let path: string;
+        try {
+          path = await downloadSlackFile({
+            auth: input.auth,
+            url,
+            destDir: downloadsDir,
+            preferredName: `${id}${ext ? `.${ext}` : ""}`,
+          });
+        } catch {
+          continue;
+        }
         out.push({
           title: title || undefined,
           mimetype,
