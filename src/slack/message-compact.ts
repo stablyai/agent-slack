@@ -1,4 +1,5 @@
 import type { SlackMessageSummary } from "./messages.ts";
+import type { DownloadResult } from "./files.ts";
 import { renderSlackMessageContent } from "./render.ts";
 import { getNumber, getString, isRecord } from "../lib/object-type-guards.ts";
 
@@ -11,7 +12,8 @@ export type CompactSlackMessage = {
   files?: {
     mimetype?: string;
     mode?: string;
-    path: string;
+    path?: string;
+    error?: string;
   }[];
   reactions?: {
     name: string;
@@ -32,7 +34,7 @@ export function toCompactMessage(
     maxSnippetChars?: number;
     maxBodyChars?: number;
     includeReactions?: boolean;
-    downloadedPaths?: Record<string, string>;
+    downloadedPaths?: Record<string, DownloadResult>;
   },
 ): CompactSlackMessage {
   const maxBodyChars = input?.maxBodyChars ?? 8000;
@@ -46,15 +48,13 @@ export function toCompactMessage(
 
   const files = msg.files
     ?.map((f) => {
-      const path = input?.downloadedPaths?.[f.id];
-      if (!path) {
+      const entry = input?.downloadedPaths?.[f.id];
+      if (!entry) {
         return null;
       }
-      return {
-        mimetype: f.mimetype,
-        mode: f.mode,
-        path,
-      };
+      return entry.ok
+        ? { mimetype: f.mimetype, mode: f.mode, path: entry.path }
+        : { mimetype: f.mimetype, mode: f.mode, error: entry.error };
     })
     .filter((f): f is NonNullable<typeof f> => Boolean(f));
 

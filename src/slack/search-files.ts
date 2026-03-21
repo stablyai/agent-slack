@@ -1,7 +1,7 @@
 import type { SlackApiClient, SlackAuth } from "./client.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
 import { resolveChannelId } from "./channels.ts";
-import { downloadSlackFile } from "./files.ts";
+import { tryDownloadSlackFile } from "./files.ts";
 import { inferExt } from "./search-file-ext.ts";
 import { dateToUnixSeconds, resolveUserId } from "./search-query.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
@@ -46,15 +46,14 @@ export async function searchFilesViaSearchApi(
     if (!id) {
       continue;
     }
-    let path: string;
-    try {
-      path = await downloadSlackFile({
-        auth: input.auth,
-        url,
-        destDir: downloadsDir,
-        preferredName: `${id}${ext ? `.${ext}` : ""}`,
-      });
-    } catch {
+    const result = await tryDownloadSlackFile({
+      auth: input.auth,
+      url,
+      destDir: downloadsDir,
+      preferredName: `${id}${ext ? `.${ext}` : ""}`,
+    });
+    if (!result.ok) {
+      console.warn(`Warning: skipping file ${id}: ${result.error}`);
       continue;
     }
     const title = (getString(f.title) || getString(f.name) || "").trim();
@@ -62,7 +61,7 @@ export async function searchFilesViaSearchApi(
       title: title || undefined,
       mimetype,
       mode,
-      path,
+      path: result.path,
     });
     if (out.length >= input.limit) {
       break;
@@ -138,22 +137,21 @@ export async function searchFilesInChannelsFallback(
         if (!id) {
           continue;
         }
-        let path: string;
-        try {
-          path = await downloadSlackFile({
-            auth: input.auth,
-            url,
-            destDir: downloadsDir,
-            preferredName: `${id}${ext ? `.${ext}` : ""}`,
-          });
-        } catch {
+        const result = await tryDownloadSlackFile({
+          auth: input.auth,
+          url,
+          destDir: downloadsDir,
+          preferredName: `${id}${ext ? `.${ext}` : ""}`,
+        });
+        if (!result.ok) {
+          console.warn(`Warning: skipping file ${id}: ${result.error}`);
           continue;
         }
         out.push({
           title: title || undefined,
           mimetype,
           mode,
-          path,
+          path: result.path,
         });
         if (out.length >= input.limit) {
           return out;

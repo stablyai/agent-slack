@@ -3,7 +3,7 @@ import type { CompactSlackMessage, SlackFileSummary, SlackMessageSummary } from 
 import { fetchMessage, toCompactMessage } from "./messages.ts";
 import { resolveChannelId } from "./channels.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
-import { downloadSlackFile } from "./files.ts";
+import { type DownloadResult, tryDownloadSlackFile } from "./files.ts";
 import { renderSlackMessageContent } from "./render.ts";
 import { parseSlackMessageUrl } from "./url.ts";
 import { inferExt } from "./search-file-ext.ts";
@@ -61,7 +61,7 @@ export async function searchMessagesViaSearchApi(
     }
   }
 
-  const downloadedPaths: Record<string, string> = {};
+  const downloadedPaths: Record<string, DownloadResult> = {};
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
   const out: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
 
@@ -141,7 +141,7 @@ export async function searchMessagesInChannelsFallback(
   const beforeSec = input.before ? dateToUnixSeconds(input.before, "end") : null;
 
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
-  const downloadedPaths: Record<string, string> = {};
+  const downloadedPaths: Record<string, DownloadResult> = {};
 
   const results: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
 
@@ -219,7 +219,7 @@ export async function searchMessagesInChannelsFallback(
   return results;
 }
 
-function passesContentTypeFilter(m: CompactSlackMessage, contentType: ContentType): boolean {
+export function passesContentTypeFilter(m: CompactSlackMessage, contentType: ContentType): boolean {
   if (contentType === "any") {
     return true;
   }
@@ -254,7 +254,7 @@ async function downloadFilesForMessage(input: {
   auth: SlackAuth;
   downloadsDir: string;
   message: SlackMessageSummary;
-  downloadedPaths: Record<string, string>;
+  downloadedPaths: Record<string, DownloadResult>;
 }): Promise<void> {
   for (const f of input.message.files ?? []) {
     if (input.downloadedPaths[f.id]) {
@@ -265,16 +265,15 @@ async function downloadFilesForMessage(input: {
       continue;
     }
     const ext = inferExt(f);
-    try {
-      const path = await downloadSlackFile({
-        auth: input.auth,
-        url,
-        destDir: input.downloadsDir,
-        preferredName: `${f.id}${ext ? `.${ext}` : ""}`,
-      });
-      input.downloadedPaths[f.id] = path;
-    } catch {
-      continue;
+    const result = await tryDownloadSlackFile({
+      auth: input.auth,
+      url,
+      destDir: input.downloadsDir,
+      preferredName: `${f.id}${ext ? `.${ext}` : ""}`,
+    });
+    input.downloadedPaths[f.id] = result;
+    if (!result.ok) {
+      console.warn(`Warning: file ${f.id}: ${result.error}`);
     }
   }
 }
