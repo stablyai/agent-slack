@@ -6,6 +6,8 @@ function makeMsg(overrides: Partial<SlackMessageSummary> = {}): SlackMessageSumm
   return {
     channel_id: "C123",
     ts: "1700000000.000000",
+    text: "",
+    markdown: "",
     blocks: [],
     attachments: [],
     ...overrides,
