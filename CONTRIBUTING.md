@@ -2,6 +2,10 @@
 
 Thanks for contributing.
 
+## Attribution
+
+If you'd like to be credited when we share your contribution on X, include your Twitter/X handle in your PR description.
+
 ## Development
 
 Install deps and run the CLI in dev mode:
