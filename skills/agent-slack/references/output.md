@@ -59,7 +59,8 @@ Use `--max-content-chars` (messages) and `--limit` to control size.
 Attachments are downloaded to an agent-friendly temp directory.
 
 - Successful downloads are returned as absolute paths in output.
-- `message get/list` and message results from `search messages|all` preserve failed attachment downloads with `message.files[].error` so agents can still see the attachment metadata and the download failure reason.
+- `message get/list` preserves failed attachment downloads with `message.files[].error`.
+- Message results from `search messages|all` preserve failed attachment downloads with `messages[].files[].error`.
 - `search files` skips files whose download fails and continues returning the remaining matches.
 
 Default download root:
