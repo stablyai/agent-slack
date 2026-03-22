@@ -119,7 +119,7 @@ When using `--with-reaction` or `--without-reaction`, you must also pass `--olde
 
 ## Attachments (snippets/images/files)
 
-`message get/list` and `search` auto-download attachments and include file metadata in JSON output (typically under `message.files[]` / `files[]`), including `name` when available and `path` for the local download.
+`message get/list` and `search` auto-download attachments and include file metadata in JSON output (typically under `message.files[]` / `files[]`), including `name` when available and `path` for the local download. Failed message attachment downloads keep the attachment entry, preserve a local `.download-error.txt` path, and include `message.files[].error` for `message get/list` or `messages[].files[].error` for `search messages|all`; `search files` skips files whose download fails.
 
 ## Draft a message (browser editor)
 

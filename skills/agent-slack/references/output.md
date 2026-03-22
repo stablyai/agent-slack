@@ -67,7 +67,12 @@ Only files with a successful download are included.
 
 ## Attachment downloads
 
-Attachments are downloaded to an agent-friendly temp directory and returned as absolute paths in output.
+Attachments are downloaded to an agent-friendly temp directory.
+
+- Successful downloads are returned as absolute paths in output.
+- `message get/list` preserves failed attachment downloads with `message.files[].error` and keeps `message.files[].path` pointing to a local `.download-error.txt` file.
+- Message results from `search messages|all` preserve failed attachment downloads with `messages[].files[].error` and keep `messages[].files[].path` pointing to a local `.download-error.txt` file.
+- `search files` skips files whose download fails and continues returning the remaining matches.
 
 Default download root:
 

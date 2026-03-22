@@ -1,7 +1,13 @@
 import type { SlackAuth } from "../slack/client.ts";
 import type { SlackMessageSummary } from "../slack/messages.ts";
 import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
-import { downloadSlackFile } from "../slack/files.ts";
+import {
+  type DownloadResult,
+  SlackDownloadError,
+  downloadSlackFile,
+  tryDownloadSlackFile,
+  writeDownloadErrorFile,
+} from "../slack/files.ts";
 import { htmlToMarkdown } from "../slack/html-to-md.ts";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -64,7 +70,9 @@ async function downloadCanvasAsMarkdown(input: {
   });
   const html = await readFile(htmlPath, "utf8");
   if (looksLikeAuthPage(html)) {
-    throw new Error("Downloaded auth/login page instead of canvas content (token may be expired)");
+    throw new SlackDownloadError(
+      "Downloaded auth/login page instead of canvas content (token may be expired)",
+    );
   }
 
   const markdown = htmlToMarkdown(html).trim();
@@ -77,8 +85,8 @@ async function downloadCanvasAsMarkdown(input: {
 export async function downloadMessageFiles(input: {
   auth: SlackAuth;
   messages: SlackMessageSummary[];
-}): Promise<Record<string, string>> {
-  const downloadedPaths: Record<string, string> = {};
+}): Promise<Record<string, DownloadResult>> {
+  const downloadedPaths: Record<string, DownloadResult> = {};
   const downloadsDir = await ensureDownloadsDir();
 
   for (const message of input.messages) {
@@ -95,27 +103,53 @@ export async function downloadMessageFiles(input: {
         continue;
       }
 
-      try {
-        if (isCanvas) {
-          downloadedPaths[file.id] = await downloadCanvasAsMarkdown({
+      if (isCanvas) {
+        try {
+          const path = await downloadCanvasAsMarkdown({
             auth: input.auth,
             fileId: file.id,
             url,
             destDir: downloadsDir,
           });
-        } else {
-          const ext = inferFileExtension(file);
-          downloadedPaths[file.id] = await downloadSlackFile({
-            auth: input.auth,
-            url,
+          downloadedPaths[file.id] = { ok: true, path };
+        } catch (err) {
+          if (!(err instanceof SlackDownloadError)) {
+            throw err;
+          }
+          const path = await writeDownloadErrorFile({
             destDir: downloadsDir,
-            preferredName: `${file.id}${ext ? `.${ext}` : ""}`,
+            fileId: file.id,
+            error: err.message,
           });
+          downloadedPaths[file.id] = {
+            ok: false,
+            error: err.message,
+            httpStatus: err.httpStatus,
+            path,
+          };
+          console.error(`Warning: skipping file ${file.id}: ${err.message}`);
         }
-      } catch (err) {
-        console.error(
-          `Warning: skipping file ${file.id}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+      } else {
+        const ext = inferFileExtension(file);
+        const result = await tryDownloadSlackFile({
+          auth: input.auth,
+          url,
+          destDir: downloadsDir,
+          preferredName: `${file.id}${ext ? `.${ext}` : ""}`,
+        });
+        if (!result.ok) {
+          downloadedPaths[file.id] = {
+            ...result,
+            path: await writeDownloadErrorFile({
+              destDir: downloadsDir,
+              fileId: file.id,
+              error: result.error,
+            }),
+          };
+          console.error(`Warning: skipping file ${file.id}: ${result.error}`);
+        } else {
+          downloadedPaths[file.id] = result;
+        }
       }
     }
   }
