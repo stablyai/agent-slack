@@ -138,9 +138,18 @@ export async function downloadMessageFiles(input: {
           preferredName: `${file.id}${ext ? `.${ext}` : ""}`,
         });
         if (!result.ok) {
+          downloadedPaths[file.id] = {
+            ...result,
+            path: await writeDownloadErrorFile({
+              destDir: downloadsDir,
+              fileId: file.id,
+              error: result.error,
+            }),
+          };
           console.error(`Warning: skipping file ${file.id}: ${result.error}`);
+        } else {
+          downloadedPaths[file.id] = result;
         }
-        downloadedPaths[file.id] = result;
       }
     }
   }

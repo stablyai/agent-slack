@@ -278,4 +278,40 @@ describe("downloadMessageFiles", () => {
       process.env.XDG_RUNTIME_DIR = originalXdg;
     }
   });
+
+  test("records non-canvas download failures with a local error path", async () => {
+    mockFetchStatus(404);
+    const originalXdg = process.env.XDG_RUNTIME_DIR;
+    process.env.XDG_RUNTIME_DIR = tempDir;
+
+    try {
+      const result = await downloadMessageFiles({
+        auth: AUTH,
+        messages: [
+          {
+            channel_id: "C123",
+            ts: "1234567890.000001",
+            text: "hello",
+            markdown: "hello",
+            files: [
+              {
+                id: "F2",
+                name: "report.txt",
+                mimetype: "text/plain",
+                url_private: "https://files.slack.com/files/report",
+              },
+            ],
+          },
+        ],
+      });
+      expect(result.F2).toEqual({
+        ok: false,
+        error: "Failed to download file (404)",
+        httpStatus: 404,
+        path: join(tempDir, "agent-slack", "tmp", "downloads", "F2.download-error.txt"),
+      });
+    } finally {
+      process.env.XDG_RUNTIME_DIR = originalXdg;
+    }
+  });
 });
