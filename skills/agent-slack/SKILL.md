@@ -119,7 +119,7 @@ When using `--with-reaction` or `--without-reaction`, you must also pass `--olde
 
 ## Attachments (snippets/images/files)
 
-`message get/list` and `search` auto-download attachments and include absolute paths in JSON output (typically under `message.files[].path` / `files[].path`).
+`message get/list` and `search` auto-download attachments and include file metadata in JSON output (typically under `message.files[]` / `files[]`), including `name` when available and `path` for the local download.
 
 ## Draft a message (browser editor)
 

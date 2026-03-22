@@ -54,6 +54,17 @@ Use `--max-content-chars` (messages) and `--limit` to control size.
   - `channel: string` (resolved channel ID)
   - `ts: string`
 
+## File fields in compact messages
+
+When messages include file attachments, each file object contains:
+
+- `name` — the original filename (e.g. `"report.pdf"`), omitted if unavailable
+- `mimetype` — MIME type (e.g. `"application/pdf"`)
+- `mode` — Slack file mode (e.g. `"hosted"`, `"snippet"`)
+- `path` — absolute local path to the downloaded file
+
+Only files with a successful download are included.
+
 ## Attachment downloads
 
 Attachments are downloaded to an agent-friendly temp directory and returned as absolute paths in output.

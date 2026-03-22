@@ -293,7 +293,7 @@ When to use which:
 
 ### Files (snippets/images/attachments)
 
-`message get/list` auto-download attached files to an agent-friendly temp directory and return absolute paths in `message.files[].path`:
+`message get/list` auto-download attached files to an agent-friendly temp directory and return file metadata in `message.files[]`, including `name` when Slack provides the original filename and `path` for the local download:
 
 - macOS default: `~/.agent-slack/tmp/downloads/`
 
