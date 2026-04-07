@@ -14,7 +14,8 @@ description: |
   - Opening DM or group DM channels
   - Discovering and running Slack workflows
   - Managing saved-for-later messages (Later tab)
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later"
+  - Viewing all unread messages (inbox/unreads view)
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later", "slack unreads", "slack inbox", "unread slack"
 ---
 
 # Slack automation with `agent-slack`
@@ -254,6 +255,17 @@ agent-slack later save "<message-url>"
 agent-slack later remove "<message-url>"
 agent-slack later remind "<message-url>" --in 1h
 agent-slack later remind "<message-url>" --in tomorrow
+```
+
+## Unreads (inbox view)
+
+See all unread messages across channels, DMs, and threads:
+
+```bash
+agent-slack unreads
+agent-slack unreads --counts-only
+agent-slack unreads --max-messages 5
+agent-slack unreads --include-system
 ```
 
 ## Canvas + Users
