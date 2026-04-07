@@ -41,7 +41,6 @@ Use `--max-body-chars` to cap message bodies for token budget control.
   - System messages (joins, leaves, topic changes) are excluded by default; use `--include-system` to include them
   - With `--counts-only`, `messages` is omitted
 
-
 ## Search shapes (high-level)
 
 - `search messages|all` returns `messages: [ ... ]`

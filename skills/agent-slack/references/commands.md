@@ -133,7 +133,6 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--max-body-chars <n>` (max content chars per message, default `4000`, `-1` unlimited)
     - `--include-system` (include system messages like joins, leaves, topic changes; excluded by default)
 
-
 ## Search
 
 - `agent-slack search all <query>` — messages + files (default)

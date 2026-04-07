@@ -1,8 +1,9 @@
-const fs = require('fs');
+const fs = require("fs");
 
-let content = fs.readFileSync('skills/agent-slack/references/output.md', 'utf-8');
+let content = fs.readFileSync("skills/agent-slack/references/output.md", "utf-8");
 
-const regex = /<<<<<<< HEAD[\s\S]*?=======\n(## Unreads shape \(high-level\)[\s\S]*?)>>>>>>> e123d29 \(feat: add unreads command for inbox-style unread message view\)/;
+const regex =
+  /<<<<<<< HEAD[\s\S]*?=======\n(## Unreads shape \(high-level\)[\s\S]*?)>>>>>>> e123d29 \(feat: add unreads command for inbox-style unread message view\)/;
 
 const newString = `## Later shape (high-level)
 
@@ -19,4 +20,4 @@ const newString = `## Later shape (high-level)
 $1`;
 
 content = content.replace(regex, newString);
-fs.writeFileSync('skills/agent-slack/references/output.md', content);
+fs.writeFileSync("skills/agent-slack/references/output.md", content);

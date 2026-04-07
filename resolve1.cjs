@@ -1,8 +1,9 @@
-const fs = require('fs');
+const fs = require("fs");
 
-let content = fs.readFileSync('skills/agent-slack/references/commands.md', 'utf-8');
+let content = fs.readFileSync("skills/agent-slack/references/commands.md", "utf-8");
 
-const regex = /<<<<<<< HEAD[\s\S]*?=======\n(## Unreads[\s\S]*?)>>>>>>> e123d29 \(feat: add unreads command for inbox-style unread message view\)/;
+const regex =
+  /<<<<<<< HEAD[\s\S]*?=======\n(## Unreads[\s\S]*?)>>>>>>> e123d29 \(feat: add unreads command for inbox-style unread message view\)/;
 
 const newString = `## Later
 
@@ -29,4 +30,4 @@ const newString = `## Later
 $1`;
 
 content = content.replace(regex, newString);
-fs.writeFileSync('skills/agent-slack/references/commands.md', content);
+fs.writeFileSync("skills/agent-slack/references/commands.md", content);

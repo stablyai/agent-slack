@@ -21,6 +21,8 @@ export type UnreadMessage = {
 type ClientCountsEntry = {
   id: string;
   has_unreads?: boolean;
+  unread_count?: number;
+  unread_count_display?: number;
   mention_count?: number;
   latest?: string;
   last_read?: string;
@@ -65,137 +67,141 @@ export async function fetchUnreads(
   // Resolve channel info and fetch messages in parallel
   const channelInfos = await Promise.all(
     withUnreads.map(async (entry) => {
-      let channelName: string | undefined;
-      let channelType: "channel" | "dm" | "mpim" | "group" = entry.type;
-      let unreadCount = 0;
-
-      try {
-        const info = await client.api("conversations.info", {
-          channel: entry.id,
-        });
-        const ch = isRecord(info.channel) ? info.channel : null;
-        if (ch) {
-          channelName = getString(ch.name) ?? getString(ch.name_normalized) ?? undefined;
-          if (ch.is_im) {
-            channelType = "dm";
-          } else if (ch.is_mpim) {
-            channelType = "mpim";
-          } else if (ch.is_group || ch.is_private) {
-            channelType = "group";
-          } else {
-            channelType = "channel";
-          }
-        }
-      } catch {
-        // ignore - name will be undefined
-      }
-
-      let messages: UnreadMessage[] | undefined;
-
-      if (includeMessages && entry.last_read) {
+      // 1. Concurrently fetch channel info & user info (if DM)
+      const channelInfoPromise = (async () => {
+        let name: string | undefined;
+        let { type } = entry;
         try {
-          const history = await client.api("conversations.history", {
+          const info = await client.api("conversations.info", {
             channel: entry.id,
-            oldest: entry.last_read,
-            limit: maxMessages,
-            inclusive: false,
           });
-          let msgs = asArray(history.messages).filter(isRecord);
-          if (skipSystem) {
-            msgs = msgs.filter((m) => !getString(m.subtype));
-          }
-          unreadCount = msgs.length;
-
-          messages = msgs.map((m) => {
-            const rendered = renderSlackMessageContent(m);
-            const content =
-              maxBodyChars >= 0 && rendered.length > maxBodyChars
-                ? `${rendered.slice(0, maxBodyChars)}\n…`
-                : rendered;
-
-            return {
-              ts: getString(m.ts) ?? "",
-              author:
-                getString(m.user) || getString(m.bot_id)
-                  ? {
-                      user_id: getString(m.user) ?? undefined,
-                      bot_id: getString(m.bot_id) ?? undefined,
-                    }
-                  : undefined,
-              content: content || undefined,
-              thread_ts: getString(m.thread_ts) ?? undefined,
-              reply_count: getNumber(m.reply_count) ?? undefined,
-            };
-          });
-
-          // Sort chronologically (oldest first)
-          messages.sort((a, b) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts));
-        } catch {
-          // ignore - messages will be undefined
-        }
-      } else if (!includeMessages && entry.last_read) {
-        // Just get count without messages
-        try {
-          const history = await client.api("conversations.history", {
-            channel: entry.id,
-            oldest: entry.last_read,
-            limit: 1,
-            inclusive: false,
-          });
-          let msgs = asArray(history.messages);
-          if (skipSystem) {
-            msgs = msgs.filter((m) => isRecord(m) && !getString(m.subtype));
-          }
-          unreadCount = msgs.length;
-          if (history.has_more) {
-            // We know there's more than 1, but can't get exact count cheaply
-            unreadCount = Math.max(entry.mention_count ?? 1, 2);
+          const ch = isRecord(info.channel) ? info.channel : null;
+          if (ch) {
+            name = getString(ch.name) ?? getString(ch.name_normalized) ?? undefined;
+            if (ch.is_im) {
+              type = "dm";
+              const userId = getString(ch.user);
+              if (userId && !name) {
+                try {
+                  const userInfo = await client.api("users.info", { user: userId });
+                  const u = isRecord(userInfo.user) ? userInfo.user : null;
+                  const profile = u && isRecord(u.profile) ? u.profile : null;
+                  name =
+                    getString(profile?.display_name) ||
+                    getString(u?.real_name) ||
+                    getString(u?.name) ||
+                    undefined;
+                } catch {
+                  // ignore
+                }
+              }
+            } else if (ch.is_mpim) {
+              type = "mpim";
+            } else if (ch.is_group || ch.is_private) {
+              type = "group";
+            } else {
+              type = "channel";
+            }
           }
         } catch {
-          unreadCount = entry.mention_count ?? 0;
+          // ignore - name will remain undefined
         }
-      }
+        return { name, type };
+      })();
+
+      // 2. Concurrently fetch message history
+      const historyPromise = (async () => {
+        let messages: UnreadMessage[] | undefined;
+        let unreadCount =
+          entry.unread_count_display ?? entry.unread_count ?? (entry.has_unreads ? 1 : 0);
+
+        if (includeMessages && entry.last_read) {
+          try {
+            const history = await client.api("conversations.history", {
+              channel: entry.id,
+              oldest: entry.last_read,
+              limit: maxMessages,
+              inclusive: false,
+            });
+            let msgs = asArray(history.messages).filter(isRecord);
+            if (skipSystem) {
+              msgs = msgs.filter((m) => {
+                const subtype = getString(m.subtype);
+                if (!subtype) {
+                  return true;
+                }
+                const systemSubtypes = [
+                  "channel_join",
+                  "channel_leave",
+                  "channel_topic",
+                  "channel_purpose",
+                  "channel_name",
+                  "channel_archive",
+                  "channel_unarchive",
+                  "group_join",
+                  "group_leave",
+                  "group_topic",
+                  "group_purpose",
+                  "group_name",
+                  "group_archive",
+                  "group_unarchive",
+                ];
+                return !systemSubtypes.includes(subtype);
+              });
+            }
+
+            // If API didn't provide a count, infer from messages fetched
+            if (entry.unread_count_display === undefined && entry.unread_count === undefined) {
+              unreadCount = msgs.length;
+              if (history.has_more) {
+                unreadCount = Math.max(unreadCount, 2);
+              }
+            }
+
+            messages = msgs.map((m) => {
+              const rendered = renderSlackMessageContent(m);
+              const content =
+                maxBodyChars >= 0 && rendered.length > maxBodyChars
+                  ? `${rendered.slice(0, maxBodyChars)}\n...`
+                  : rendered;
+
+              return {
+                ts: getString(m.ts) ?? "",
+                author:
+                  getString(m.user) || getString(m.bot_id)
+                    ? {
+                        user_id: getString(m.user) ?? undefined,
+                        bot_id: getString(m.bot_id) ?? undefined,
+                      }
+                    : undefined,
+                content: content || undefined,
+                thread_ts: getString(m.thread_ts) ?? undefined,
+                reply_count: getNumber(m.reply_count) ?? undefined,
+              };
+            });
+
+            // Sort chronologically (oldest first)
+            messages.sort((a, b) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts));
+          } catch {
+            // ignore
+          }
+        }
+        return { messages, unreadCount };
+      })();
+
+      // 3. Await both sets of network requests at the same time
+      const [channelData, historyData] = await Promise.all([channelInfoPromise, historyPromise]);
 
       return {
         channel_id: entry.id,
-        channel_name: channelName,
-        channel_type: channelType,
-        unread_count: unreadCount,
+        channel_name: channelData.name,
+        channel_type: channelData.type,
+        unread_count: historyData.unreadCount,
         mention_count: entry.mention_count ?? 0,
-        messages,
+        messages: historyData.messages,
       } satisfies UnreadChannel;
     }),
   );
-
-  // For DMs, resolve user display names
-  const dmChannels = channelInfos.filter((c) => c.channel_type === "dm" && !c.channel_name);
-  if (dmChannels.length > 0) {
-    await Promise.all(
-      dmChannels.map(async (dm) => {
-        try {
-          const info = await client.api("conversations.info", {
-            channel: dm.channel_id,
-          });
-          const ch = isRecord(info.channel) ? info.channel : null;
-          const userId = ch ? getString(ch.user) : undefined;
-          if (userId) {
-            const userInfo = await client.api("users.info", {
-              user: userId,
-            });
-            const u = isRecord(userInfo.user) ? userInfo.user : null;
-            const profile = u && isRecord(u.profile) ? u.profile : null;
-            dm.channel_name =
-              getString(profile?.display_name) ||
-              getString(u?.real_name) ||
-              getString(u?.name) ||
-              undefined;
-          }
-        } catch {
-          // ignore
-        }
-      }),
-    );
-  }
 
   // Sort: mentions first, then by unread count
   channelInfos.sort((a, b) => {
