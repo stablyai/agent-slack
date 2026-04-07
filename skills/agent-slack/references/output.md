@@ -19,6 +19,18 @@ All commands print JSON to stdout.
 
 Use `--max-body-chars` to cap message bodies for token budget control.
 
+## Later shape (high-level)
+
+- `later list` returns:
+  - `counts: { in_progress, archived, completed, total }`
+  - `items: [{ channel_id, channel_name, ts, state, date_saved, message? }]`
+  - `message` includes `author`, `content`, `thread_ts`, `reply_count`
+  - Items sorted by most recently saved first
+  - With `--counts-only`, `items` is omitted
+
+- `later complete/archive/reopen/save/remove` returns `{ ok: true }`
+- `later remind` returns `{ ok: true, remind_at }`
+
 ## Search shapes (high-level)
 
 - `search messages|all` returns `messages: [ ... ]`

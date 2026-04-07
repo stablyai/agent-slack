@@ -13,7 +13,8 @@ description: |
   - Marking channels/DMs as read
   - Opening DM or group DM channels
   - Discovering and running Slack workflows
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read"
+  - Managing saved-for-later messages (Later tab)
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later"
 ---
 
 # Slack automation with `agent-slack`
@@ -236,6 +237,23 @@ agent-slack workflow get "Wf456DEF"
 
 # Trip a workflow trigger
 agent-slack workflow run "Ft123ABC" --channel "#ops"
+```
+
+## Later (saved messages)
+
+Manage your saved-for-later messages:
+
+```bash
+agent-slack later list
+agent-slack later list --counts-only
+agent-slack later list --state completed
+agent-slack later complete "<message-url>"
+agent-slack later archive "<message-url>"
+agent-slack later reopen "<message-url>"
+agent-slack later save "<message-url>"
+agent-slack later remove "<message-url>"
+agent-slack later remind "<message-url>" --in 1h
+agent-slack later remind "<message-url>" --in tomorrow
 ```
 
 ## Canvas + Users

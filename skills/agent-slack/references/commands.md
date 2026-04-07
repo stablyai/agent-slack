@@ -101,6 +101,28 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - URL target extracts channel, ts, and workspace automatically; `--ts` optionally overrides the URL timestamp; `--workspace` is rejected
   - Channel name/ID target requires `--ts`
 
+## Later
+
+- `agent-slack later list` — list saved-for-later messages (default: in-progress)
+  - Options:
+    - `--workspace <url-or-unique-substring>` (defaults to configured workspace)
+    - `--state <state>` (filter: `in_progress` (default), `archived`, `completed`, `all`)
+    - `--limit <n>` (max items, default `20`)
+    - `--max-body-chars <n>` (max content chars per message, default `4000`, `-1` unlimited)
+    - `--counts-only` (only show counts per state)
+
+- `agent-slack later complete <target>` — mark a saved message as completed
+- `agent-slack later archive <target>` — archive a saved message
+- `agent-slack later reopen <target>` — move back to in-progress (from completed or archived)
+- `agent-slack later save <target>` — save a message for later
+- `agent-slack later remove <target>` — remove from Later entirely
+  - All accept Slack message URL or channel ID with `--ts`
+  - Options: `--workspace <url-or-unique-substring>`, `--ts <seconds>.<micros>`
+
+- `agent-slack later remind <target> --in <duration>` — set a reminder on a saved item
+  - `--in` accepts: `30m`, `1h`, `3h`, `2d`, `tomorrow`, `monday`, or a unix timestamp
+  - Options: `--workspace <url-or-unique-substring>`, `--ts <seconds>.<micros>`
+
 ## Search
 
 - `agent-slack search all <query>` — messages + files (default)

@@ -18,6 +18,51 @@ export class SlackApiClient {
     }
   }
 
+  /**
+   * Call a Slack API method using multipart/form-data encoding.
+   * Some internal Slack APIs (e.g. saved.update) require multipart encoding
+   * and silently ignore parameters sent as application/x-www-form-urlencoded.
+   */
+  async apiMultipart(
+    method: string,
+    params: Record<string, unknown> = {},
+  ): Promise<Record<string, unknown>> {
+    if (this.auth.auth_type === "standard") {
+      // Standard tokens can use the normal API path
+      return this.api(method, params);
+    }
+    if (!this.workspaceUrl) {
+      throw new Error("Browser auth requires workspace URL.");
+    }
+    const auth = this.auth as Extract<SlackAuth, { auth_type: "browser" }>;
+    const url = `${this.workspaceUrl.replace(/\/$/, "")}/api/${method}`;
+    const fd = new FormData();
+    fd.append("token", auth.xoxc_token);
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) {
+        fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+      }
+    }
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Cookie: `d=${encodeURIComponent(auth.xoxd_cookie)}`,
+        Origin: "https://app.slack.com",
+        "User-Agent": getUserAgent(),
+      },
+      body: fd,
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(`Slack HTTP ${response.status} calling ${method}`);
+    }
+    if (!isRecord(data) || data.ok !== true) {
+      const error = isRecord(data) && typeof data.error === "string" ? data.error : null;
+      throw new Error(error || `Slack API error calling ${method}`);
+    }
+    return data;
+  }
+
   async api(
     method: string,
     params: Record<string, unknown> = {},
