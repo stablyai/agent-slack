@@ -397,6 +397,13 @@ describe("parseReminderDuration", () => {
     expect(result).toBeLessThanOrEqual(now + 2 * 3600 + 2);
   });
 
+  test("parses fractional hours", () => {
+    const now = Math.floor(Date.now() / 1000);
+    const result = parseReminderDuration("1.5h");
+    expect(result).toBeGreaterThanOrEqual(now + 1.5 * 3600 - 2);
+    expect(result).toBeLessThanOrEqual(now + 1.5 * 3600 + 2);
+  });
+
   test("parses days", () => {
     const now = Math.floor(Date.now() / 1000);
     const result = parseReminderDuration("3d");

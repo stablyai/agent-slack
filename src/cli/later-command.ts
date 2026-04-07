@@ -173,8 +173,10 @@ export function registerLaterCommand(input: { program: Command; ctx: CliContext 
             const { client } = await input.ctx.getClientForWorkspace(ref.workspaceUrl);
             const { channelId, ts } = await ref.getChannelAndTs(client);
             // Try both uncompleted and unarchived since we don't know current state
-            await updateLaterMark(client, { channelId, ts, mark: "uncompleted" });
-            await updateLaterMark(client, { channelId, ts, mark: "unarchived" });
+            await Promise.allSettled([
+              updateLaterMark(client, { channelId, ts, mark: "uncompleted" }),
+              updateLaterMark(client, { channelId, ts, mark: "unarchived" }),
+            ]);
           },
         });
         console.log(JSON.stringify({ ok: true }));

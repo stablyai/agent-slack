@@ -40,13 +40,41 @@ export async function fetchLaterItems(
   const maxBodyChars = options?.maxBodyChars ?? 4000;
   const countsOnly = options?.countsOnly ?? false;
 
-  const resp = await client.api("saved.list", {
-    limit: 50,
-    cursor: options?.cursor,
-  });
+  let currentCursor = options?.cursor;
+  let allRawItems: Record<string, unknown>[] = [];
+  let counts: Record<string, unknown> = {};
+  let nextCursor: string | undefined;
 
-  const rawItems = asArray(resp.saved_items).filter(isRecord);
-  const counts = isRecord(resp.counts) ? resp.counts : {};
+  while (true) {
+    const resp = await client.api("saved.list", {
+      limit: 50,
+      cursor: currentCursor,
+    });
+
+    if (!currentCursor) {
+      counts = isRecord(resp.counts) ? resp.counts : {};
+    }
+
+    const pageRawItems = asArray(resp.saved_items).filter(isRecord);
+    allRawItems.push(...pageRawItems);
+
+    const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+    nextCursor = meta ? getString(meta.next_cursor) : undefined;
+
+    if (countsOnly) {
+      break;
+    }
+
+    let filtered = allRawItems.filter((item) => getString(item.item_type) === "message");
+    if (stateFilter !== "all") {
+      filtered = filtered.filter((item) => getString(item.state) === stateFilter);
+    }
+
+    if (filtered.length >= limit || !nextCursor) {
+      break;
+    }
+    currentCursor = nextCursor;
+  }
 
   const result = {
     counts: {
@@ -56,7 +84,7 @@ export async function fetchLaterItems(
       total: getNumber(counts.total_count) ?? 0,
     },
     items: [] as LaterItem[],
-    next_cursor: undefined as string | undefined,
+    next_cursor: nextCursor,
   };
 
   if (countsOnly) {
@@ -64,7 +92,7 @@ export async function fetchLaterItems(
   }
 
   // Filter to messages only, then by state
-  let filtered = rawItems.filter((item) => getString(item.item_type) === "message");
+  let filtered = allRawItems.filter((item) => getString(item.item_type) === "message");
   if (stateFilter !== "all") {
     filtered = filtered.filter((item) => getString(item.state) === stateFilter);
   }
@@ -164,13 +192,6 @@ export async function fetchLaterItems(
     }),
   );
 
-  // Pagination cursor
-  const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
-  const next = meta ? getString(meta.next_cursor) : undefined;
-  if (next) {
-    result.next_cursor = next;
-  }
-
   return result;
 }
 
@@ -233,10 +254,12 @@ export function parseReminderDuration(input: string): number {
   const now = Math.floor(Date.now() / 1000);
   const trimmed = input.trim().toLowerCase();
 
-  // Relative durations: 30m, 1h, 3h, 2d
-  const relMatch = trimmed.match(/^(\d+)\s*(m|min|mins|minutes?|h|hr|hrs|hours?|d|days?)$/);
+  // Relative durations: 30m, 1h, 3h, 2d, 1.5h
+  const relMatch = trimmed.match(
+    /^(\d+(?:\.\d+)?)\s*(m|min|mins|minutes?|h|hr|hrs|hours?|d|days?)$/,
+  );
   if (relMatch) {
-    const amount = Number.parseInt(relMatch[1]!, 10);
+    const amount = Number.parseFloat(relMatch[1]!);
     const unit = relMatch[2]!.charAt(0);
     if (unit === "m") {
       return now + amount * 60;
