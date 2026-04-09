@@ -79,7 +79,7 @@ export function toCompactMessage(
 
 export function compactReactions(
   reactions: unknown[] | undefined,
-): Array<{ name: string; users: string[]; count?: number }> | undefined {
+): { name: string; users: string[]; count?: number }[] | undefined {
   if (!Array.isArray(reactions) || reactions.length === 0) {
     return undefined;
   }

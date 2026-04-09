@@ -1,9 +1,12 @@
 import type { SlackApiClient, SlackAuth } from "./client.ts";
-import type { CompactSlackMessage } from "./messages.ts";
 import { buildSlackSearchQuery } from "./search-query.ts";
 import { searchFilesRaw, searchMessagesRaw } from "./search-raw.ts";
 import { searchFilesInChannelsFallback, searchFilesViaSearchApi } from "./search-files.ts";
-import { searchMessagesInChannelsFallback, searchMessagesViaSearchApi } from "./search-messages.ts";
+import {
+  type SearchCompactMessage,
+  searchMessagesInChannelsFallback,
+  searchMessagesViaSearchApi,
+} from "./search-messages.ts";
 
 export type SearchKind = "messages" | "files" | "all";
 export type ContentType = "any" | "text" | "image" | "snippet" | "file";
@@ -23,7 +26,7 @@ export type SearchOptions = {
 };
 
 export type SearchResult = {
-  messages?: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[];
+  messages?: SearchCompactMessage[];
   files?: { title?: string; mimetype?: string; mode?: string; path: string }[];
 };
 

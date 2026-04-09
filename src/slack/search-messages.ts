@@ -25,7 +25,7 @@ export async function searchMessagesViaSearchApi(
     download: boolean;
     rawMatches: Record<string, unknown>[];
   },
-): Promise<Omit<CompactSlackMessage, "channel_id" | "thread_ts">[]> {
+): Promise<SearchCompactMessage[]> {
   const matches = input.rawMatches;
   if (matches.length === 0) {
     return [];
@@ -63,7 +63,7 @@ export async function searchMessagesViaSearchApi(
 
   const downloadedPaths: Record<string, DownloadResult> = {};
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
-  const out: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
+  const out: SearchCompactMessage[] = [];
 
   for (const ref of messageRefs) {
     let full: SlackMessageSummary | null = null;
@@ -108,7 +108,7 @@ export async function searchMessagesViaSearchApi(
     if (!passesContentTypeFilter(compact, input.contentType)) {
       continue;
     }
-    out.push(stripThreadListFields(compact));
+    out.push(toSearchCompactMessage(compact, ref.permalink));
     if (out.length >= input.limit) {
       break;
     }
@@ -131,7 +131,7 @@ export async function searchMessagesInChannelsFallback(
     contentType: ContentType;
     download: boolean;
   },
-): Promise<Omit<CompactSlackMessage, "channel_id" | "thread_ts">[]> {
+): Promise<SearchCompactMessage[]> {
   const channelIds = await Promise.all(input.channels.map((c) => resolveChannelId(client, c)));
   const queryLower = input.query.trim().toLowerCase();
 
@@ -143,7 +143,7 @@ export async function searchMessagesInChannelsFallback(
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
   const downloadedPaths: Record<string, DownloadResult> = {};
 
-  const results: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
+  const results: SearchCompactMessage[] = [];
 
   for (const channelId of channelIds) {
     let cursorLatest: string | undefined;
@@ -198,7 +198,7 @@ export async function searchMessagesInChannelsFallback(
           continue;
         }
 
-        results.push(stripThreadListFields(compact));
+        results.push(toSearchCompactMessage(compact));
         if (results.length >= input.limit) {
           return results;
         }
@@ -243,11 +243,13 @@ export function passesContentTypeFilter(m: CompactSlackMessage, contentType: Con
   return true;
 }
 
-function stripThreadListFields(
-  m: CompactSlackMessage,
-): Omit<CompactSlackMessage, "channel_id" | "thread_ts"> {
-  const { channel_id: _channelId, thread_ts: _threadTs, ...rest } = m;
-  return rest;
+export type SearchCompactMessage = Omit<CompactSlackMessage, "thread_ts"> & {
+  permalink?: string;
+};
+
+function toSearchCompactMessage(m: CompactSlackMessage, permalink?: string): SearchCompactMessage {
+  const { thread_ts: _threadTs, ...rest } = m;
+  return permalink ? { ...rest, permalink } : rest;
 }
 
 async function downloadFilesForMessage(input: {
