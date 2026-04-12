@@ -25,6 +25,28 @@ This behavior is opt-in and requires passing the `--resolve-users` flag (or `--r
 
 Use `--max-body-chars` to cap message bodies for token budget control.
 
+## Later shape (high-level)
+
+- `later list` returns:
+  - `counts: { in_progress, archived, completed, total }`
+  - `items: [{ channel_id, channel_name, ts, state, date_saved, message? }]`
+  - `message` includes `author`, `content`, `thread_ts`, `reply_count`
+  - Items sorted by most recently saved first
+  - With `--counts-only`, `items` is omitted
+
+- `later complete/archive/reopen/save/remove` returns `{ ok: true }`
+- `later remind` returns `{ ok: true, remind_at }`
+
+## Unreads shape (high-level)
+
+- `unreads` returns:
+  - `channels: [{ channel_id, channel_name, channel_type, unread_count, mention_count, messages? }]`
+  - `threads?: { has_unreads, mention_count }` (present when there are unread thread replies)
+  - `channel_type` is one of: `"channel"`, `"dm"`, `"mpim"`, `"group"`
+  - Channels sorted by mention count (desc), then unread count (desc)
+  - System messages (joins, leaves, topic changes) are excluded by default; use `--include-system` to include them
+  - With `--counts-only`, `messages` is omitted
+
 ## Search shapes (high-level)
 
 - `search messages|all` returns `messages: [ ... ]`

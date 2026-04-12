@@ -105,6 +105,38 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - URL target extracts channel, ts, and workspace automatically; `--ts` optionally overrides the URL timestamp; `--workspace` is rejected
   - Channel name/ID target requires `--ts`
 
+## Later
+
+- `agent-slack later list` â€” list saved-for-later messages (default: in-progress)
+  - Options:
+    - `--workspace <url-or-unique-substring>` (defaults to configured workspace)
+    - `--state <state>` (filter: `in_progress` (default), `archived`, `completed`, `all`)
+    - `--limit <n>` (max items, default `20`)
+    - `--max-body-chars <n>` (max content chars per message, default `4000`, `-1` unlimited)
+    - `--counts-only` (only show counts per state)
+
+- `agent-slack later complete <target>` â€” mark a saved message as completed
+- `agent-slack later archive <target>` â€” archive a saved message
+- `agent-slack later reopen <target>` â€” move back to in-progress (from completed or archived)
+- `agent-slack later save <target>` â€” save a message for later
+- `agent-slack later remove <target>` â€” remove from Later entirely
+  - All accept Slack message URL or channel ID with `--ts`
+  - Options: `--workspace <url-or-unique-substring>`, `--ts <seconds>.<micros>`
+
+- `agent-slack later remind <target> --in <duration>` â€” set a reminder on a saved item
+  - `--in` accepts: `30m`, `1h`, `3h`, `2d`, `tomorrow`, `monday`, or a unix timestamp
+  - Options: `--workspace <url-or-unique-substring>`, `--ts <seconds>.<micros>`
+
+## Unreads
+
+- `agent-slack unreads` — show all unread messages across channels, DMs, and threads
+  - Options:
+    - `--workspace <url-or-unique-substring>` (defaults to configured workspace)
+    - `--counts-only` (only show unread counts, skip message content)
+    - `--max-messages <n>` (max unread messages per channel, default `10`)
+    - `--max-body-chars <n>` (max content chars per message, default `4000`, `-1` unlimited)
+    - `--include-system` (include system messages like joins, leaves, topic changes; excluded by default)
+
 ## Search
 
 - `agent-slack search all <query>` — messages + files (default)
@@ -130,6 +162,13 @@ Common options:
   - Options:
     - `--workspace <url-or-unique-substring>` (required when passing an id and multiple workspaces)
     - `--max-chars <n>` (default `20000`, `-1` unlimited)
+
+## Workflows
+
+- `agent-slack workflow list <channel> [--workspace <url-or-unique-substring>]` — list workflows bookmarked or featured in a channel
+- `agent-slack workflow preview <trigger-id> [--workspace <url-or-unique-substring>]` — get workflow metadata from a trigger ID (no side effects)
+- `agent-slack workflow get <id> [--workspace <url-or-unique-substring>]` — get workflow definition including form fields and steps (accepts `Ft...` or `Wf...`)
+- `agent-slack workflow run <trigger-id> --channel <id-or-name> [--workspace <url-or-unique-substring>]` — trip a workflow trigger
 
 ## Users
 

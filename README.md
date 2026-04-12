@@ -90,6 +90,11 @@ agent-slack
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
 │   └── files    <query>
+├── workflow
+│   ├── list    <channel>          # workflows bookmarked in a channel
+│   ├── preview <trigger-id>       # trigger metadata (no side effects)
+│   ├── get     <id>               # workflow definition + form fields
+│   └── run     <trigger-id>       # trip a workflow trigger
 └── canvas
     └── get <canvas-url-or-id>     # canvas → markdown
 ```

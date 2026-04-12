@@ -15,7 +15,7 @@ import type { CompactSlackUser } from "./users.ts";
 
 export type ContentType = "any" | "text" | "image" | "snippet" | "file";
 export type SearchMessageResult = {
-  messages: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[];
+  messages: SearchCompactMessage[];
   referenced_users?: Record<string, CompactSlackUser>;
 };
 
@@ -72,7 +72,7 @@ export async function searchMessagesViaSearchApi(
   const downloadedPaths: Record<string, DownloadResult> = {};
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
   const resolvedMessages: SlackMessageSummary[] = [];
-  const out: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
+  const out: SearchCompactMessage[] = [];
 
   for (const ref of messageRefs) {
     let full: SlackMessageSummary | null = null;
@@ -118,7 +118,7 @@ export async function searchMessagesViaSearchApi(
       continue;
     }
     resolvedMessages.push(full);
-    out.push(stripThreadListFields(compact));
+    out.push(toSearchCompactMessage(compact, ref.permalink));
     if (out.length >= input.limit) {
       break;
     }
@@ -172,7 +172,7 @@ export async function searchMessagesInChannelsFallback(
   const downloadedPaths: Record<string, DownloadResult> = {};
   const matchedSummaries: SlackMessageSummary[] = [];
 
-  const results: Omit<CompactSlackMessage, "channel_id" | "thread_ts">[] = [];
+  const results: SearchCompactMessage[] = [];
 
   for (const channelId of channelIds) {
     let cursorLatest: string | undefined;
@@ -228,7 +228,7 @@ export async function searchMessagesInChannelsFallback(
         }
 
         matchedSummaries.push(summary);
-        results.push(stripThreadListFields(compact));
+        results.push(toSearchCompactMessage(compact));
         if (results.length >= input.limit) {
           const referencedUserIds = collectReferencedUserIds(matchedSummaries, {
             includeReactions: false,
@@ -300,11 +300,13 @@ export function passesContentTypeFilter(m: CompactSlackMessage, contentType: Con
   return true;
 }
 
-function stripThreadListFields(
-  m: CompactSlackMessage,
-): Omit<CompactSlackMessage, "channel_id" | "thread_ts"> {
-  const { channel_id: _channelId, thread_ts: _threadTs, ...rest } = m;
-  return rest;
+export type SearchCompactMessage = Omit<CompactSlackMessage, "thread_ts"> & {
+  permalink?: string;
+};
+
+function toSearchCompactMessage(m: CompactSlackMessage, permalink?: string): SearchCompactMessage {
+  const { thread_ts: _threadTs, ...rest } = m;
+  return permalink ? { ...rest, permalink } : rest;
 }
 
 async function downloadFilesForMessage(input: {

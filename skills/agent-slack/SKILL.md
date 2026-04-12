@@ -12,7 +12,10 @@ description: |
   - Looking up Slack users
   - Marking channels/DMs as read
   - Opening DM or group DM channels
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read"
+  - Discovering and running Slack workflows
+  - Managing saved-for-later messages (Later tab)
+  - Viewing all unread messages (inbox/unreads view)
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later", "slack unreads", "slack inbox", "unread slack"
 ---
 
 # Slack automation with `agent-slack`
@@ -218,6 +221,53 @@ To make a specific message appear unread, set `--ts` to just before it (subtract
 
 ```bash
 agent-slack channel mark "general" --workspace "myteam" --ts "1770165109.628378"
+```
+
+## Workflows
+
+Discover and run Slack workflows bookmarked in channels:
+
+```bash
+# List workflows in a channel
+agent-slack workflow list "#ops"
+
+# Preview trigger metadata (no side effects)
+agent-slack workflow preview "Ft123ABC"
+
+# Get workflow definition including form fields and steps
+agent-slack workflow get "Ft123ABC"
+agent-slack workflow get "Wf456DEF"
+
+# Trip a workflow trigger
+agent-slack workflow run "Ft123ABC" --channel "#ops"
+```
+
+## Later (saved messages)
+
+Manage your saved-for-later messages:
+
+```bash
+agent-slack later list
+agent-slack later list --counts-only
+agent-slack later list --state completed
+agent-slack later complete "<message-url>"
+agent-slack later archive "<message-url>"
+agent-slack later reopen "<message-url>"
+agent-slack later save "<message-url>"
+agent-slack later remove "<message-url>"
+agent-slack later remind "<message-url>" --in 1h
+agent-slack later remind "<message-url>" --in tomorrow
+```
+
+## Unreads (inbox view)
+
+See all unread messages across channels, DMs, and threads:
+
+```bash
+agent-slack unreads
+agent-slack unreads --counts-only
+agent-slack unreads --max-messages 5
+agent-slack unreads --include-system
 ```
 
 ## Canvas + Users

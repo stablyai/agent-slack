@@ -5,9 +5,12 @@ import { registerAuthCommand } from "./cli/auth-command.ts";
 import { registerCanvasCommand } from "./cli/canvas-command.ts";
 import { registerMessageCommand } from "./cli/message-command.ts";
 import { registerSearchCommand } from "./cli/search-command.ts";
+import { registerLaterCommand } from "./cli/later-command.ts";
+import { registerUnreadsCommand } from "./cli/unreads-command.ts";
 import { registerUpdateCommand } from "./cli/update-command.ts";
 import { registerUserCommand } from "./cli/user-command.ts";
 import { registerChannelCommand } from "./cli/channel-command.ts";
+import { registerWorkflowCommand } from "./cli/workflow-command.ts";
 import { backgroundUpdateCheck } from "./lib/update.ts";
 
 const program = new Command();
@@ -22,9 +25,12 @@ registerAuthCommand({ program, ctx });
 registerMessageCommand({ program, ctx });
 registerCanvasCommand({ program, ctx });
 registerSearchCommand({ program, ctx });
+registerLaterCommand({ program, ctx });
+registerUnreadsCommand({ program, ctx });
 registerUpdateCommand({ program });
 registerUserCommand({ program, ctx });
 registerChannelCommand({ program, ctx });
+registerWorkflowCommand({ program, ctx });
 
 program.parse(process.argv);
 if (!process.argv.slice(2).length) {
