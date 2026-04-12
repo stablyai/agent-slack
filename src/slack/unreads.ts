@@ -98,7 +98,7 @@ export async function fetchUnreads(
             } else if (ch.is_mpim) {
               type = "mpim";
             } else if (ch.is_group || ch.is_private) {
-              type = "group";
+              type = "channel";
             } else {
               type = "channel";
             }

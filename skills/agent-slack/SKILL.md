@@ -32,7 +32,7 @@ If `agent-slack` is not found on `$PATH`, install it:
 
 ## CRITICAL: Bash command formatting rules
 
-Claude Code's permission checker has security heuristics that force manual approval prompts. Avoid these patterns to keep commands auto-allowed. See: https://github.com/anthropics/claude-code/issues/34379
+Claude Code's permission checker has security heuristics that force manual approval prompts. Avoid these patterns to keep commands auto-allowed. See: <https://github.com/anthropics/claude-code/issues/34379>
 
 1. **No `#` anywhere in the command string.** Treated as a comment delimiter even inside quotes. Use bare channel names (`general` not `#general`). No `#` comments in inline scripts — use the Bash tool's `description` parameter instead.
 2. **No `''` (consecutive single quotes) or `""` (consecutive double quotes).** Triggers "potential obfuscation" check. Avoid Python empty string literals like `d.get('key', '')` — use `d.get('key')` instead.
@@ -100,7 +100,7 @@ agent-slack auth whoami
 agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000"
 ```
 
-2. If you need the full thread:
+1. If you need the full thread:
 
 ```bash
 agent-slack message list "https://workspace.slack.com/archives/C123/p1700000000000000"
@@ -115,6 +115,7 @@ agent-slack message list "general" --limit 20
 agent-slack message list "C0123ABC" --limit 10
 agent-slack message list "general" --with-reaction eyes --oldest "1770165109.000000" --limit 20
 agent-slack message list "general" --without-reaction dart --oldest "1770165109.000000" --limit 20
+agent-slack message list "general" --resolve-users
 ```
 
 This returns the most recent messages in chronological order. Use `--limit` to control how many (default 25).
@@ -184,6 +185,7 @@ Prefer channel-scoped search for reliability:
 ```bash
 agent-slack search all "smoke tests failed" --channel "alerts" --after 2026-01-01 --before 2026-02-01
 agent-slack search messages "stably test" --user "@alice" --channel general
+agent-slack search messages "stably test" --resolve-users
 agent-slack search files "testing" --content-type snippet --limit 10
 ```
 

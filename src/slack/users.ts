@@ -218,7 +218,7 @@ export async function getDmChannelForUsers(
   };
 }
 
-function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
+export function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
   const profile = isRecord(u.profile) ? u.profile : {};
   return {
     id: getString(u.id) ?? "",

@@ -10,8 +10,14 @@ import { inferExt } from "./search-file-ext.ts";
 import { dateToUnixSeconds, resolveUserId } from "./search-query.ts";
 import { asArray, getNumber, getString, isRecord } from "../lib/object-type-guards.ts";
 import { slackMrkdwnToMarkdown } from "./mrkdwn.ts";
+import { collectReferencedUserIds, resolveUsersById, toReferencedUsers } from "./user-cache.ts";
+import type { CompactSlackUser } from "./users.ts";
 
 export type ContentType = "any" | "text" | "image" | "snippet" | "file";
+export type SearchMessageResult = {
+  messages: SearchCompactMessage[];
+  referenced_users?: Record<string, CompactSlackUser>;
+};
 
 export async function searchMessagesViaSearchApi(
   client: SlackApiClient,
@@ -24,11 +30,13 @@ export async function searchMessagesViaSearchApi(
     contentType: ContentType;
     download: boolean;
     rawMatches: Record<string, unknown>[];
+    resolveUsers?: boolean;
+    refreshUsers?: boolean;
   },
-): Promise<SearchCompactMessage[]> {
+): Promise<SearchMessageResult> {
   const matches = input.rawMatches;
   if (matches.length === 0) {
-    return [];
+    return { messages: [] };
   }
 
   const messageRefs: {
@@ -63,6 +71,7 @@ export async function searchMessagesViaSearchApi(
 
   const downloadedPaths: Record<string, DownloadResult> = {};
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
+  const resolvedMessages: SlackMessageSummary[] = [];
   const out: SearchCompactMessage[] = [];
 
   for (const ref of messageRefs) {
@@ -108,19 +117,36 @@ export async function searchMessagesViaSearchApi(
     if (!passesContentTypeFilter(compact, input.contentType)) {
       continue;
     }
+    resolvedMessages.push(full);
     out.push(toSearchCompactMessage(compact, ref.permalink));
     if (out.length >= input.limit) {
       break;
     }
   }
 
-  return out;
+  const referencedUserIds = collectReferencedUserIds(resolvedMessages, {
+    includeReactions: false,
+  });
+  const shouldResolveUsers = input.resolveUsers || input.refreshUsers;
+  const usersById = shouldResolveUsers
+    ? await resolveUsersById({
+        client,
+        workspaceUrl: input.workspace_url ?? "",
+        userIds: referencedUserIds,
+        forceRefresh: Boolean(input.refreshUsers),
+      })
+    : new Map();
+  return {
+    messages: out,
+    referenced_users: toReferencedUsers(referencedUserIds, usersById),
+  };
 }
 
 export async function searchMessagesInChannelsFallback(
   client: SlackApiClient,
   input: {
     auth: SlackAuth;
+    workspace_url?: string;
     query: string;
     channels: string[];
     user?: string;
@@ -130,8 +156,10 @@ export async function searchMessagesInChannelsFallback(
     maxContentChars: number;
     contentType: ContentType;
     download: boolean;
+    resolveUsers?: boolean;
+    refreshUsers?: boolean;
   },
-): Promise<SearchCompactMessage[]> {
+): Promise<SearchMessageResult> {
   const channelIds = await Promise.all(input.channels.map((c) => resolveChannelId(client, c)));
   const queryLower = input.query.trim().toLowerCase();
 
@@ -142,6 +170,7 @@ export async function searchMessagesInChannelsFallback(
 
   const downloadsDir = input.download ? await ensureDownloadsDir() : null;
   const downloadedPaths: Record<string, DownloadResult> = {};
+  const matchedSummaries: SlackMessageSummary[] = [];
 
   const results: SearchCompactMessage[] = [];
 
@@ -198,9 +227,22 @@ export async function searchMessagesInChannelsFallback(
           continue;
         }
 
+        matchedSummaries.push(summary);
         results.push(toSearchCompactMessage(compact));
         if (results.length >= input.limit) {
-          return results;
+          const referencedUserIds = collectReferencedUserIds(matchedSummaries, {
+            includeReactions: false,
+          });
+          const usersById = await resolveUsersById({
+            client,
+            workspaceUrl: input.workspace_url ?? "",
+            userIds: referencedUserIds,
+            forceRefresh: Boolean(input.refreshUsers),
+          });
+          return {
+            messages: results,
+            referenced_users: toReferencedUsers(referencedUserIds, usersById),
+          };
         }
       }
 
@@ -216,7 +258,22 @@ export async function searchMessagesInChannelsFallback(
     }
   }
 
-  return results;
+  const referencedUserIds = collectReferencedUserIds(matchedSummaries, {
+    includeReactions: false,
+  });
+  const shouldResolveUsers = input.resolveUsers || input.refreshUsers;
+  const usersById = shouldResolveUsers
+    ? await resolveUsersById({
+        client,
+        workspaceUrl: input.workspace_url ?? "",
+        userIds: referencedUserIds,
+        forceRefresh: Boolean(input.refreshUsers),
+      })
+    : new Map();
+  return {
+    messages: results,
+    referenced_users: toReferencedUsers(referencedUserIds, usersById),
+  };
 }
 
 export function passesContentTypeFilter(m: CompactSlackMessage, contentType: ContentType): boolean {
