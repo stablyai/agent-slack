@@ -5,7 +5,7 @@ import { readJsonFile, writeJsonFile } from "../lib/fs.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 import type { SlackApiClient } from "./client.ts";
 import type { SlackMessageSummary } from "./messages.ts";
-import type { CompactSlackUser } from "./users.ts";
+import { toCompactUser, type CompactSlackUser } from "./users.ts";
 
 const CACHE_VERSION = 1;
 const USER_TTL_MS = 24 * 60 * 60 * 1000;
@@ -35,8 +35,13 @@ export async function resolveUsersById(input: {
 
   const forceRefresh = input.forceRefresh ?? false;
   const now = Date.now();
-  const cachePath = getWorkspaceUserCachePath(input.workspaceUrl);
-  const diskCache = await loadCache(cachePath);
+  const workspaceKey = hashWorkspaceUrl(input.workspaceUrl);
+  const isUnknownWorkspace = workspaceKey === "unknown";
+  const cachePath = isUnknownWorkspace ? "" : join(getAppDir(), `users-cache-${workspaceKey}.json`);
+
+  const diskCache = cachePath
+    ? await loadCache(cachePath)
+    : { version: CACHE_VERSION, entries: {} };
   const out = new Map<string, CompactSlackUser>();
   const missing: string[] = [];
 
@@ -49,10 +54,19 @@ export async function resolveUsersById(input: {
     missing.push(userId);
   }
 
+  let cacheChanged = false;
+
   if (missing.length > 0) {
-    const fetched = await Promise.all(
-      missing.map(async (userId) => ({ userId, user: await fetchUserById(input.client, userId) })),
-    );
+    const fetched: { userId: string; user: CompactSlackUser | undefined }[] = [];
+    const concurrency = 5;
+    for (let i = 0; i < missing.length; i += concurrency) {
+      const chunk = missing.slice(i, i + concurrency);
+      const results = await Promise.all(
+        chunk.map(async (userId) => ({ userId, user: await fetchUserById(input.client, userId) })),
+      );
+      fetched.push(...results);
+    }
+
     for (const item of fetched) {
       if (!item.user) {
         continue;
@@ -63,10 +77,21 @@ export async function resolveUsersById(input: {
       };
       diskCache.entries[item.userId] = entry;
       out.set(item.userId, item.user);
+      cacheChanged = true;
     }
   }
 
-  await writeCache(cachePath, pruneExpiredEntries(diskCache, now));
+  if (cachePath) {
+    const prunedCache = pruneExpiredEntries(diskCache, now);
+    if (Object.keys(diskCache.entries).length !== Object.keys(prunedCache.entries).length) {
+      cacheChanged = true;
+    }
+
+    if (cacheChanged) {
+      await writeCache(cachePath, prunedCache);
+    }
+  }
+
   return out;
 }
 
@@ -109,11 +134,6 @@ function dedupeUserIds(ids: string[]): string[] {
   return Array.from(seen);
 }
 
-function getWorkspaceUserCachePath(workspaceUrl: string): string {
-  const workspaceKey = hashWorkspaceUrl(workspaceUrl);
-  return join(getAppDir(), `users-cache-${workspaceKey}.json`);
-}
-
 function hashWorkspaceUrl(workspaceUrl: string): string {
   const trimmed = workspaceUrl.trim();
   if (!trimmed) {
@@ -125,6 +145,10 @@ function hashWorkspaceUrl(workspaceUrl: string): string {
     source = new URL(trimmed).hostname.toLowerCase();
   } catch {
     source = trimmed.toLowerCase();
+  }
+
+  if (!source || source === "unknown") {
+    return "unknown";
   }
 
   return createHash("sha256").update(source).digest("hex").slice(0, 16);
@@ -188,25 +212,6 @@ async function fetchUserById(
   } catch {
     return undefined;
   }
-}
-
-function toCompactUser(u: Record<string, unknown>): CompactSlackUser | undefined {
-  const id = getString(u.id);
-  if (!id) {
-    return undefined;
-  }
-  const profile = isRecord(u.profile) ? u.profile : {};
-  return {
-    id,
-    name: getString(u.name) || undefined,
-    real_name: getString(u.real_name) || getString(profile.real_name) || undefined,
-    display_name: getString(profile.display_name) || undefined,
-    email: getString(profile.email) || undefined,
-    title: getString(profile.title) || undefined,
-    tz: getString(u.tz) || undefined,
-    is_bot: typeof u.is_bot === "boolean" ? u.is_bot : undefined,
-    deleted: typeof u.deleted === "boolean" ? u.deleted : undefined,
-  };
 }
 
 function collectUserIdsFromUnknown(value: unknown, out: Set<string>): void {

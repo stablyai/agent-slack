@@ -51,12 +51,15 @@ export async function handleMessageGet(input: {
         const referencedUserIds = collectReferencedUserIds([msg], {
           includeReactions,
         });
-        const usersById = await resolveUsersById({
-          client,
-          workspaceUrl: ref.workspace_url,
-          userIds: referencedUserIds,
-          forceRefresh: Boolean(input.options.refreshUsers),
-        });
+        const usersById =
+          input.options.resolveUsers || input.options.refreshUsers
+            ? await resolveUsersById({
+                client,
+                workspaceUrl: ref.workspace_url,
+                userIds: referencedUserIds,
+                forceRefresh: Boolean(input.options.refreshUsers),
+              })
+            : new Map();
         const message = toCompactMessage(msg, {
           maxBodyChars,
           includeReactions,
@@ -97,12 +100,15 @@ export async function handleMessageGet(input: {
       const referencedUserIds = collectReferencedUserIds([msg], {
         includeReactions,
       });
-      const usersById = await resolveUsersById({
-        client,
-        workspaceUrl: ref.workspace_url,
-        userIds: referencedUserIds,
-        forceRefresh: Boolean(input.options.refreshUsers),
-      });
+      const usersById =
+        input.options.resolveUsers || input.options.refreshUsers
+          ? await resolveUsersById({
+              client,
+              workspaceUrl: ref.workspace_url,
+              userIds: referencedUserIds,
+              forceRefresh: Boolean(input.options.refreshUsers),
+            })
+          : new Map();
       const message = toCompactMessage(msg, {
         maxBodyChars,
         includeReactions,
@@ -159,12 +165,15 @@ export async function handleMessageList(input: {
         const referencedUserIds = collectReferencedUserIds(threadMessages, {
           includeReactions,
         });
-        const usersById = await resolveUsersById({
-          client,
-          workspaceUrl: ref.workspace_url,
-          userIds: referencedUserIds,
-          forceRefresh: Boolean(input.options.refreshUsers),
-        });
+        const usersById =
+          input.options.resolveUsers || input.options.refreshUsers
+            ? await resolveUsersById({
+                client,
+                workspaceUrl: ref.workspace_url,
+                userIds: referencedUserIds,
+                forceRefresh: Boolean(input.options.refreshUsers),
+              })
+            : new Map();
         return pruneEmpty({
           messages: threadMessages
             .map((m) => toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }))
@@ -208,12 +217,15 @@ export async function handleMessageList(input: {
         const referencedUserIds = collectReferencedUserIds(channelMessages, {
           includeReactions,
         });
-        const usersById = await resolveUsersById({
-          client,
-          workspaceUrl: workspace_url ?? workspaceUrl ?? "",
-          userIds: referencedUserIds,
-          forceRefresh: Boolean(input.options.refreshUsers),
-        });
+        const usersById =
+          input.options.resolveUsers || input.options.refreshUsers
+            ? await resolveUsersById({
+                client,
+                workspaceUrl: workspace_url ?? workspaceUrl ?? "",
+                userIds: referencedUserIds,
+                forceRefresh: Boolean(input.options.refreshUsers),
+              })
+            : new Map();
         return pruneEmpty({
           channel_id: channelId,
           messages: channelMessages.map((m) =>
@@ -254,12 +266,15 @@ export async function handleMessageList(input: {
       const referencedUserIds = collectReferencedUserIds(threadMessages, {
         includeReactions,
       });
-      const usersById = await resolveUsersById({
-        client,
-        workspaceUrl: workspace_url ?? workspaceUrl ?? "",
-        userIds: referencedUserIds,
-        forceRefresh: Boolean(input.options.refreshUsers),
-      });
+      const usersById =
+        input.options.resolveUsers || input.options.refreshUsers
+          ? await resolveUsersById({
+              client,
+              workspaceUrl: workspace_url ?? workspaceUrl ?? "",
+              userIds: referencedUserIds,
+              forceRefresh: Boolean(input.options.refreshUsers),
+            })
+          : new Map();
       return pruneEmpty({
         messages: threadMessages
           .map((m) => toCompactMessage(m, { maxBodyChars, includeReactions, downloadedPaths }))

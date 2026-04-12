@@ -112,7 +112,7 @@ agent-slack message list "general" --limit 20
 agent-slack message list "C0123ABC" --limit 10
 agent-slack message list "general" --with-reaction eyes --oldest "1770165109.000000" --limit 20
 agent-slack message list "general" --without-reaction dart --oldest "1770165109.000000" --limit 20
-agent-slack message list "general" --refresh-users
+agent-slack message list "general" --resolve-users
 ```
 
 This returns the most recent messages in chronological order. Use `--limit` to control how many (default 25).
@@ -182,7 +182,7 @@ Prefer channel-scoped search for reliability:
 ```bash
 agent-slack search all "smoke tests failed" --channel "alerts" --after 2026-01-01 --before 2026-02-01
 agent-slack search messages "stably test" --user "@alice" --channel general
-agent-slack search messages "stably test" --refresh-users
+agent-slack search messages "stably test" --resolve-users
 agent-slack search files "testing" --content-type snippet --limit 10
 ```
 

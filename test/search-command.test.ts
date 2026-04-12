@@ -140,6 +140,7 @@ describe("search referenced users", () => {
         max_content_chars: 4000,
         content_type: "any",
         download: false,
+        resolve_users: true,
       },
     });
 
@@ -165,7 +166,7 @@ describe("search referenced users", () => {
     });
 
     const initialUsersInfoCalls = calls.filter((call) => call.method === "users.info").length;
-    expect(initialUsersInfoCalls).toBe(2);
+    expect(initialUsersInfoCalls).toBe(0);
 
     calls.length = 0;
 

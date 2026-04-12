@@ -21,6 +21,7 @@ export type SearchOptions = {
   limit?: number;
   max_content_chars?: number;
   download?: boolean;
+  resolve_users?: boolean;
   refresh_users?: boolean;
 };
 
@@ -67,6 +68,7 @@ export async function searchSlack(input: {
         maxContentChars,
         contentType,
         download,
+        resolveUsers: input.options.resolve_users,
         refreshUsers: input.options.refresh_users,
       });
       out.messages = messageResult.messages;
@@ -82,6 +84,7 @@ export async function searchSlack(input: {
         contentType,
         download,
         rawMatches,
+        resolveUsers: input.options.resolve_users,
         refreshUsers: input.options.refresh_users,
       });
       out.messages = messageResult.messages;

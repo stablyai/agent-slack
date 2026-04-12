@@ -21,7 +21,7 @@ All commands print JSON to stdout.
 
 Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` mentions in rendered content).
 `referenced_users` provides display metadata for those IDs. The cache is per-workspace with a 24-hour per-entry TTL.
-Use `--refresh-users` to force fresh lookups.
+This behavior is opt-in and requires passing the `--resolve-users` flag (or `--refresh-users` to bypass the cache).
 
 Use `--max-body-chars` to cap message bodies for token budget control.
 

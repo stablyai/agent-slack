@@ -19,6 +19,7 @@ export type MessageCommandOptions = {
   withReaction?: string[];
   withoutReaction?: string[];
   includeReactions?: boolean;
+  resolveUsers?: boolean;
   refreshUsers?: boolean;
 };
 

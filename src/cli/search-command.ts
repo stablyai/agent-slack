@@ -12,6 +12,7 @@ type SearchCommandOptions = {
   contentType?: string;
   limit?: string;
   maxContentChars?: string;
+  resolveUsers?: boolean;
   refreshUsers?: boolean;
 };
 
@@ -35,7 +36,11 @@ function addSearchOptions(cmd: Command): Command {
       "Max message content characters (default 4000, -1 for unlimited)",
       "4000",
     )
-    .option("--refresh-users", "Refresh user profile cache before resolving referenced users");
+    .option("--resolve-users", "Resolve user IDs to user profiles")
+    .option(
+      "--refresh-users",
+      "Refresh user profile cache before resolving referenced users (implies --resolve-users)",
+    );
 }
 
 async function runSearch(input: {
@@ -75,6 +80,7 @@ async function runSearch(input: {
           limit,
           max_content_chars: maxContentChars,
           download: true,
+          resolve_users: Boolean(input.options.resolveUsers || input.options.refreshUsers),
           refresh_users: Boolean(input.options.refreshUsers),
         },
       });

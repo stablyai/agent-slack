@@ -36,7 +36,11 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "8000",
     )
     .option("--include-reactions", "Include reactions + reacting users")
-    .option("--refresh-users", "Refresh user profile cache before resolving user IDs")
+    .option("--resolve-users", "Resolve user IDs to user profiles")
+    .option(
+      "--refresh-users",
+      "Refresh user profile cache before resolving user IDs (implies --resolve-users)",
+    )
     .action(async (...args) => {
       const [targetInput, options] = args as [string, MessageCommandOptions];
       try {
@@ -79,7 +83,11 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "8000",
     )
     .option("--include-reactions", "Include reactions + reacting users")
-    .option("--refresh-users", "Refresh user profile cache before resolving user IDs")
+    .option("--resolve-users", "Resolve user IDs to user profiles")
+    .option(
+      "--refresh-users",
+      "Refresh user profile cache before resolving user IDs (implies --resolve-users)",
+    )
     .action(async (...args) => {
       const [targetInput, options] = args as [string, MessageCommandOptions];
       try {
