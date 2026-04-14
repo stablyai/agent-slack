@@ -114,12 +114,13 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
     return null;
   }
 
+  const handleLower = handle.toLowerCase();
   let cursor: string | undefined;
   for (;;) {
     const resp = await client.api("users.list", { limit: 200, cursor });
     const members = asArray(resp.members).filter(isRecord);
     const found = members.find((m) => {
-      if (getString(m.name) === handle) {
+      if (getString(m.name)?.toLowerCase() === handleLower) {
         return true;
       }
       if (looksLikeEmail) {

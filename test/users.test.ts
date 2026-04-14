@@ -38,6 +38,19 @@ describe("resolveUserId", () => {
     expect(await resolveUserId(client as never, "alice@example.com")).toBe("U03EMAIL");
   });
 
+  test("resolves @handle case-insensitively", async () => {
+    const client = {
+      api: async (method: string) => {
+        expect(method).toBe("users.list");
+        return {
+          ok: true,
+          members: [{ id: "U05HANDLE", name: "jinjing" }],
+        };
+      },
+    };
+    expect(await resolveUserId(client as never, "@Jinjing")).toBe("U05HANDLE");
+  });
+
   test("falls back to users.list when lookupByEmail is unavailable", async () => {
     const client = {
       api: async (method: string) => {
