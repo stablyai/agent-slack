@@ -36,6 +36,9 @@ if command -v codesign >/dev/null 2>&1; then
 elif command -v rcodesign >/dev/null 2>&1; then
   for f in "$outdir"/agent-slack-darwin-*; do
     printf '%s\n' "Signing $f (rcodesign)"
+    # Bun cross-compiled binaries embed a malformed code signature blob that
+    # rcodesign cannot parse.  Strip it first, then apply a fresh ad-hoc sig.
+    rcodesign remove-signature "$f" "$f.unsigned" 2>/dev/null && mv "$f.unsigned" "$f" || true
     rcodesign sign "$f"
   done
 else
