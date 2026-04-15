@@ -2,11 +2,12 @@
 """Strip LC_CODE_SIGNATURE from a 64-bit little-endian Mach-O binary.
 
 Bun cross-compiled darwin binaries embed a code-signature SuperBlob that
-rcodesign cannot parse.  This script removes the load command and truncates
-the file at the signature offset so rcodesign can sign from scratch.
+rcodesign cannot parse.  This script removes the load command, shrinks the
+__LINKEDIT segment, and truncates the file so rcodesign can sign from scratch.
 """
 import struct, sys
 
+LC_SEGMENT_64 = 0x19
 LC_CODE_SIGNATURE = 0x1D
 MH_MAGIC_64 = 0xFEEDFACF
 
@@ -21,23 +22,49 @@ def strip(path: str) -> bool:
     ncmds, sizeofcmds = struct.unpack_from("<II", data, 16)
     hdr_size = 32  # sizeof(mach_header_64)
 
-    # Scan load commands, collect all except LC_CODE_SIGNATURE.
+    # First pass: find LC_CODE_SIGNATURE and __LINKEDIT offsets.
     offset = hdr_size
-    keep = bytearray()
     sig_dataoff = None
+    sig_datasize = 0
     sig_cmdsize = 0
+    linkedit_offset = None  # offset of __LINKEDIT load command in file
 
     for _ in range(ncmds):
         cmd, cmdsize = struct.unpack_from("<II", data, offset)
         if cmd == LC_CODE_SIGNATURE:
-            sig_dataoff = struct.unpack_from("<I", data, offset + 8)[0]
+            sig_dataoff, sig_datasize = struct.unpack_from("<II", data, offset + 8)
             sig_cmdsize = cmdsize
-        else:
-            keep.extend(data[offset : offset + cmdsize])
+        elif cmd == LC_SEGMENT_64:
+            # segname is 16 bytes at offset+8
+            segname = data[offset + 8 : offset + 24].split(b"\x00", 1)[0]
+            if segname == b"__LINKEDIT":
+                linkedit_offset = offset
         offset += cmdsize
 
     if sig_dataoff is None:
         return False  # nothing to strip
+
+    # Shrink __LINKEDIT filesize and vmsize to exclude the code signature.
+    if linkedit_offset is not None:
+        # segment_command_64 layout after cmd(4) + cmdsize(4) + segname(16):
+        #   vmaddr(8), vmsize(8), fileoff(8), filesize(8)
+        fs_off = linkedit_offset + 48  # offset of filesize field
+        vs_off = linkedit_offset + 32  # offset of vmsize field
+        old_filesize = struct.unpack_from("<Q", data, fs_off)[0]
+        new_filesize = old_filesize - sig_datasize
+        struct.pack_into("<Q", data, fs_off, new_filesize)
+        # vmsize must cover filesize (page-aligned); round up to 16 KiB.
+        page = 0x4000
+        struct.pack_into("<Q", data, vs_off, (new_filesize + page - 1) & ~(page - 1))
+
+    # Second pass: rebuild load commands without LC_CODE_SIGNATURE.
+    offset = hdr_size
+    keep = bytearray()
+    for _ in range(ncmds):
+        cmd, cmdsize = struct.unpack_from("<II", data, offset)
+        if cmd != LC_CODE_SIGNATURE:
+            keep.extend(data[offset : offset + cmdsize])
+        offset += cmdsize
 
     # Rewrite load commands and zero leftover gap.
     data[hdr_size : hdr_size + len(keep)] = keep
