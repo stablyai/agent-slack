@@ -7,6 +7,7 @@ import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { textToRichTextBlocks } from "../slack/rich-text.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { uploadLocalFileToSlack } from "../slack/upload.ts";
+import { buildSlackMessageUrl } from "../slack/url.ts";
 
 export type MessageCommandOptions = {
   maxBodyChars: string;
@@ -87,14 +88,15 @@ export async function sendMessage(input: {
   if (target.kind === "url") {
     const { ref } = target;
     warnOnTruncatedSlackUrl(ref);
-    await input.ctx.withAutoRefresh({
+    return await input.ctx.withAutoRefresh({
       workspaceUrl: ref.workspace_url,
       work: async () => {
         const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const msg = await fetchMessage(client, { ref });
         const threadTs = msg.thread_ts ?? msg.ts;
-        await sendMessageToChannel({
+        return await sendMessageToChannel({
           client,
+          workspaceUrl: ref.workspace_url,
           channelId: ref.channel_id,
           text: input.text,
           blocks,
@@ -103,18 +105,18 @@ export async function sendMessage(input: {
         });
       },
     });
-    return { ok: true };
   }
 
   if (target.kind === "user") {
     const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
-    await input.ctx.withAutoRefresh({
+    return await input.ctx.withAutoRefresh({
       workspaceUrl,
       work: async () => {
         const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
         const dmChannelId = await openDmChannel(client, target.userId);
-        await sendMessageToChannel({
+        return await sendMessageToChannel({
           client,
+          workspaceUrl,
           channelId: dmChannelId,
           text: input.text,
           blocks,
@@ -122,7 +124,6 @@ export async function sendMessage(input: {
         });
       },
     });
-    return { ok: true };
   }
 
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
@@ -130,13 +131,14 @@ export async function sendMessage(input: {
     workspaceUrl,
     channels: [String(target.channel)],
   });
-  await input.ctx.withAutoRefresh({
+  return await input.ctx.withAutoRefresh({
     workspaceUrl,
     work: async () => {
       const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveChannelId(client, String(target.channel));
-      await sendMessageToChannel({
+      return await sendMessageToChannel({
         client,
+        workspaceUrl,
         channelId,
         text: input.text,
         blocks,
@@ -145,7 +147,6 @@ export async function sendMessage(input: {
       });
     },
   });
-  return { ok: true };
 }
 
 function normalizeAttachPaths(raw: string[] | undefined): string[] {
@@ -163,20 +164,37 @@ function normalizeAttachPaths(raw: string[] | undefined): string[] {
 
 async function sendMessageToChannel(input: {
   client: SlackApiClient;
+  workspaceUrl?: string;
   channelId: string;
   text: string;
   blocks?: unknown[] | null;
   threadTs?: string;
   attachPaths: string[];
-}): Promise<void> {
+}): Promise<Record<string, unknown>> {
   if (input.attachPaths.length === 0) {
-    await input.client.api("chat.postMessage", {
+    const resp = await input.client.api("chat.postMessage", {
       channel: input.channelId,
       text: input.text,
       thread_ts: input.threadTs,
       ...(input.blocks ? { blocks: input.blocks } : {}),
     });
-    return;
+    const ts = typeof resp.ts === "string" ? resp.ts : undefined;
+    const channelId = typeof resp.channel === "string" ? resp.channel : input.channelId;
+    const threadTs = input.threadTs ?? ts;
+    return {
+      ok: true,
+      channel_id: channelId,
+      ts,
+      thread_ts: threadTs,
+      url: input.workspaceUrl && ts
+        ? buildSlackMessageUrl({
+            workspace_url: input.workspaceUrl,
+            channel_id: channelId,
+            message_ts: ts,
+            thread_ts: threadTs,
+          })
+        : undefined,
+    };
   }
 
   if (input.blocks) {
@@ -196,6 +214,12 @@ async function sendMessageToChannel(input: {
     });
     initialComment = "";
   }
+
+  return {
+    ok: true,
+    channel_id: input.channelId,
+    thread_ts: input.threadTs,
+  };
 }
 
 export async function editMessage(input: {

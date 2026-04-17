@@ -19,6 +19,13 @@ All commands print JSON to stdout.
   - `referenced_users?: { [user_id]: { id, name?, real_name?, display_name?, ... } }`
   - Messages are compact and omit redundant fields on each item where possible.
 
+- `message send` returns:
+  - `ok: true`
+  - `channel_id: "C..." | "D..."`
+  - `ts?: "<seconds>.<micros>"` (present for plain message posts)
+  - `thread_ts?: "<seconds>.<micros>"` (present when the destination thread is known)
+  - `url?: "https://.../archives/..."` (present when the workspace URL and posted ts are known)
+
 Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` mentions in rendered content).
 `referenced_users` provides display metadata for those IDs. The cache is per-workspace with a 24-hour per-entry TTL.
 This behavior is opt-in and requires passing the `--resolve-users` flag (or `--refresh-users` to bypass the cache).
