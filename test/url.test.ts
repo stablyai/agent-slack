@@ -22,20 +22,24 @@ describe("parseSlackMessageUrl", () => {
 
 describe("buildSlackMessageUrl", () => {
   test("builds a permalink for a root message", () => {
-    expect(buildSlackMessageUrl({
-      workspace_url: "https://stablygroup.slack.com/",
-      channel_id: "C060RS20UMV",
-      message_ts: "1770165109.628379",
-    })).toBe("https://stablygroup.slack.com/archives/C060RS20UMV/p1770165109628379");
+    expect(
+      buildSlackMessageUrl({
+        workspace_url: "https://stablygroup.slack.com/",
+        channel_id: "C060RS20UMV",
+        message_ts: "1770165109.628379",
+      }),
+    ).toBe("https://stablygroup.slack.com/archives/C060RS20UMV/p1770165109628379");
   });
 
   test("includes thread metadata for replies", () => {
-    expect(buildSlackMessageUrl({
-      workspace_url: "https://stablygroup.slack.com",
-      channel_id: "C060RS20UMV",
-      message_ts: "1770165110.000001",
-      thread_ts: "1770165109.628379",
-    })).toBe(
+    expect(
+      buildSlackMessageUrl({
+        workspace_url: "https://stablygroup.slack.com",
+        channel_id: "C060RS20UMV",
+        message_ts: "1770165110.000001",
+        thread_ts: "1770165109.628379",
+      }),
+    ).toBe(
       "https://stablygroup.slack.com/archives/C060RS20UMV/p1770165110000001?thread_ts=1770165109.628379&cid=C060RS20UMV",
     );
   });

@@ -230,7 +230,7 @@ agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.6283
 Attach options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable)
-- plain `message send` output includes `channel_id`, and for normal message posts also includes the posted `ts`, `thread_ts`, and `url`
+- plain `message send` output includes `channel_id`, `workspace_url` when known, and for normal message posts also includes the posted `ts`, `thread_ts`, and `url`
 
 ### List, create, and invite channels
 

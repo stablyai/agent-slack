@@ -91,12 +91,12 @@ export async function sendMessage(input: {
     return await input.ctx.withAutoRefresh({
       workspaceUrl: ref.workspace_url,
       work: async () => {
-        const { client } = await input.ctx.getClientForWorkspace(ref.workspace_url);
+        const { client, workspace_url } = await input.ctx.getClientForWorkspace(ref.workspace_url);
         const msg = await fetchMessage(client, { ref });
         const threadTs = msg.thread_ts ?? msg.ts;
         return await sendMessageToChannel({
           client,
-          workspaceUrl: ref.workspace_url,
+          workspaceUrl: workspace_url ?? ref.workspace_url,
           channelId: ref.channel_id,
           text: input.text,
           blocks,
@@ -112,11 +112,11 @@ export async function sendMessage(input: {
     return await input.ctx.withAutoRefresh({
       workspaceUrl,
       work: async () => {
-        const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+        const { client, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
         const dmChannelId = await openDmChannel(client, target.userId);
         return await sendMessageToChannel({
           client,
-          workspaceUrl,
+          workspaceUrl: workspace_url ?? workspaceUrl,
           channelId: dmChannelId,
           text: input.text,
           blocks,
@@ -134,11 +134,11 @@ export async function sendMessage(input: {
   return await input.ctx.withAutoRefresh({
     workspaceUrl,
     work: async () => {
-      const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+      const { client, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveChannelId(client, String(target.channel));
       return await sendMessageToChannel({
         client,
-        workspaceUrl,
+        workspaceUrl: workspace_url ?? workspaceUrl,
         channelId,
         text: input.text,
         blocks,
@@ -184,16 +184,18 @@ async function sendMessageToChannel(input: {
     return {
       ok: true,
       channel_id: channelId,
+      workspace_url: input.workspaceUrl,
       ts,
       thread_ts: threadTs,
-      url: input.workspaceUrl && ts
-        ? buildSlackMessageUrl({
-            workspace_url: input.workspaceUrl,
-            channel_id: channelId,
-            message_ts: ts,
-            thread_ts: threadTs,
-          })
-        : undefined,
+      url:
+        input.workspaceUrl && ts
+          ? buildSlackMessageUrl({
+              workspace_url: input.workspaceUrl,
+              channel_id: channelId,
+              message_ts: ts,
+              thread_ts: threadTs,
+            })
+          : undefined,
     };
   }
 
@@ -218,6 +220,7 @@ async function sendMessageToChannel(input: {
   return {
     ok: true,
     channel_id: input.channelId,
+    workspace_url: input.workspaceUrl,
     thread_ts: input.threadTs,
   };
 }

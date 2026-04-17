@@ -22,6 +22,7 @@ All commands print JSON to stdout.
 - `message send` returns:
   - `ok: true`
   - `channel_id: "C..." | "D..."`
+  - `workspace_url?: "https://...slack.com"` (present when the workspace is known)
   - `ts?: "<seconds>.<micros>"` (present for plain message posts)
   - `thread_ts?: "<seconds>.<micros>"` (present when the destination thread is known)
   - `url?: "https://.../archives/..."` (present when the workspace URL and posted ts are known)
