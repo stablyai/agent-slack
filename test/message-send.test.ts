@@ -160,4 +160,112 @@ describe("sendMessage", () => {
     expect(calls[1]?.params.initial_comment).toBeUndefined();
     expect(calls.some((c) => c.method === "chat.postMessage")).toBe(false);
   });
+
+  test("--blocks: reads Block Kit JSON from file and passes through unchanged", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    const blocks = [
+      { type: "header", text: { type: "plain_text", text: "Digest" } },
+      {
+        type: "table",
+        rows: [
+          [
+            { type: "raw_text", text: "Name" },
+            { type: "raw_text", text: "Why" },
+          ],
+          [
+            { type: "raw_text", text: "Caveman" },
+            { type: "raw_text", text: "token cut" },
+          ],
+        ],
+      },
+    ];
+    await writeFile(blocksPath, JSON.stringify(blocks));
+
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "fallback text",
+        options: { blocks: blocksPath },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.postMessage");
+    expect(calls[0]?.params).toEqual({
+      channel: "C12345678",
+      text: "fallback text",
+      thread_ts: undefined,
+      blocks,
+    });
+  });
+
+  test("--blocks: errors when JSON is not an array", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    await writeFile(blocksPath, JSON.stringify({ type: "header" }));
+
+    try {
+      expect(
+        sendMessage({
+          ctx,
+          targetInput: "C12345678",
+          text: "",
+          options: { blocks: blocksPath },
+        }),
+      ).rejects.toThrow(/expected a JSON array/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("--blocks: errors on malformed JSON", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    await writeFile(blocksPath, "{not valid json");
+
+    try {
+      expect(
+        sendMessage({
+          ctx,
+          targetInput: "C12345678",
+          text: "",
+          options: { blocks: blocksPath },
+        }),
+      ).rejects.toThrow(/failed to parse JSON/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("--blocks: overrides markdown-to-rich-text conversion when text is also provided", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    const blocks = [{ type: "divider" }];
+    await writeFile(blocksPath, JSON.stringify(blocks));
+
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "- bullet one\n- bullet two",
+        options: { blocks: blocksPath },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    expect(calls[0]?.params.blocks).toEqual(blocks);
+  });
 });

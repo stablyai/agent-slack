@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { CliContext } from "./context.ts";
 import { fetchMessage } from "../slack/messages.ts";
 import { parseMsgTarget } from "./targets.ts";
@@ -7,6 +8,22 @@ import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { textToRichTextBlocks } from "../slack/rich-text.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { uploadLocalFileToSlack } from "../slack/upload.ts";
+
+function loadBlocksFromPath(path: string): unknown[] {
+  const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `--blocks: failed to parse JSON from ${path === "-" ? "stdin" : path}: ${(err as Error).message}`,
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(`--blocks: expected a JSON array of Block Kit blocks, got ${typeof parsed}`);
+  }
+  return parsed;
+}
 
 export type MessageCommandOptions = {
   maxBodyChars: string;
@@ -78,10 +95,14 @@ export async function sendMessage(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; threadTs?: string; attach?: string[] };
+  options: { workspace?: string; threadTs?: string; attach?: string[]; blocks?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
-  const blocks = input.text ? textToRichTextBlocks(input.text) : null;
+  const blocks = input.options.blocks
+    ? loadBlocksFromPath(input.options.blocks)
+    : input.text
+      ? textToRichTextBlocks(input.text)
+      : null;
   const attachPaths = normalizeAttachPaths(input.options.attach);
 
   if (target.kind === "url") {

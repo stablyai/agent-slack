@@ -67,6 +67,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
     - `--attach <path>` (repeatable; upload local files as attachments)
+    - `--blocks <path>` raw Block Kit blocks from a JSON file (or `-` for stdin). Bypasses markdown-to-rich-text conversion; enables header/divider/section/table blocks. Cannot be combined with `--attach`.
 
 - `agent-slack message edit <target> <text>`
   - URL target edits that exact message.
