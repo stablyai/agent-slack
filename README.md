@@ -335,6 +335,81 @@ agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 ```
 
+### Unreads (inbox view)
+
+See all unread messages across channels, DMs, and threads in one place:
+
+```bash
+# Show all unreads with message content
+agent-slack unreads
+
+# Show only unread counts (no message content)
+agent-slack unreads --counts-only
+
+# Limit messages per channel (default 10)
+agent-slack unreads --max-messages 5
+
+# Include system messages (joins, leaves, topic changes)
+agent-slack unreads --include-system
+```
+
+Output includes channels sorted by mention count, then unread count:
+
+```json
+{
+  "channels": [
+    {
+      "channel_id": "C123...",
+      "channel_name": "general",
+      "channel_type": "channel",
+      "unread_count": 5,
+      "mention_count": 2,
+      "messages": [...]
+    }
+  ],
+  "threads": {
+    "has_unreads": true,
+    "mention_count": 3
+  }
+}
+```
+
+Note: This feature uses the `client.counts` API which may be restricted in some Enterprise Grid workspaces (`team_is_restricted` error).
+
+### Later (saved messages)
+
+Manage your saved-for-later messages (Slack's Later tab):
+
+```bash
+# List saved messages (in-progress by default)
+agent-slack later list
+
+# Show only counts per state
+agent-slack later list --counts-only
+
+# Filter by state: in_progress, completed, archived, all
+agent-slack later list --state completed
+
+# Save a message for later
+agent-slack later save "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Mark as completed
+agent-slack later complete "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Archive
+agent-slack later archive "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Move back to in-progress
+agent-slack later reopen "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Remove from saved
+agent-slack later remove "https://workspace.slack.com/archives/C123/p1700000000000000"
+
+# Set a reminder
+agent-slack later remind "https://workspace.slack.com/archives/C123/p1700000000000000" --in 1h
+agent-slack later remind "https://workspace.slack.com/archives/C123/p1700000000000000" --in tomorrow
+```
+
 ### Fetch a Canvas as Markdown
 
 ```bash
