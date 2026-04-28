@@ -17,6 +17,11 @@ release
 .tmp-downloads
 tmp_pyenv
 
+# orca/git worktrees checked out alongside the repo
+feat-*
+fix-*
+chore-*
+
 # npm postinstall
 bin/native/
 
