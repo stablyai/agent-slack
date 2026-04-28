@@ -180,22 +180,21 @@ async function sendMessageToChannel(input: {
     });
     const ts = typeof resp.ts === "string" ? resp.ts : undefined;
     const channelId = typeof resp.channel === "string" ? resp.channel : input.channelId;
-    const threadTs = input.threadTs ?? ts;
+    const permalink =
+      input.workspaceUrl && ts
+        ? buildSlackMessageUrl({
+            workspace_url: input.workspaceUrl,
+            channel_id: channelId,
+            message_ts: ts,
+            thread_ts: input.threadTs,
+          })
+        : undefined;
     return {
       ok: true,
       channel_id: channelId,
-      workspace_url: input.workspaceUrl,
       ts,
-      thread_ts: threadTs,
-      url:
-        input.workspaceUrl && ts
-          ? buildSlackMessageUrl({
-              workspace_url: input.workspaceUrl,
-              channel_id: channelId,
-              message_ts: ts,
-              thread_ts: threadTs,
-            })
-          : undefined,
+      thread_ts: input.threadTs,
+      permalink,
     };
   }
 
@@ -220,7 +219,6 @@ async function sendMessageToChannel(input: {
   return {
     ok: true,
     channel_id: input.channelId,
-    workspace_url: input.workspaceUrl,
     thread_ts: input.threadTs,
   };
 }

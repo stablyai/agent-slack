@@ -81,10 +81,9 @@ describe("sendMessage", () => {
     expect(result).toEqual({
       ok: true,
       channel_id: "C12345678",
-      workspace_url: "https://workspace.slack.com",
       ts: "1770165109.628379",
-      thread_ts: "1770165109.628379",
-      url: "https://workspace.slack.com/archives/C12345678/p1770165109628379",
+      thread_ts: undefined,
+      permalink: "https://workspace.slack.com/archives/C12345678/p1770165109628379",
     });
   });
 
@@ -112,10 +111,30 @@ describe("sendMessage", () => {
     expect(result).toEqual({
       ok: true,
       channel_id: "C12345678",
-      workspace_url: "https://workspace.slack.com",
       ts: "1770165109.628379",
-      thread_ts: "1770165109.628379",
-      url: "https://workspace.slack.com/archives/C12345678/p1770165109628379",
+      thread_ts: undefined,
+      permalink: "https://workspace.slack.com/archives/C12345678/p1770165109628379",
+    });
+  });
+
+  test("threaded reply returns thread_ts distinct from ts", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    const result = await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "reply",
+      options: { threadTs: "1770160000.000001" },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      channel_id: "C12345678",
+      ts: "1770165109.628379",
+      thread_ts: "1770160000.000001",
+      permalink:
+        "https://workspace.slack.com/archives/C12345678/p1770165109628379?thread_ts=1770160000.000001&cid=C12345678",
     });
   });
 

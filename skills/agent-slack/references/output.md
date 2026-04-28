@@ -22,10 +22,9 @@ All commands print JSON to stdout.
 - `message send` returns:
   - `ok: true`
   - `channel_id: "C..." | "D..."`
-  - `workspace_url?: "https://...slack.com"` (present when the workspace is known)
-  - `ts?: "<seconds>.<micros>"` (present for plain message posts)
-  - `thread_ts?: "<seconds>.<micros>"` (present when the destination thread is known)
-  - `url?: "https://.../archives/..."` (present when the workspace URL and posted ts are known)
+  - `ts?: "<seconds>.<micros>"` — the posted message's ts; absent on file-attachment sends
+  - `thread_ts?: "<seconds>.<micros>"` — present only when the send was into an existing thread
+  - `permalink?: "https://.../archives/..."` — present when `ts` is known and a workspace URL was resolvable
 
 Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` mentions in rendered content).
 `referenced_users` provides display metadata for those IDs. The cache is per-workspace with a 24-hour per-entry TTL.
