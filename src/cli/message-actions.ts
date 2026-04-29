@@ -5,6 +5,7 @@ import { resolveChannelId, openDmChannel } from "../slack/channels.ts";
 import { normalizeSlackReactionName } from "../slack/emoji.ts";
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { textToRichTextBlocks } from "../slack/rich-text.ts";
+import { formatOutboundSlackText } from "../slack/format-outbound.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { uploadLocalFileToSlack } from "../slack/upload.ts";
 import { buildSlackMessageUrl } from "../slack/url.ts";
@@ -82,6 +83,7 @@ export async function sendMessage(input: {
   options: { workspace?: string; threadTs?: string; attach?: string[] };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
+  const formattedText = formatOutboundSlackText(input.text);
   const blocks = input.text ? textToRichTextBlocks(input.text) : null;
   const attachPaths = normalizeAttachPaths(input.options.attach);
 
@@ -98,7 +100,7 @@ export async function sendMessage(input: {
           client,
           workspaceUrl: workspace_url ?? ref.workspace_url,
           channelId: ref.channel_id,
-          text: input.text,
+          text: formattedText,
           blocks,
           threadTs,
           attachPaths,
@@ -118,7 +120,7 @@ export async function sendMessage(input: {
           client,
           workspaceUrl: workspace_url ?? workspaceUrl,
           channelId: dmChannelId,
-          text: input.text,
+          text: formattedText,
           blocks,
           attachPaths,
         });
@@ -140,7 +142,7 @@ export async function sendMessage(input: {
         client,
         workspaceUrl: workspace_url ?? workspaceUrl,
         channelId,
-        text: input.text,
+        text: formattedText,
         blocks,
         threadTs: input.options.threadTs ? String(input.options.threadTs) : undefined,
         attachPaths,
@@ -236,6 +238,7 @@ export async function editMessage(input: {
     );
   }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
+  const formattedText = formatOutboundSlackText(input.text);
 
   await input.ctx.withAutoRefresh({
     workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
@@ -247,7 +250,7 @@ export async function editMessage(input: {
         await client.api("chat.update", {
           channel: ref.channel_id,
           ts: ref.message_ts,
-          text: input.text,
+          text: formattedText,
         });
         return;
       }
@@ -262,7 +265,7 @@ export async function editMessage(input: {
       await client.api("chat.update", {
         channel: channelId,
         ts,
-        text: input.text,
+        text: formattedText,
       });
     },
   });
