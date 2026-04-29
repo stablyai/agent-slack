@@ -164,6 +164,8 @@ Attach options for `message send`:
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread.
 
+Mentions: just write `@U05BRPTKL6A`, `@here`, `@channel`, or `@everyone` — the CLI converts them to real Slack mention tokens and escapes literal `&`/`<`/`>` in your text. You don't need to wrap IDs yourself.
+
 ## List channels + create/invite users
 
 ```bash

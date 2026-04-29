@@ -2,7 +2,9 @@ type InlineStyle = { bold?: true; italic?: true; strike?: true; code?: true };
 
 type InlineElement =
   | { type: "text"; text: string; style?: InlineStyle }
-  | { type: "link"; url: string; text?: string; style?: InlineStyle };
+  | { type: "link"; url: string; text?: string; style?: InlineStyle }
+  | { type: "user"; user_id: string }
+  | { type: "broadcast"; range: "here" | "channel" | "everyone" };
 
 type RichTextElement =
   | { type: "rich_text_section"; elements: InlineElement[] }
@@ -37,16 +39,36 @@ const BLOCKQUOTE_RE = /^> (.*)$/;
  */
 export function parseInlineElements(text: string): InlineElement[] {
   const elements: InlineElement[] = [];
-  const re = /`([^`]+)`|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<([^>|]+)\|([^>]+)>|<([^>|]+)>/g;
+  const re =
+    /`([^`]+)`|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
+  const pushText = (slice: string): void => {
+    if (slice) {
+      elements.push({ type: "text", text: slice });
+    }
+  };
+
   while ((match = re.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      elements.push({ type: "text", text: text.slice(lastIndex, match.index) });
+      pushText(text.slice(lastIndex, match.index));
     }
 
-    const [, code, bold, italic, strike, linkUrl, linkText, bareUrl] = match;
+    const [
+      ,
+      code,
+      bold,
+      italic,
+      strike,
+      userToken,
+      broadcastToken,
+      linkUrl,
+      linkText,
+      bareUrl,
+      bareUserId,
+      bareBroadcast,
+    ] = match;
     if (code != null) {
       elements.push({ type: "text", text: code, style: { code: true } });
     } else if (bold != null) {
@@ -55,17 +77,31 @@ export function parseInlineElements(text: string): InlineElement[] {
       elements.push({ type: "text", text: italic, style: { italic: true } });
     } else if (strike != null) {
       elements.push({ type: "text", text: strike, style: { strike: true } });
+    } else if (userToken != null) {
+      elements.push({ type: "user", user_id: userToken });
+    } else if (broadcastToken != null) {
+      elements.push({
+        type: "broadcast",
+        range: broadcastToken as "here" | "channel" | "everyone",
+      });
     } else if (linkUrl != null && linkText != null) {
       elements.push({ type: "link", url: linkUrl, text: linkText });
     } else if (bareUrl != null) {
       elements.push({ type: "link", url: bareUrl });
+    } else if (bareUserId != null) {
+      elements.push({ type: "user", user_id: bareUserId });
+    } else if (bareBroadcast != null) {
+      elements.push({
+        type: "broadcast",
+        range: bareBroadcast as "here" | "channel" | "everyone",
+      });
     }
 
     lastIndex = match.index + match[0].length;
   }
 
   if (lastIndex < text.length) {
-    elements.push({ type: "text", text: text.slice(lastIndex) });
+    pushText(text.slice(lastIndex));
   }
 
   return elements.length > 0 ? elements : [{ type: "text", text }];
