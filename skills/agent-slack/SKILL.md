@@ -161,6 +161,7 @@ agent-slack message delete "general" --workspace "myteam" --ts "1770165109.62837
 Attach options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable)
+- `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Enables headers, dividers, table blocks, and other structured layouts. Incompatible with `--attach`.
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread.
 

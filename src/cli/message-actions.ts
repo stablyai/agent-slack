@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { CliContext } from "./context.ts";
 import { fetchMessage } from "../slack/messages.ts";
 import { parseMsgTarget } from "./targets.ts";
@@ -9,6 +10,30 @@ import { formatOutboundSlackText } from "../slack/format-outbound.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { uploadLocalFileToSlack } from "../slack/upload.ts";
 import { buildSlackMessageUrl } from "../slack/url.ts";
+
+function loadBlocksFromPath(path: string): unknown[] {
+  const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `--blocks: failed to parse JSON from ${path === "-" ? "stdin" : path}: ${(err as Error).message}`,
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(`--blocks: expected a JSON array of Block Kit blocks, got ${typeof parsed}`);
+  }
+  for (let i = 0; i < parsed.length; i++) {
+    const el = parsed[i];
+    if (el === null || typeof el !== "object" || Array.isArray(el)) {
+      throw new Error(
+        `--blocks: element at index ${i} is not a Block Kit block object (got ${el === null ? "null" : Array.isArray(el) ? "array" : typeof el})`,
+      );
+    }
+  }
+  return parsed;
+}
 
 export type MessageCommandOptions = {
   maxBodyChars: string;
@@ -80,11 +105,15 @@ export async function sendMessage(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; threadTs?: string; attach?: string[] };
+  options: { workspace?: string; threadTs?: string; attach?: string[]; blocks?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
   const formattedText = formatOutboundSlackText(input.text);
-  const blocks = input.text ? textToRichTextBlocks(input.text) : null;
+  const blocks = input.options.blocks
+    ? loadBlocksFromPath(input.options.blocks)
+    : input.text
+      ? textToRichTextBlocks(input.text)
+      : null;
   const attachPaths = normalizeAttachPaths(input.options.attach);
 
   if (target.kind === "url") {

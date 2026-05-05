@@ -230,6 +230,36 @@ agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.6283
 Attach options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable)
+- `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
+
+Example — post a message with a native Slack table block:
+
+```bash
+cat > /tmp/blocks.json <<'EOF'
+[
+  {
+    "type": "header",
+    "text": { "type": "plain_text", "text": "Weekly digest" }
+  },
+  {
+    "type": "table",
+    "rows": [
+      [
+        { "type": "raw_text", "text": "Name" },
+        { "type": "raw_text", "text": "Why" }
+      ],
+      [
+        { "type": "raw_text", "text": "Caveman MCP" },
+        { "type": "raw_text", "text": "~80% token cut on nav" }
+      ]
+    ]
+  }
+]
+EOF
+agent-slack message send "#alerts-staging" --blocks /tmp/blocks.json
+```
+
+When `--blocks` is used, the positional `<text>` argument (if provided) is still sent as the message's `text` fallback (for notifications and unfurls).
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread.
 

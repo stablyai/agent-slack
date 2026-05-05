@@ -164,15 +164,25 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     )
     .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
     .option("--attach <path>", "Attach a local file path (repeatable)", collectOptionValue, [])
+    .option(
+      "--blocks <path>",
+      "Path to a JSON file containing a Block Kit blocks array. Bypasses automatic markdown-to-rich-text conversion. Use '-' to read from stdin. Cannot be combined with --attach.",
+    )
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
         string | undefined,
-        { workspace?: string; threadTs?: string; attach?: string[] },
+        { workspace?: string; threadTs?: string; attach?: string[]; blocks?: string },
       ];
       const hasAttach = (options.attach ?? []).length > 0;
-      if (!text && !hasAttach) {
-        console.error("Error: <text> is required when no --attach files are provided.");
+      const hasBlocks = options.blocks !== undefined;
+      if (!text && !hasAttach && !hasBlocks) {
+        console.error("Error: <text> is required when no --attach files or --blocks are provided.");
+        process.exitCode = 1;
+        return;
+      }
+      if (hasBlocks && hasAttach) {
+        console.error("Error: --blocks cannot be combined with --attach.");
         process.exitCode = 1;
         return;
       }
