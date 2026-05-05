@@ -53,3 +53,19 @@ export function parseSlackMessageUrl(input: string): SlackMessageRef {
   const workspace_url = `${url.protocol}//${url.host}`;
   return { workspace_url, channel_id, message_ts, thread_ts_hint, raw: input, possiblyTruncated };
 }
+
+export function buildSlackMessageUrl(input: {
+  workspace_url: string;
+  channel_id: string;
+  message_ts: string;
+  thread_ts?: string;
+}): string {
+  const workspaceUrl = input.workspace_url.replace(/\/$/, "");
+  const digits = input.message_ts.replace(".", "");
+  const url = new URL(`${workspaceUrl}/archives/${input.channel_id}/p${digits}`);
+  if (input.thread_ts && input.thread_ts !== input.message_ts) {
+    url.searchParams.set("thread_ts", input.thread_ts);
+    url.searchParams.set("cid", input.channel_id);
+  }
+  return url.toString();
+}
