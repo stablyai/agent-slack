@@ -22,6 +22,14 @@ function loadBlocksFromPath(path: string): unknown[] {
   if (!Array.isArray(parsed)) {
     throw new Error(`--blocks: expected a JSON array of Block Kit blocks, got ${typeof parsed}`);
   }
+  for (let i = 0; i < parsed.length; i++) {
+    const el = parsed[i];
+    if (el === null || typeof el !== "object" || Array.isArray(el)) {
+      throw new Error(
+        `--blocks: element at index ${i} is not a Block Kit block object (got ${el === null ? "null" : Array.isArray(el) ? "array" : typeof el})`,
+      );
+    }
+  }
   return parsed;
 }
 

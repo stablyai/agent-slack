@@ -268,4 +268,25 @@ describe("sendMessage", () => {
 
     expect(calls[0]?.params.blocks).toEqual(blocks);
   });
+
+  test("--blocks: errors when an array element is not an object", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    await writeFile(blocksPath, JSON.stringify([{ type: "divider" }, "oops"]));
+
+    try {
+      await expect(
+        sendMessage({
+          ctx,
+          targetInput: "C12345678",
+          text: "",
+          options: { blocks: blocksPath },
+        }),
+      ).rejects.toThrow(/element at index 1 is not a Block Kit block object/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
