@@ -68,11 +68,17 @@ async function assertWorkspaceSpecifiedForChannelNames(input: {
     return;
   }
 
-  if (!input.workspaceUrl) {
-    throw new Error(
-      'Ambiguous channel name across multiple workspaces. Pass --workspace "<url-or-unique-substring>" (or set SLACK_WORKSPACE_URL).',
-    );
+  if (input.workspaceUrl) {
+    return;
   }
+
+  if (creds.default_workspace_url) {
+    return;
+  }
+
+  throw new Error(
+    'Ambiguous channel name across multiple workspaces. Pass --workspace "<url-or-unique-substring>" (or set SLACK_WORKSPACE_URL, or run "agent-slack auth set-default <url>").',
+  );
 }
 
 function isAuthErrorMessage(message: string): boolean {
