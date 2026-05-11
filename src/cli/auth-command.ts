@@ -105,13 +105,16 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
 
   auth
     .command("import-brave")
-    .description("Import xoxc/xoxd from a logged-in Slack tab in Brave Browser (macOS)")
+    .description(
+      "Import xoxc/xoxd from a logged-in Slack tab in Brave Browser (macOS). Requires View → Developer → Allow JavaScript from Apple Events to be enabled in Brave.",
+    )
     .action(async () => {
       try {
         const extracted = await input.ctx.importBrave();
         if (!extracted) {
           throw new Error(
-            "Could not extract tokens from Brave. Open Slack in Brave and ensure you're logged in.",
+            "Could not extract tokens from Brave. Open Slack in Brave and ensure you're logged in. " +
+              "If Brave is open with a Slack tab, also confirm View → Developer → Allow JavaScript from Apple Events is enabled.",
           );
         }
 

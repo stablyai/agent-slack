@@ -66,6 +66,7 @@ agent-slack
 │   ├── whoami
 │   ├── test
 │   ├── import-desktop
+│   ├── import-brave
 │   ├── import-chrome
 │   ├── import-firefox
 │   └── parse-curl
@@ -109,17 +110,21 @@ Notes:
 On macOS and Windows, authentication happens automatically:
 
 - Default: reads Slack Desktop local data (no need to quit Slack)
-- Fallbacks: if that fails, tries Chrome/Firefox extraction (macOS)
+- Fallbacks: if that fails, tries Brave/Chrome/Firefox extraction (macOS)
 
 You can also run manual imports:
 
 ```bash
 agent-slack auth whoami
 agent-slack auth import-desktop
+agent-slack auth import-brave
 agent-slack auth import-chrome
 agent-slack auth import-firefox
 agent-slack auth test
 ```
+
+> [!NOTE]
+> `import-brave` / `import-chrome` read tokens from a logged-in Slack tab via AppleScript. Both browsers ship with **Allow JavaScript from Apple Events** disabled by default — enable it in **View → Developer** before running these commands. macOS will prompt for your password the first time.
 
 Alternatively, set env vars:
 
