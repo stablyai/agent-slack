@@ -268,6 +268,9 @@ export async function editMessage(input: {
   }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
   const formattedText = formatOutboundSlackText(input.text);
+  const blocks = input.text
+    ? textToRichTextBlocks(input.text, { includeInlineFormatting: true })
+    : null;
 
   await input.ctx.withAutoRefresh({
     workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
@@ -280,6 +283,7 @@ export async function editMessage(input: {
           channel: ref.channel_id,
           ts: ref.message_ts,
           text: formattedText,
+          ...(blocks ? { blocks } : {}),
         });
         return;
       }
@@ -295,6 +299,7 @@ export async function editMessage(input: {
         channel: channelId,
         ts,
         text: formattedText,
+        ...(blocks ? { blocks } : {}),
       });
     },
   });
