@@ -27,6 +27,10 @@ type RichTextBlock = {
   elements: RichTextElement[];
 };
 
+type TextToRichTextBlocksOptions = {
+  includeInlineFormatting?: boolean;
+};
+
 const BULLET_RE = /^(\s*)[•◦▪▫▸‣●○◆◇\-*]\s+(.*)$/;
 const ORDERED_RE = /^(\s*)\d+[.)]\s+(.*)$/;
 const CODE_BLOCK_START = /^```/;
@@ -86,8 +90,10 @@ export function parseInlineElements(text: string): InlineElement[] {
       });
     } else if (linkUrl != null && linkText != null) {
       elements.push({ type: "link", url: linkUrl, text: linkText });
-    } else if (bareUrl != null) {
+    } else if (bareUrl != null && /^https?:\/\//i.test(bareUrl)) {
       elements.push({ type: "link", url: bareUrl });
+    } else if (bareUrl != null) {
+      elements.push({ type: "text", text: `<${bareUrl}>` });
     } else if (bareUserId != null) {
       elements.push({ type: "user", user_id: bareUserId });
     } else if (bareBroadcast != null) {
@@ -112,10 +118,14 @@ export function parseInlineElements(text: string): InlineElement[] {
  * lists are detected. Returns `null` when the text contains no lists,
  * so the caller can fall back to plain `text`.
  */
-export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
+export function textToRichTextBlocks(
+  text: string,
+  options: TextToRichTextBlocksOptions = {},
+): RichTextBlock[] | null {
   const lines = text.split("\n");
   const elements: RichTextElement[] = [];
   let hasLists = false;
+  let hasFormatting = false;
   let idx = 0;
 
   while (idx < lines.length) {
@@ -136,6 +146,7 @@ export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
         type: "rich_text_preformatted",
         elements: [{ type: "text", text: codeLines.join("\n") }],
       });
+      hasFormatting = true;
       continue;
     }
 
@@ -155,6 +166,7 @@ export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
         type: "rich_text_quote",
         elements: parseInlineElements(quoteLines.join("\n")),
       });
+      hasFormatting = true;
       continue;
     }
 
@@ -189,18 +201,26 @@ export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
     }
     const content = textLines.join("\n");
     if (content.trim()) {
+      const inlineElements = parseInlineElements(content.endsWith("\n") ? content : `${content}\n`);
+      if (hasRichInlineFormatting(inlineElements)) {
+        hasFormatting = true;
+      }
       elements.push({
         type: "rich_text_section",
-        elements: parseInlineElements(content.endsWith("\n") ? content : `${content}\n`),
+        elements: inlineElements,
       });
     }
   }
 
-  if (!hasLists) {
+  if (!hasLists && !(options.includeInlineFormatting && hasFormatting)) {
     return null;
   }
 
   return [{ type: "rich_text", elements }];
+}
+
+function hasRichInlineFormatting(elements: InlineElement[]): boolean {
+  return elements.some((element) => element.type !== "text" || Boolean(element.style));
 }
 
 function collectList(input: {
