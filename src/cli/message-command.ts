@@ -109,11 +109,12 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--ts <ts>", "Message ts (required when using #channel/channel id)")
+    .option("--blocks <path>", "Read Block Kit blocks JSON from file or '-'")
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
         string,
-        { workspace?: string; ts?: string },
+        { workspace?: string; ts?: string; blocks?: string },
       ];
       try {
         const payload = await editMessage({

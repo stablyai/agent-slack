@@ -258,7 +258,7 @@ export async function editMessage(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; ts?: string };
+  options: { workspace?: string; ts?: string; blocks?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
   if (target.kind === "user") {
@@ -268,6 +268,7 @@ export async function editMessage(input: {
   }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
   const formattedText = formatOutboundSlackText(input.text);
+  const blocks = input.options.blocks ? loadBlocksFromPath(input.options.blocks) : null;
 
   await input.ctx.withAutoRefresh({
     workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
@@ -280,6 +281,7 @@ export async function editMessage(input: {
           channel: ref.channel_id,
           ts: ref.message_ts,
           text: formattedText,
+          ...(blocks ? { blocks } : {}),
         });
         return;
       }
@@ -295,6 +297,7 @@ export async function editMessage(input: {
         channel: channelId,
         ts,
         text: formattedText,
+        ...(blocks ? { blocks } : {}),
       });
     },
   });

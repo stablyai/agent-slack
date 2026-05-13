@@ -75,6 +75,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required for channel targets)
+    - `--blocks <path>` raw Block Kit blocks JSON (`-` for stdin)
 
 - `agent-slack message delete <target>`
   - URL target deletes that exact message.
