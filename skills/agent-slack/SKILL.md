@@ -15,7 +15,7 @@ description: |
   - Discovering and running Slack workflows
   - Managing saved-for-later messages (Later tab)
   - Viewing all unread messages (inbox/unreads view)
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later", "slack unreads", "slack inbox", "unread slack"
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later", "slack unreads", "slack inbox", "unread slack", "upload file", "slack file upload", "send file slack"
 ---
 
 # Slack automation with `agent-slack`
@@ -164,6 +164,18 @@ Attach options for `message send`:
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Enables headers, dividers, table blocks, and other structured layouts. Incompatible with `--attach`.
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread.
+
+## Upload files
+
+Upload files directly to a channel, DM, or thread without sending a text message:
+
+```bash
+agent-slack file upload "general" ./report.md
+agent-slack file upload "general" ./report.md --comment "Coverage report"
+agent-slack file upload U08GDK5PBLG ./data.csv
+agent-slack file upload "general" ./report.md --attach ./chart.png
+agent-slack file upload "general" ./report.md --thread-ts "1770165109.628379"
+```
 
 Mentions: just write `@U05BRPTKL6A`, `@here`, `@channel`, or `@everyone` — the CLI converts them to real Slack mention tokens and escapes literal `&`/`<`/`>` in your text. You don't need to wrap IDs yourself.
 

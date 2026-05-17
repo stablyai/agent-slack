@@ -157,6 +157,18 @@ Common options:
 - `--resolve-users` (attach resolved user profiles in `referenced_users`; applies to `search messages` / `search all`)
 - `--refresh-users` (implies `--resolve-users` and forces a cache refresh)
 
+## File
+
+- `agent-slack file upload <target> <path>`
+  - Uploads one or more files to a channel, DM, or thread
+  - `<target>`: Slack message URL, `#channel`/channel ID, or user ID
+  - `<path>`: Local file path to upload
+  - Options:
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
+    - `--thread-ts <seconds>.<micros>` (optional)
+    - `--comment <text>` (initial comment to include with upload)
+    - `--attach <path>` (repeatable; additional file paths to upload)
+
 ## Canvas
 
 - `agent-slack canvas get <canvas-url-or-id>`
