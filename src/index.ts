@@ -10,6 +10,7 @@ import { registerUnreadsCommand } from "./cli/unreads-command.ts";
 import { registerUpdateCommand } from "./cli/update-command.ts";
 import { registerUserCommand } from "./cli/user-command.ts";
 import { registerChannelCommand } from "./cli/channel-command.ts";
+import { registerFileCommand } from "./cli/file-command.ts";
 import { registerWorkflowCommand } from "./cli/workflow-command.ts";
 import { backgroundUpdateCheck } from "./lib/update.ts";
 
@@ -30,6 +31,7 @@ registerUnreadsCommand({ program, ctx });
 registerUpdateCommand({ program });
 registerUserCommand({ program, ctx });
 registerChannelCommand({ program, ctx });
+registerFileCommand({ program, ctx });
 registerWorkflowCommand({ program, ctx });
 
 program.parse(process.argv);
