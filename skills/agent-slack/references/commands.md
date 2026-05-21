@@ -59,10 +59,16 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
 
-- `agent-slack message send <target> <text>`
+- `agent-slack message send <target> [text]`
   - If `<target>` is a Slack message URL, replies in that message’s thread.
   - Otherwise posts to the channel/DM.
+  - `[text]` is optional when uploading files with `--attach`; when present, it becomes the initial comment on the first uploaded file.
   - Bullet lists (`- `, `* `, `• `, `1. `, etc.) are automatically converted to Slack’s native rich text format, so recipients see real editable bullets instead of plain-text dashes.
+  - Examples:
+    - `agent-slack message send "general" --attach ./report.md`
+    - `agent-slack message send "general" "Coverage report" --attach ./report.md`
+    - `agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" --attach ./report.md`
+    - `agent-slack message send "general" "Reports" --attach ./report.md --attach ./data.csv`
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--thread-ts <seconds>.<micros>` (optional, channel mode only)

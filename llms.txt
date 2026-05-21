@@ -12,7 +12,7 @@
 
 - Read Slack messages, threads, and channel history from any URL or channel name
 - Search Slack messages and files with filters for channel, user, date, and content type
-- Send, edit, delete Slack messages and add/remove emoji reactions programmatically
+- Send, edit, delete Slack messages, upload local files with `message send --attach`, and add/remove emoji reactions programmatically
 - Auto-download Slack file attachments (snippets, images, files) to local paths for AI agent consumption
 - Token-efficient compact JSON output so LLMs can consume Slack data cheaply
 - Zero-config auth: auto-detects Slack Desktop credentials on macOS, Windows, and Linux — with Chrome, Brave, and Firefox fallbacks
