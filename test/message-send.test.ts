@@ -138,6 +138,88 @@ describe("sendMessage", () => {
     });
   });
 
+  test("--reply-broadcast with --thread-ts sends reply_broadcast: true", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "shipping today",
+      options: { threadTs: "1770160000.000001", replyBroadcast: true },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.postMessage");
+    expect(calls[0]?.params.reply_broadcast).toBe(true);
+    expect(calls[0]?.params.thread_ts).toBe("1770160000.000001");
+  });
+
+  test("--reply-broadcast omits the field from chat.postMessage when flag is absent", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "reply",
+      options: { threadTs: "1770160000.000001" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect("reply_broadcast" in (calls[0]?.params ?? {})).toBe(false);
+  });
+
+  test("--reply-broadcast without --thread-ts throws", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await expect(
+      sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "oops",
+        options: { replyBroadcast: true },
+      }),
+    ).rejects.toThrow(/--reply-broadcast requires --thread-ts/);
+
+    expect(calls).toHaveLength(0);
+  });
+
+  test("--reply-broadcast works alongside --blocks payload", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    const blocks = [{ type: "section", text: { type: "mrkdwn", text: "summary" } }];
+    await writeFile(blocksPath, JSON.stringify(blocks));
+
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "fallback",
+        options: {
+          threadTs: "1770160000.000001",
+          replyBroadcast: true,
+          blocks: blocksPath,
+        },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.postMessage");
+    expect(calls[0]?.params).toEqual({
+      channel: "C12345678",
+      text: "fallback",
+      thread_ts: "1770160000.000001",
+      blocks,
+      reply_broadcast: true,
+    });
+  });
+
   test("uploads attachment and uses message text as initial comment", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);

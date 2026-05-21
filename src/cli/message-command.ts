@@ -163,6 +163,10 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
+    .option(
+      "--reply-broadcast",
+      "Also broadcast this thread reply to the parent channel (requires --thread-ts; cannot be combined with --attach).",
+    )
     .option("--attach <path>", "Attach a local file path (repeatable)", collectOptionValue, [])
     .option(
       "--blocks <path>",
@@ -172,7 +176,13 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       const [targetInput, text, options] = args as [
         string,
         string | undefined,
-        { workspace?: string; threadTs?: string; attach?: string[]; blocks?: string },
+        {
+          workspace?: string;
+          threadTs?: string;
+          attach?: string[];
+          blocks?: string;
+          replyBroadcast?: boolean;
+        },
       ];
       const hasAttach = (options.attach ?? []).length > 0;
       const hasBlocks = options.blocks !== undefined;
@@ -183,6 +193,18 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       }
       if (hasBlocks && hasAttach) {
         console.error("Error: --blocks cannot be combined with --attach.");
+        process.exitCode = 1;
+        return;
+      }
+      if (options.replyBroadcast && hasAttach) {
+        console.error(
+          "Error: --reply-broadcast cannot be combined with --attach (Slack file uploads do not support thread broadcasts).",
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (options.replyBroadcast && !options.threadTs) {
+        console.error("Error: --reply-broadcast requires --thread-ts.");
         process.exitCode = 1;
         return;
       }

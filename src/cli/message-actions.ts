@@ -105,8 +105,17 @@ export async function sendMessage(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; threadTs?: string; attach?: string[]; blocks?: string };
+  options: {
+    workspace?: string;
+    threadTs?: string;
+    attach?: string[];
+    blocks?: string;
+    replyBroadcast?: boolean;
+  };
 }): Promise<Record<string, unknown>> {
+  if (input.options.replyBroadcast && !input.options.threadTs) {
+    throw new Error("--reply-broadcast requires --thread-ts");
+  }
   const target = parseMsgTarget(String(input.targetInput));
   const formattedText = formatOutboundSlackText(input.text);
   const blocks = input.options.blocks
@@ -174,6 +183,7 @@ export async function sendMessage(input: {
         text: formattedText,
         blocks,
         threadTs: input.options.threadTs ? String(input.options.threadTs) : undefined,
+        replyBroadcast: input.options.replyBroadcast,
         attachPaths,
       });
     },
@@ -200,6 +210,7 @@ async function sendMessageToChannel(input: {
   text: string;
   blocks?: unknown[] | null;
   threadTs?: string;
+  replyBroadcast?: boolean;
   attachPaths: string[];
 }): Promise<Record<string, unknown>> {
   if (input.attachPaths.length === 0) {
@@ -208,6 +219,7 @@ async function sendMessageToChannel(input: {
       text: input.text,
       thread_ts: input.threadTs,
       ...(input.blocks ? { blocks: input.blocks } : {}),
+      ...(input.replyBroadcast && input.threadTs ? { reply_broadcast: true } : {}),
     });
     const ts = typeof resp.ts === "string" ? resp.ts : undefined;
     const channelId = typeof resp.channel === "string" ? resp.channel : input.channelId;
