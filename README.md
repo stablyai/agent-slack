@@ -72,7 +72,7 @@ agent-slack
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch thread or recent channel messages
-│   ├── send  <target> <text>      # send / reply (supports --attach)
+│   ├── send  <target> [text]      # send / reply (supports --attach)
 │   ├── draft <target> [text]      # open Slack-like editor in browser
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
@@ -229,8 +229,24 @@ agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.6283
 
 Attach options for `message send`:
 
-- `--attach <path>` upload a local file (repeatable)
+- `--attach <path>` upload a local file (repeatable; `<text>` is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
+
+Upload files through `message send`:
+
+```bash
+# Upload a file without a message
+agent-slack message send "#general" --attach ./report.md
+
+# Upload with an initial comment
+agent-slack message send "#general" "Coverage report" --attach ./report.md
+
+# Upload into a thread
+agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" --attach ./report.md
+
+# Upload multiple files
+agent-slack message send "#general" "Reports" --attach ./report.md --attach ./data.csv
+```
 
 Example — post a message with a native Slack table block:
 

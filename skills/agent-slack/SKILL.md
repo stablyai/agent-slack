@@ -6,7 +6,8 @@ description: |
   - Browsing recent channel messages / channel history
   - Downloading Slack attachments (snippets, images, files) to local paths
   - Searching Slack messages or files
-  - Sending, editing, or deleting a message; adding/removing reactions
+  - Sending messages, including local file uploads via `message send --attach`
+  - Editing or deleting a message; adding/removing reactions
   - Listing channels/conversations; creating channels and inviting users
   - Fetching a Slack canvas as markdown
   - Looking up Slack users
@@ -15,7 +16,7 @@ description: |
   - Discovering and running Slack workflows
   - Managing saved-for-later messages (Later tab)
   - Viewing all unread messages (inbox/unreads view)
-  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later", "slack unreads", "slack inbox", "unread slack"
+  Triggers: "slack message", "slack thread", "slack URL", "slack link", "read slack", "reply on slack", "search slack", "channel history", "recent messages", "channel messages", "latest messages", "mark as read", "mark read", "slack later", "saved for later", "save for later", "slack unreads", "slack inbox", "unread slack", "upload file", "slack file upload", "send file slack"
 ---
 
 # Slack automation with `agent-slack`
@@ -160,8 +161,17 @@ agent-slack message delete "general" --workspace "myteam" --ts "1770165109.62837
 
 Attach options for `message send`:
 
-- `--attach <path>` upload a local file (repeatable)
+- `--attach <path>` upload a local file (repeatable; message text is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Enables headers, dividers, table blocks, and other structured layouts. Incompatible with `--attach`.
+
+File upload examples:
+
+```bash
+agent-slack message send "general" --attach ./report.md
+agent-slack message send "general" "Coverage report" --attach ./report.md
+agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" --attach ./report.md
+agent-slack message send "general" "Reports" --attach ./report.md --attach ./data.csv
+```
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread.
 
