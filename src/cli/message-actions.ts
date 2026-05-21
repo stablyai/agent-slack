@@ -113,9 +113,6 @@ export async function sendMessage(input: {
     replyBroadcast?: boolean;
   };
 }): Promise<Record<string, unknown>> {
-  if (input.options.replyBroadcast && !input.options.threadTs) {
-    throw new Error("--reply-broadcast requires --thread-ts");
-  }
   const target = parseMsgTarget(String(input.targetInput));
   const formattedText = formatOutboundSlackText(input.text);
   const blocks = input.options.blocks
@@ -141,6 +138,7 @@ export async function sendMessage(input: {
           text: formattedText,
           blocks,
           threadTs,
+          replyBroadcast: input.options.replyBroadcast,
           attachPaths,
         });
       },
@@ -148,6 +146,9 @@ export async function sendMessage(input: {
   }
 
   if (target.kind === "user") {
+    if (input.options.replyBroadcast) {
+      throw new Error("--reply-broadcast is not supported for DM targets");
+    }
     const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
     return await input.ctx.withAutoRefresh({
       workspaceUrl,
@@ -166,6 +167,9 @@ export async function sendMessage(input: {
     });
   }
 
+  if (input.options.replyBroadcast && !input.options.threadTs) {
+    throw new Error("--reply-broadcast requires --thread-ts for channel targets");
+  }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
   await input.ctx.assertWorkspaceSpecifiedForChannelNames({
     workspaceUrl,

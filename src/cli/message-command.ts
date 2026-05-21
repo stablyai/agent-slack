@@ -203,11 +203,6 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
         process.exitCode = 1;
         return;
       }
-      if (options.replyBroadcast && !options.threadTs) {
-        console.error("Error: --reply-broadcast requires --thread-ts.");
-        process.exitCode = 1;
-        return;
-      }
       try {
         const payload = await sendMessage({
           ctx: input.ctx,
