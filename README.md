@@ -235,17 +235,7 @@ Attach options for `message send`:
 Upload files through `message send`:
 
 ```bash
-# Upload a file without a message
-agent-slack message send "#general" --attach ./report.md
-
-# Upload with an initial comment
 agent-slack message send "#general" "Coverage report" --attach ./report.md
-
-# Upload into a thread
-agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" --attach ./report.md
-
-# Upload multiple files
-agent-slack message send "#general" "Reports" --attach ./report.md --attach ./data.csv
 ```
 
 Example — post a message with a native Slack table block:

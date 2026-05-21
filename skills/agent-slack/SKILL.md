@@ -164,13 +164,10 @@ Attach options for `message send`:
 - `--attach <path>` upload a local file (repeatable; message text is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Enables headers, dividers, table blocks, and other structured layouts. Incompatible with `--attach`.
 
-File upload examples:
+File upload example:
 
 ```bash
-agent-slack message send "general" --attach ./report.md
 agent-slack message send "general" "Coverage report" --attach ./report.md
-agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" --attach ./report.md
-agent-slack message send "general" "Reports" --attach ./report.md --attach ./data.csv
 ```
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread.
