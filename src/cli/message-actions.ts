@@ -105,7 +105,13 @@ export async function sendMessage(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; threadTs?: string; attach?: string[]; blocks?: string };
+  options: {
+    workspace?: string;
+    threadTs?: string;
+    attach?: string[];
+    blocks?: string;
+    replyBroadcast?: boolean;
+  };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
   const formattedText = formatOutboundSlackText(input.text);
@@ -132,6 +138,7 @@ export async function sendMessage(input: {
           text: formattedText,
           blocks,
           threadTs,
+          replyBroadcast: input.options.replyBroadcast,
           attachPaths,
         });
       },
@@ -139,6 +146,9 @@ export async function sendMessage(input: {
   }
 
   if (target.kind === "user") {
+    if (input.options.replyBroadcast) {
+      throw new Error("--reply-broadcast is not supported for DM targets");
+    }
     const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
     return await input.ctx.withAutoRefresh({
       workspaceUrl,
@@ -157,6 +167,9 @@ export async function sendMessage(input: {
     });
   }
 
+  if (input.options.replyBroadcast && !input.options.threadTs) {
+    throw new Error("--reply-broadcast requires --thread-ts for channel targets");
+  }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
   await input.ctx.assertWorkspaceSpecifiedForChannelNames({
     workspaceUrl,
@@ -174,6 +187,7 @@ export async function sendMessage(input: {
         text: formattedText,
         blocks,
         threadTs: input.options.threadTs ? String(input.options.threadTs) : undefined,
+        replyBroadcast: input.options.replyBroadcast,
         attachPaths,
       });
     },
@@ -200,6 +214,7 @@ async function sendMessageToChannel(input: {
   text: string;
   blocks?: unknown[] | null;
   threadTs?: string;
+  replyBroadcast?: boolean;
   attachPaths: string[];
 }): Promise<Record<string, unknown>> {
   if (input.attachPaths.length === 0) {
@@ -208,6 +223,7 @@ async function sendMessageToChannel(input: {
       text: input.text,
       thread_ts: input.threadTs,
       ...(input.blocks ? { blocks: input.blocks } : {}),
+      ...(input.replyBroadcast && input.threadTs ? { reply_broadcast: true } : {}),
     });
     const ts = typeof resp.ts === "string" ? resp.ts : undefined;
     const channelId = typeof resp.channel === "string" ? resp.channel : input.channelId;

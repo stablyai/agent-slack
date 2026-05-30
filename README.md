@@ -72,7 +72,7 @@ agent-slack
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch thread or recent channel messages
-│   ├── send  <target> [text]      # send / reply (supports --attach)
+│   ├── send  <target> [text]      # send / reply (supports --attach, --blocks, --reply-broadcast)
 │   ├── draft <target> [text]      # open Slack-like editor in browser
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
@@ -227,15 +227,23 @@ agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "17
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-Attach options for `message send`:
+Send options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable; `<text>` is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
+- `--reply-broadcast` when replying in a thread, also post the reply to the parent channel (Slack's "Also send to #channel" checkbox). For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
 
 Upload files through `message send`:
 
 ```bash
 agent-slack message send "#general" "Coverage report" --attach ./report.md
+```
+
+Broadcast a thread reply to the parent channel:
+
+```bash
+agent-slack message send "#general" "Decision: shipping v2 today" \
+  --thread-ts "1770160000.000001" --reply-broadcast
 ```
 
 Example — post a message with a native Slack table block:

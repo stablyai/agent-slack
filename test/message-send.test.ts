@@ -138,6 +138,145 @@ describe("sendMessage", () => {
     });
   });
 
+  test("--reply-broadcast with --thread-ts sends reply_broadcast: true", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "shipping today",
+      options: { threadTs: "1770160000.000001", replyBroadcast: true },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.postMessage");
+    expect(calls[0]?.params.reply_broadcast).toBe(true);
+    expect(calls[0]?.params.thread_ts).toBe("1770160000.000001");
+  });
+
+  test("--reply-broadcast omits the field from chat.postMessage when flag is absent", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "reply",
+      options: { threadTs: "1770160000.000001" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect("reply_broadcast" in (calls[0]?.params ?? {})).toBe(false);
+  });
+
+  test("--reply-broadcast without --thread-ts throws", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await expect(
+      sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "oops",
+        options: { replyBroadcast: true },
+      }),
+    ).rejects.toThrow(/--reply-broadcast requires --thread-ts/);
+
+    expect(calls).toHaveLength(0);
+  });
+
+  test("--reply-broadcast on a URL target broadcasts using the message's derived thread_ts", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx: CliContext = {
+      ...createContext(calls),
+      getClientForWorkspace: async () => ({
+        client: {
+          api: async (method: string, params: Record<string, unknown>) => {
+            calls.push({ method, params });
+            if (method === "conversations.history") {
+              return {
+                ok: true,
+                messages: [
+                  { ts: "1770160500.000100", thread_ts: "1770160000.000001", text: "root" },
+                ],
+              };
+            }
+            if (method === "chat.postMessage") {
+              return { ok: true, channel: String(params.channel), ts: "1770165109.628379" };
+            }
+            return { ok: true };
+          },
+        } as never,
+        auth: { auth_type: "standard", token: "x" as const },
+        workspace_url: "https://workspace.slack.com",
+      }),
+    };
+
+    await sendMessage({
+      ctx,
+      targetInput: "https://workspace.slack.com/archives/C12345678/p1770160500000100",
+      text: "broadcast",
+      options: { replyBroadcast: true },
+    });
+
+    const post = calls.find((c) => c.method === "chat.postMessage");
+    expect(post).toBeDefined();
+    expect(post?.params.reply_broadcast).toBe(true);
+    expect(post?.params.thread_ts).toBe("1770160000.000001");
+  });
+
+  test("--reply-broadcast on a DM target throws (broadcasting is not meaningful for DMs)", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await expect(
+      sendMessage({
+        ctx,
+        targetInput: "U05BRPTKL6A",
+        text: "hi",
+        options: { threadTs: "1770160000.000001", replyBroadcast: true },
+      }),
+    ).rejects.toThrow(/--reply-broadcast is not supported for DM targets/);
+
+    expect(calls.some((c) => c.method === "chat.postMessage")).toBe(false);
+    expect(calls.some((c) => c.method === "conversations.open")).toBe(false);
+  });
+
+  test("--reply-broadcast works alongside --blocks payload", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    const blocks = [{ type: "section", text: { type: "mrkdwn", text: "summary" } }];
+    await writeFile(blocksPath, JSON.stringify(blocks));
+
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "fallback",
+        options: {
+          threadTs: "1770160000.000001",
+          replyBroadcast: true,
+          blocks: blocksPath,
+        },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.postMessage");
+    expect(calls[0]?.params).toEqual({
+      channel: "C12345678",
+      text: "fallback",
+      thread_ts: "1770160000.000001",
+      blocks,
+      reply_broadcast: true,
+    });
+  });
+
   test("uploads attachment and uses message text as initial comment", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);
