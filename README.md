@@ -110,7 +110,7 @@ Notes:
 On macOS and Windows, authentication happens automatically:
 
 - Default: reads Slack Desktop local data (no need to quit Slack)
-- Fallbacks: if that fails, tries Brave/Chrome/Firefox extraction (macOS)
+- Fallbacks: if that fails, tries Chrome/Brave/Firefox extraction (macOS)
 
 You can also run manual imports:
 

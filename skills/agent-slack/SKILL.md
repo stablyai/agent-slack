@@ -46,7 +46,7 @@ Claude Code's permission checker has security heuristics that force manual appro
 
 ## Quick start (auth)
 
-Authentication is automatic on macOS and Windows (Slack Desktop first, then Brave/Chrome/Firefox fallbacks on macOS).
+Authentication is automatic on macOS and Windows (Slack Desktop first, then Chrome/Brave/Firefox fallbacks on macOS).
 
 If credentials aren’t available, run one of:
 
