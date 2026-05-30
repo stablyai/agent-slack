@@ -159,7 +159,7 @@ agent-slack message edit "general" "Updated text" --workspace "myteam" --ts "177
 agent-slack message delete "general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-Attach options for `message send`:
+Send options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable; message text is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Enables headers, dividers, table blocks, and other structured layouts. Incompatible with `--attach`.
@@ -174,7 +174,7 @@ agent-slack message send "general" "Coverage report" --attach ./report.md
 Thread reply also broadcast to the channel:
 
 ```bash
-agent-slack message send "#general" "Decision: shipping v2 today" \
+agent-slack message send "general" "Decision: shipping v2 today" \
   --thread-ts "1770160000.000001" --reply-broadcast
 ```
 

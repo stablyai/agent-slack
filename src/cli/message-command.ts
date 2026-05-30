@@ -165,7 +165,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
     .option(
       "--reply-broadcast",
-      "Also broadcast this thread reply to the parent channel (requires --thread-ts; cannot be combined with --attach).",
+      "Also broadcast this thread reply to the parent channel (requires thread context; use --thread-ts for channel targets; cannot be combined with --attach).",
     )
     .option("--attach <path>", "Attach a local file path (repeatable)", collectOptionValue, [])
     .option(

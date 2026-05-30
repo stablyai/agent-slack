@@ -70,6 +70,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
     - `--attach <path>` (repeatable; upload local files as attachments)
     - `--blocks <path>` raw Block Kit blocks from a JSON file (or `-` for stdin). Bypasses markdown-to-rich-text conversion; enables header/divider/section/table blocks. Cannot be combined with `--attach`.
+    - `--reply-broadcast` when replying in a thread, also post the reply to the parent channel. For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
 
 - `agent-slack message edit <target> <text>`
   - URL target edits that exact message.

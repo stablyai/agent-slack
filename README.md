@@ -227,7 +227,7 @@ agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "17
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-Attach options for `message send`:
+Send options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable; `<text>` is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
