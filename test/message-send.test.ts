@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CliContext } from "../src/cli/context.ts";
-import { sendMessage } from "../src/cli/message-actions.ts";
+import { editMessage, sendMessage } from "../src/cli/message-actions.ts";
 
 function createContext(calls: { method: string; params: Record<string, unknown> }[]) {
   const client = {
@@ -489,5 +489,165 @@ describe("sendMessage", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("editMessage", () => {
+  test("edits a normal text message without blocks", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "hello",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "chat.update",
+        params: {
+          channel: "C12345678",
+          ts: "1770165109.628379",
+          text: "hello",
+        },
+      },
+    ]);
+  });
+
+  test("edits literal angle bracket text without blocks", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "please use <fix>",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "chat.update",
+        params: {
+          channel: "C12345678",
+          ts: "1770165109.628379",
+          text: "please use &lt;fix&gt;",
+        },
+      },
+    ]);
+  });
+
+  test("edits a message URL with a link label without blocks", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "https://workspace.slack.com/archives/C12345678/p1770165109628379",
+      text: "Visit <https://example.com|Example>",
+      options: {},
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.channel).toBe("C12345678");
+    expect(calls[0]?.params.ts).toBe("1770165109.628379");
+    expect(calls[0]?.params.text).toBe("Visit <https://example.com|Example>");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("edits an inline mailto link without escaping it", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "Email <mailto:bob@example.com|Bob>",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.text).toBe("Email <mailto:bob@example.com|Bob>");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("edits an inline usergroup mention without escaping it", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "Ping <!subteam^S12345678|@team>",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.text).toBe("Ping <!subteam^S12345678|@team>");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("edits a channel target with inline formatting without blocks", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "Update *now*",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.text).toBe("Update *now*");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("edits a channel target with rich text blocks when text contains a list", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "- Post in <#C87654321|general>\n- Update *now*",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.blocks).toEqual([
+      {
+        type: "rich_text",
+        elements: [
+          {
+            type: "rich_text_list",
+            style: "bullet",
+            elements: [
+              {
+                type: "rich_text_section",
+                elements: [
+                  { type: "text", text: "Post in " },
+                  { type: "channel", channel_id: "C87654321" },
+                ],
+              },
+              {
+                type: "rich_text_section",
+                elements: [
+                  { type: "text", text: "Update " },
+                  { type: "text", text: "now", style: { bold: true } },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
   });
 });

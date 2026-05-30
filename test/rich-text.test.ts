@@ -47,11 +47,124 @@ describe("parseInlineElements", () => {
       { type: "link", url: "https://example.com" },
     ]);
   });
+
+  test("<mailto|label> is parsed as link with text", () => {
+    expect(parseInlineElements("Email <mailto:bob@example.com|Bob>")).toEqual([
+      { type: "text", text: "Email " },
+      { type: "link", url: "mailto:bob@example.com", text: "Bob" },
+    ]);
+  });
+
+  test("non-url angle bracket text is preserved as text", () => {
+    expect(parseInlineElements("Use <fix>")).toEqual([
+      { type: "text", text: "Use " },
+      { type: "text", text: "<fix>" },
+    ]);
+  });
+
+  test("non-url labeled angle bracket text is preserved as text", () => {
+    expect(parseInlineElements("Use <fix|label>")).toEqual([
+      { type: "text", text: "Use " },
+      { type: "text", text: "<fix|label>" },
+    ]);
+  });
+
+  test("channel mention tokens are parsed as channel elements", () => {
+    expect(parseInlineElements("See <#C12345678|general>")).toEqual([
+      { type: "text", text: "See " },
+      { type: "channel", channel_id: "C12345678" },
+    ]);
+  });
+
+  test("usergroup mention tokens are parsed as usergroup elements", () => {
+    expect(parseInlineElements("Ping <!subteam^S12345678|@team>")).toEqual([
+      { type: "text", text: "Ping " },
+      { type: "usergroup", usergroup_id: "S12345678" },
+    ]);
+  });
 });
 
 describe("textToRichTextBlocks", () => {
   test("plain text returns null", () => {
     expect(textToRichTextBlocks("Hello world")).toBeNull();
+  });
+
+  test("inline-only formatting returns null by default", () => {
+    expect(textToRichTextBlocks("Visit <https://example.com|Example>")).toBeNull();
+  });
+
+  test("non-url angle bracket text does not trigger rich text blocks", () => {
+    expect(textToRichTextBlocks("Use <fix>", { includeInlineFormatting: true })).toBeNull();
+    expect(textToRichTextBlocks("Use <fix|label>", { includeInlineFormatting: true })).toBeNull();
+  });
+
+  test("mixed non-url angle bracket text and formatting preserves brackets", () => {
+    const result = textToRichTextBlocks("Use <fix|label> and *bold*", {
+      includeInlineFormatting: true,
+    })!;
+    expect(result[0]!.elements).toEqual([
+      {
+        type: "rich_text_section",
+        elements: [
+          { type: "text", text: "Use " },
+          { type: "text", text: "<fix|label>" },
+          { type: "text", text: " and " },
+          { type: "text", text: "bold", style: { bold: true } },
+          { type: "text", text: "\n" },
+        ],
+      },
+    ]);
+  });
+
+  test("inline-only formatting can produce rich text blocks", () => {
+    const result = textToRichTextBlocks("Visit <https://example.com|Example>", {
+      includeInlineFormatting: true,
+    })!;
+    expect(result).not.toBeNull();
+    expect(result[0]!.elements).toEqual([
+      {
+        type: "rich_text_section",
+        elements: [
+          { type: "text", text: "Visit " },
+          { type: "link", url: "https://example.com", text: "Example" },
+          { type: "text", text: "\n" },
+        ],
+      },
+    ]);
+  });
+
+  test("mailto links can produce rich text blocks when inline formatting is included", () => {
+    const result = textToRichTextBlocks("Email <mailto:bob@example.com|Bob>", {
+      includeInlineFormatting: true,
+    })!;
+    expect(result).not.toBeNull();
+    expect(result[0]!.elements).toEqual([
+      {
+        type: "rich_text_section",
+        elements: [
+          { type: "text", text: "Email " },
+          { type: "link", url: "mailto:bob@example.com", text: "Bob" },
+          { type: "text", text: "\n" },
+        ],
+      },
+    ]);
+  });
+
+  test("channel mentions can produce rich text blocks when inline formatting is included", () => {
+    const result = textToRichTextBlocks("See <#C12345678|general>", {
+      includeInlineFormatting: true,
+    })!;
+    expect(result).not.toBeNull();
+    expect(result[0]!.elements).toEqual([
+      {
+        type: "rich_text_section",
+        elements: [
+          { type: "text", text: "See " },
+          { type: "channel", channel_id: "C12345678" },
+          { type: "text", text: "\n" },
+        ],
+      },
+    ]);
   });
 
   test("bullet list with - prefix", () => {

@@ -4,6 +4,8 @@ type InlineElement =
   | { type: "text"; text: string; style?: InlineStyle }
   | { type: "link"; url: string; text?: string; style?: InlineStyle }
   | { type: "user"; user_id: string }
+  | { type: "channel"; channel_id: string }
+  | { type: "usergroup"; usergroup_id: string }
   | { type: "broadcast"; range: "here" | "channel" | "everyone" };
 
 type RichTextElement =
@@ -27,6 +29,10 @@ type RichTextBlock = {
   elements: RichTextElement[];
 };
 
+type TextToRichTextBlocksOptions = {
+  includeInlineFormatting?: boolean;
+};
+
 const BULLET_RE = /^(\s*)[•◦▪▫▸‣●○◆◇\-*]\s+(.*)$/;
 const ORDERED_RE = /^(\s*)\d+[.)]\s+(.*)$/;
 const CODE_BLOCK_START = /^```/;
@@ -40,7 +46,7 @@ const BLOCKQUOTE_RE = /^> (.*)$/;
 export function parseInlineElements(text: string): InlineElement[] {
   const elements: InlineElement[] = [];
   const re =
-    /`([^`]+)`|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
+    /`([^`]+)`|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -62,6 +68,8 @@ export function parseInlineElements(text: string): InlineElement[] {
       italic,
       strike,
       userToken,
+      channelToken,
+      usergroupToken,
       broadcastToken,
       linkUrl,
       linkText,
@@ -79,15 +87,23 @@ export function parseInlineElements(text: string): InlineElement[] {
       elements.push({ type: "text", text: strike, style: { strike: true } });
     } else if (userToken != null) {
       elements.push({ type: "user", user_id: userToken });
+    } else if (channelToken != null) {
+      elements.push({ type: "channel", channel_id: channelToken });
+    } else if (usergroupToken != null) {
+      elements.push({ type: "usergroup", usergroup_id: usergroupToken });
     } else if (broadcastToken != null) {
       elements.push({
         type: "broadcast",
         range: broadcastToken as "here" | "channel" | "everyone",
       });
-    } else if (linkUrl != null && linkText != null) {
+    } else if (linkUrl != null && linkText != null && isSlackManualLinkUrl(linkUrl)) {
       elements.push({ type: "link", url: linkUrl, text: linkText });
-    } else if (bareUrl != null) {
+    } else if (linkUrl != null && linkText != null) {
+      elements.push({ type: "text", text: `<${linkUrl}|${linkText}>` });
+    } else if (bareUrl != null && isSlackManualLinkUrl(bareUrl)) {
       elements.push({ type: "link", url: bareUrl });
+    } else if (bareUrl != null) {
+      elements.push({ type: "text", text: `<${bareUrl}>` });
     } else if (bareUserId != null) {
       elements.push({ type: "user", user_id: bareUserId });
     } else if (bareBroadcast != null) {
@@ -107,15 +123,23 @@ export function parseInlineElements(text: string): InlineElement[] {
   return elements.length > 0 ? elements : [{ type: "text", text }];
 }
 
+function isSlackManualLinkUrl(value: string): boolean {
+  return /^(?:https?:\/\/|mailto:)/i.test(value);
+}
+
 /**
  * Convert mrkdwn text to Slack rich_text blocks when bullet or numbered
  * lists are detected. Returns `null` when the text contains no lists,
  * so the caller can fall back to plain `text`.
  */
-export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
+export function textToRichTextBlocks(
+  text: string,
+  options: TextToRichTextBlocksOptions = {},
+): RichTextBlock[] | null {
   const lines = text.split("\n");
   const elements: RichTextElement[] = [];
   let hasLists = false;
+  let hasFormatting = false;
   let idx = 0;
 
   while (idx < lines.length) {
@@ -136,6 +160,7 @@ export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
         type: "rich_text_preformatted",
         elements: [{ type: "text", text: codeLines.join("\n") }],
       });
+      hasFormatting = true;
       continue;
     }
 
@@ -155,6 +180,7 @@ export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
         type: "rich_text_quote",
         elements: parseInlineElements(quoteLines.join("\n")),
       });
+      hasFormatting = true;
       continue;
     }
 
@@ -189,18 +215,26 @@ export function textToRichTextBlocks(text: string): RichTextBlock[] | null {
     }
     const content = textLines.join("\n");
     if (content.trim()) {
+      const inlineElements = parseInlineElements(content.endsWith("\n") ? content : `${content}\n`);
+      if (hasRichInlineFormatting(inlineElements)) {
+        hasFormatting = true;
+      }
       elements.push({
         type: "rich_text_section",
-        elements: parseInlineElements(content.endsWith("\n") ? content : `${content}\n`),
+        elements: inlineElements,
       });
     }
   }
 
-  if (!hasLists) {
+  if (!hasLists && !(options.includeInlineFormatting && hasFormatting)) {
     return null;
   }
 
   return [{ type: "rich_text", elements }];
+}
+
+function hasRichInlineFormatting(elements: InlineElement[]): boolean {
+  return elements.some((element) => element.type !== "text" || Boolean(element.style));
 }
 
 function collectList(input: {
