@@ -1,4 +1,4 @@
-import { extractFromBrave } from "../auth/brave.ts";
+import { BraveAppleScriptDisabledError, extractFromBrave } from "../auth/brave.ts";
 import { extractFromChrome } from "../auth/chrome.ts";
 import { extractFromSlackDesktop } from "../auth/desktop.ts";
 import { extractFromFirefox } from "../auth/firefox.ts";
@@ -144,9 +144,15 @@ export async function getClientForWorkspace(workspaceUrl?: string): Promise<{
   if (chromeResult && chromeResult.teams.length > 0) {
     browserSources.push(chromeResult);
   }
-  const braveResult = await extractFromBrave();
-  if (braveResult && braveResult.teams.length > 0) {
-    browserSources.push(braveResult);
+  try {
+    const braveResult = await extractFromBrave();
+    if (braveResult && braveResult.teams.length > 0) {
+      browserSources.push(braveResult);
+    }
+  } catch (err) {
+    if (!(err instanceof BraveAppleScriptDisabledError)) {
+      throw err;
+    }
   }
   const firefoxResult = await extractFromFirefox();
   if (firefoxResult && firefoxResult.teams.length > 0) {
