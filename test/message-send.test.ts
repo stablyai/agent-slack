@@ -4,6 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CliContext } from "../src/cli/context.ts";
 import { editMessage, sendMessage } from "../src/cli/message-actions.ts";
+import {
+  cancelScheduledMessage,
+  listScheduledMessages,
+} from "../src/cli/message-scheduled-actions.ts";
+import {
+  parseAbsoluteSchedule,
+  parseRelativeSchedule,
+  resolveSchedulePostAt,
+} from "../src/slack/scheduled-messages.ts";
 
 function createContext(calls: { method: string; params: Record<string, unknown> }[]) {
   const client = {
@@ -14,6 +23,40 @@ function createContext(calls: { method: string; params: Record<string, unknown> 
       }
       if (method === "chat.postMessage") {
         return { ok: true, channel: String(params.channel), ts: "1770165109.628379" };
+      }
+      if (method === "chat.scheduleMessage") {
+        return {
+          ok: true,
+          channel: String(params.channel),
+          scheduled_message_id: "Q1234ABCD",
+          post_at: String(params.post_at),
+        };
+      }
+      if (method === "chat.scheduledMessages.list") {
+        return {
+          ok: true,
+          scheduled_messages: [
+            {
+              id: "Q1234ABCD",
+              channel_id: String(params.channel ?? "C12345678"),
+              post_at: 1770168709,
+              text: "scheduled",
+            },
+          ],
+          response_metadata: { next_cursor: "next-1" },
+        };
+      }
+      if (method === "chat.deleteScheduledMessage") {
+        return { ok: true };
+      }
+      if (method === "search.messages") {
+        return {
+          ok: true,
+          messages: { matches: [{ channel: { id: "C12345678", name: "general" } }] },
+        };
+      }
+      if (method === "conversations.open") {
+        return { ok: true, channel: { id: "D12345678" } };
       }
       return { ok: true };
     },
@@ -489,6 +532,197 @@ describe("sendMessage", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  test("--schedule sends through chat.scheduleMessage and returns scheduled metadata", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const when = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const postAt = Math.floor(Date.parse(when) / 1000);
+
+    const result = await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "later",
+      options: { schedule: when },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "chat.scheduleMessage",
+        params: {
+          channel: "C12345678",
+          text: "later",
+          post_at: postAt,
+          thread_ts: undefined,
+        },
+      },
+    ]);
+    expect(result).toEqual({
+      ok: true,
+      channel_id: "C12345678",
+      scheduled_message_id: "Q1234ABCD",
+      post_at: postAt,
+      thread_ts: undefined,
+    });
+  });
+
+  test("--schedule-in computes a relative post_at", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const before = Math.floor(Date.now() / 1000);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "later",
+      options: { scheduleIn: "3h" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.scheduleMessage");
+    expect(calls[0]?.params.post_at as number).toBeGreaterThanOrEqual(before + 3 * 3600 - 1);
+    expect(calls[0]?.params.post_at as number).toBeLessThanOrEqual(before + 3 * 3600 + 1);
+  });
+
+  test("--schedule composes with blocks, thread replies, and reply broadcast", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    const blocks = [{ type: "section", text: { type: "mrkdwn", text: "summary" } }];
+    await writeFile(blocksPath, JSON.stringify(blocks));
+
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "fallback",
+        options: {
+          blocks: blocksPath,
+          threadTs: "1770160000.000001",
+          replyBroadcast: true,
+          scheduleIn: "30m",
+        },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.scheduleMessage");
+    expect(calls[0]?.params).toMatchObject({
+      channel: "C12345678",
+      text: "fallback",
+      thread_ts: "1770160000.000001",
+      blocks,
+      reply_broadcast: true,
+    });
+  });
+
+  test("--schedule cannot be combined with file attachments", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await expect(
+      sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "later with file",
+        options: { attach: ["./report.md"], scheduleIn: "1h" },
+      }),
+    ).rejects.toThrow(/cannot be combined with --attach/);
+
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("scheduled message management", () => {
+  test("lists scheduled messages and forwards channel filters", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    const result = await listScheduledMessages({
+      ctx,
+      options: {
+        channel: "general",
+        cursor: "cursor-1",
+        oldest: "1770160000",
+        latest: "1770170000",
+        limit: "25",
+      },
+    });
+
+    const listCall = calls.find((c) => c.method === "chat.scheduledMessages.list");
+    expect(listCall?.params).toEqual({
+      channel: "C12345678",
+      cursor: "cursor-1",
+      oldest: "1770160000",
+      latest: "1770170000",
+      limit: 25,
+    });
+    expect(result).toEqual({
+      ok: true,
+      scheduled_messages: [
+        {
+          id: "Q1234ABCD",
+          channel_id: "C12345678",
+          post_at: 1770168709,
+          text: "scheduled",
+        },
+      ],
+      next_cursor: "next-1",
+    });
+  });
+
+  test("cancels scheduled messages with the required channel id", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    const result = await cancelScheduledMessage({
+      ctx,
+      scheduledMessageId: "Q1234ABCD",
+      options: { channel: "C12345678" },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "chat.deleteScheduledMessage",
+        params: { channel: "C12345678", scheduled_message_id: "Q1234ABCD" },
+      },
+    ]);
+    expect(result).toEqual({
+      ok: true,
+      channel_id: "C12345678",
+      scheduled_message_id: "Q1234ABCD",
+    });
+  });
+});
+
+describe("scheduled message time parsing", () => {
+  test("parses absolute ISO timestamps with explicit timezones", () => {
+    expect(parseAbsoluteSchedule("2026-06-15T18:00:00-07:00")).toBe(
+      Math.floor(Date.parse("2026-06-15T18:00:00-07:00") / 1000),
+    );
+    expect(() => parseAbsoluteSchedule("2026-06-15T18:00:00")).toThrow(/explicit timezone/);
+  });
+
+  test("parses named relative times like monday 9am", () => {
+    const now = new Date(2026, 4, 30, 12, 0, 0, 0);
+    const result = parseRelativeSchedule("monday 9am", { now });
+    const expected = new Date(now);
+    expected.setDate(now.getDate() + 2);
+    expected.setHours(9, 0, 0, 0);
+    expect(result).toBe(Math.floor(expected.getTime() / 1000));
+  });
+
+  test("rejects schedule times beyond Slack's 120 day limit", () => {
+    const now = new Date(2026, 4, 30, 12, 0, 0, 0);
+    const tooFar = new Date(now);
+    tooFar.setDate(now.getDate() + 121);
+    expect(() => resolveSchedulePostAt({ schedule: tooFar.toISOString() }, { now })).toThrow(
+      /120 days/,
+    );
   });
 });
 
