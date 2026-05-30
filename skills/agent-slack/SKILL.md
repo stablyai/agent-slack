@@ -168,7 +168,7 @@ agent-slack message edit "general" "Updated text" --workspace "myteam" --ts "177
 agent-slack message delete "general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-`message edit` keeps inline formatting text-only and converts bullet/numbered lists to Slack native rich text.
+`message send` and `message edit` convert bullet/numbered lists to Slack native rich text. Inline mentions, broadcasts, emoji shortcodes, and `<#C...>` channel references inside those lists are preserved as Slack elements.
 
 Send options for `message send`:
 
@@ -209,7 +209,7 @@ agent-slack message scheduled cancel "Q1234ABCD" --channel "C12345678"
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread. Scheduled sends return `scheduled_message_id` and `post_at` instead of `ts`/`permalink`.
 
-Mentions: just write `@U05BRPTKL6A`, `@here`, `@channel`, or `@everyone` — the CLI converts them to real Slack mention tokens and escapes literal `&`/`<`/`>` in your text. You don't need to wrap IDs yourself.
+Rich inline tokens in native rich-text output: when a message is converted to rich text, just write `@U05BRPTKL6A`, `@here`, `@channel`, `@everyone`, `:rocket:`, or `<#C12345678>` — the CLI converts supported tokens to real Slack elements and escapes literal `&`/`<`/`>` in your text. You don't need to wrap user IDs yourself.
 
 ## List channels + create/invite users
 

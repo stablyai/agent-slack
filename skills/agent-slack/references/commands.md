@@ -64,7 +64,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - If `<target>` is a Slack message URL, replies in that message’s thread.
   - Otherwise posts to the channel/DM.
   - `[text]` is optional when uploading files with `--attach`; when present, it becomes the initial comment on the first uploaded file.
-  - Bullet lists (`- `, `* `, `• `, `1. `, etc.) are automatically converted to Slack’s native rich text format, so recipients see real editable bullets instead of plain-text dashes.
+  - Bullet lists (`- `, `* `, `• `, `1. `, etc.) are automatically converted to Slack’s native rich text format, so recipients see real editable bullets instead of plain-text dashes. Inline mentions, broadcasts, emoji shortcodes, and `<#C...>` channel references inside those lists are preserved as Slack elements.
   - Example: `agent-slack message send "general" "Coverage report" --attach ./report.md`
   - Example: `agent-slack message send "general" "Monday launch checklist" --schedule-in "monday 9am"`
   - Options:
@@ -95,7 +95,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 - `agent-slack message edit <target> <text>`
   - URL target edits that exact message.
   - Channel target requires `--ts`.
-  - Inline formatting is sent as text; bullet/numbered lists are converted to Slack native rich text.
+  - Inline formatting is sent as text; bullet/numbered lists are converted to Slack native rich text. Inline mentions, broadcasts, emoji shortcodes, and `<#C...>` channel references inside those lists are preserved as Slack elements.
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required for channel targets)

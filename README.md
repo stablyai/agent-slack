@@ -237,7 +237,7 @@ agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "17
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-`message edit` keeps inline formatting text-only and converts bullet/numbered lists to Slack native rich text.
+`message send` and `message edit` convert bullet/numbered lists to Slack native rich text. Inline mentions, broadcasts, emoji shortcodes, and `<#C...>` channel references inside those lists are preserved as Slack elements.
 
 Send options for `message send`:
 

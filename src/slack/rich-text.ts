@@ -3,6 +3,7 @@ type InlineStyle = { bold?: true; italic?: true; strike?: true; code?: true };
 type InlineElement =
   | { type: "text"; text: string; style?: InlineStyle }
   | { type: "link"; url: string; text?: string; style?: InlineStyle }
+  | { type: "emoji"; name: string }
   | { type: "user"; user_id: string }
   | { type: "channel"; channel_id: string }
   | { type: "usergroup"; usergroup_id: string }
@@ -41,12 +42,12 @@ const BLOCKQUOTE_RE = /^> (.*)$/;
 /**
  * Parse mrkdwn inline formatting into Slack rich_text inline elements.
  *
- * Handles: *bold*, _italic_, ~strike~, `code`, <url|label>, <url>
+ * Handles: *bold*, _italic_, ~strike~, `code`, :emoji:, <url|label>, <url>
  */
 export function parseInlineElements(text: string): InlineElement[] {
   const elements: InlineElement[] = [];
   const re =
-    /`([^`]+)`|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
+    /`([^`]+)`|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -64,6 +65,7 @@ export function parseInlineElements(text: string): InlineElement[] {
     const [
       ,
       code,
+      emojiName,
       bold,
       italic,
       strike,
@@ -79,6 +81,8 @@ export function parseInlineElements(text: string): InlineElement[] {
     ] = match;
     if (code != null) {
       elements.push({ type: "text", text: code, style: { code: true } });
+    } else if (emojiName != null) {
+      elements.push({ type: "emoji", name: emojiName });
     } else if (bold != null) {
       elements.push({ type: "text", text: bold, style: { bold: true } });
     } else if (italic != null) {
