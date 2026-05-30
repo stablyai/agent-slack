@@ -66,12 +66,31 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - `[text]` is optional when uploading files with `--attach`; when present, it becomes the initial comment on the first uploaded file.
   - Bullet lists (`- `, `* `, `• `, `1. `, etc.) are automatically converted to Slack’s native rich text format, so recipients see real editable bullets instead of plain-text dashes.
   - Example: `agent-slack message send "general" "Coverage report" --attach ./report.md`
+  - Example: `agent-slack message send "general" "Monday launch checklist" --schedule-in "monday 9am"`
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
     - `--attach <path>` (repeatable; upload local files as attachments)
     - `--blocks <path>` raw Block Kit blocks from a JSON file (or `-` for stdin). Bypasses markdown-to-rich-text conversion; enables header/divider/section/table blocks. Cannot be combined with `--attach`.
     - `--reply-broadcast` when replying in a thread, also post the reply to the parent channel. For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
+    - `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (or Unix timestamp). Must be in the future and within Slack's 120-day scheduled-send limit. Compatible with `--blocks`, `--thread-ts`, and `--reply-broadcast`; cannot be combined with `--attach`.
+    - `--schedule-in <duration>` schedule delivery after a duration or simple future phrase (`30m`, `3h`, `2d`, `tomorrow 9am`, `monday 9am`; phrases use your local timezone). Mutually exclusive with `--schedule`; cannot be combined with `--attach`.
+
+- `agent-slack message scheduled list`
+  - Lists pending scheduled messages from Slack's server-side scheduled message queue.
+  - Options:
+    - `--workspace <url-or-unique-substring>` (defaults to configured workspace)
+    - `--channel <channel>` filter to a channel/DM id or channel name
+    - `--oldest <unix-ts>` only messages scheduled after this time
+    - `--latest <unix-ts>` only messages scheduled before this time
+    - `--cursor <cursor>` fetch the next page
+    - `--limit <n>` max messages to return
+
+- `agent-slack message scheduled cancel <scheduled_message_id>`
+  - Cancels a pending scheduled message before it is sent.
+  - Options:
+    - `--channel <channel>` required channel/DM id or channel name for the scheduled message
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
 
 - `agent-slack message edit <target> <text>`
   - URL target edits that exact message.

@@ -34,7 +34,7 @@ nix run github:stablyai/agent-slack
 - **Read**: fetch a message, browse channel history, list full threads
 - **Search**: messages + files (with filters)
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
-- **Write**: reply, edit/delete messages, add reactions (bullet lists auto-render as native Slack rich text)
+- **Write**: send now or schedule delivery, edit/delete messages, add reactions (bullet lists auto-render as native Slack rich text)
 - **Channels**: list conversations, create channels, and invite users by id/handle/email
 - **Canvas**: fetch Slack canvases as Markdown
 
@@ -73,7 +73,10 @@ agent-slack
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch thread or recent channel messages
-│   ├── send  <target> [text]      # send / reply (supports --attach, --blocks, --reply-broadcast)
+│   ├── send  <target> [text]      # send / reply / schedule (supports --attach, --blocks)
+│   ├── scheduled
+│   │   ├── list                   # list pending scheduled messages
+│   │   └── cancel <id>            # cancel a pending scheduled message
 │   ├── draft <target> [text]      # open Slack-like editor in browser
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
@@ -219,6 +222,8 @@ After sending, the editor shows a "View in Slack" link to the posted message.
 ```bash
 agent-slack message send "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this."
 agent-slack message send "#alerts-staging" "here's the report" --attach ./report.md
+agent-slack message send "#announcements" "Deploy starts at 6pm." --schedule "<future-iso-with-timezone>"
+agent-slack message send "U05BRPTKL6A" "Heads up before standup" --schedule-in "monday 9am"
 agent-slack message edit "https://workspace.slack.com/archives/C123/p1700000000000000" "I can take this today."
 agent-slack message delete "https://workspace.slack.com/archives/C123/p1700000000000000"
 agent-slack message react add "https://workspace.slack.com/archives/C123/p1700000000000000" "eyes"
@@ -239,6 +244,8 @@ Send options for `message send`:
 - `--attach <path>` upload a local file (repeatable; `<text>` is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
 - `--reply-broadcast` when replying in a thread, also post the reply to the parent channel (Slack's "Also send to #channel" checkbox). For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
+- `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (for example `YYYY-MM-DDTHH:mm:ss-07:00`) or a Unix timestamp. The timestamp must be in the future and within Slack's 120-day scheduled-send limit. Works with `--blocks`, `--thread-ts`, and `--reply-broadcast`; cannot be combined with `--attach`.
+- `--schedule-in <duration>` schedule delivery after a duration or simple future phrase (`30m`, `3h`, `2d`, `tomorrow 9am`, `monday 9am`; phrases use your local timezone). Mutually exclusive with `--schedule`; cannot be combined with `--attach`.
 
 Upload files through `message send`:
 
@@ -251,6 +258,29 @@ Broadcast a thread reply to the parent channel:
 ```bash
 agent-slack message send "#general" "Decision: shipping v2 today" \
   --thread-ts "1770160000.000001" --reply-broadcast
+```
+
+Scheduled sends use Slack's server-side scheduled message queue:
+
+```bash
+# Absolute time with explicit timezone; replace with a future value within 120 days
+agent-slack message send "#general" "Reminder: deploy starts soon." \
+  --schedule "<future-iso-with-timezone>"
+
+# Relative / natural future time
+agent-slack message send "#general" "Monday launch checklist" --schedule-in "monday 9am"
+
+# Scheduled thread reply with a Block Kit payload
+agent-slack message send "#general" "fallback text" \
+  --thread-ts "1770160000.000001" --blocks /tmp/blocks.json --schedule-in "3h"
+```
+
+Manage pending scheduled messages:
+
+```bash
+agent-slack message scheduled list
+agent-slack message scheduled list --channel "#general" --limit 25
+agent-slack message scheduled cancel "Q1234ABCD" --channel "C12345678"
 ```
 
 Example — post a message with a native Slack table block:
@@ -282,7 +312,7 @@ agent-slack message send "#alerts-staging" --blocks /tmp/blocks.json
 
 When `--blocks` is used, the positional `<text>` argument (if provided) is still sent as the message's `text` fallback (for notifications and unfurls).
 
-`message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread.
+`message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread. Scheduled sends return `scheduled_message_id` and `post_at` instead of `ts`/`permalink`.
 
 ### List, create, and invite channels
 

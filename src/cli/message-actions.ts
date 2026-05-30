@@ -10,6 +10,7 @@ import { formatOutboundSlackText } from "../slack/format-outbound.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { uploadLocalFileToSlack } from "../slack/upload.ts";
 import { buildSlackMessageUrl } from "../slack/url.ts";
+import { resolveSchedulePostAt } from "../slack/scheduled-messages.ts";
 
 function loadBlocksFromPath(path: string): unknown[] {
   const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
@@ -111,16 +112,27 @@ export async function sendMessage(input: {
     attach?: string[];
     blocks?: string;
     replyBroadcast?: boolean;
+    schedule?: string;
+    scheduleIn?: string;
   };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
+  const attachPaths = normalizeAttachPaths(input.options.attach);
+  const postAt = resolveSchedulePostAt({
+    schedule: input.options.schedule,
+    scheduleIn: input.options.scheduleIn,
+  });
+  if (postAt !== undefined && attachPaths.length > 0) {
+    throw new Error(
+      "--schedule/--schedule-in cannot be combined with --attach (Slack scheduled messages do not support file uploads).",
+    );
+  }
   const formattedText = formatOutboundSlackText(input.text);
   const blocks = input.options.blocks
     ? loadBlocksFromPath(input.options.blocks)
     : input.text
       ? textToRichTextBlocks(input.text)
       : null;
-  const attachPaths = normalizeAttachPaths(input.options.attach);
 
   if (target.kind === "url") {
     const { ref } = target;
@@ -140,6 +152,7 @@ export async function sendMessage(input: {
           threadTs,
           replyBroadcast: input.options.replyBroadcast,
           attachPaths,
+          postAt,
         });
       },
     });
@@ -162,6 +175,7 @@ export async function sendMessage(input: {
           text: formattedText,
           blocks,
           attachPaths,
+          postAt,
         });
       },
     });
@@ -189,6 +203,7 @@ export async function sendMessage(input: {
         threadTs: input.options.threadTs ? String(input.options.threadTs) : undefined,
         replyBroadcast: input.options.replyBroadcast,
         attachPaths,
+        postAt,
       });
     },
   });
@@ -216,7 +231,29 @@ async function sendMessageToChannel(input: {
   threadTs?: string;
   replyBroadcast?: boolean;
   attachPaths: string[];
+  postAt?: number;
 }): Promise<Record<string, unknown>> {
+  if (input.postAt !== undefined) {
+    const resp = await input.client.api("chat.scheduleMessage", {
+      channel: input.channelId,
+      text: input.text,
+      post_at: input.postAt,
+      thread_ts: input.threadTs,
+      ...(input.blocks ? { blocks: input.blocks } : {}),
+      ...(input.replyBroadcast && input.threadTs ? { reply_broadcast: true } : {}),
+    });
+    const channelId = typeof resp.channel === "string" ? resp.channel : input.channelId;
+    const scheduledMessageId =
+      typeof resp.scheduled_message_id === "string" ? resp.scheduled_message_id : undefined;
+    return {
+      ok: true,
+      channel_id: channelId,
+      scheduled_message_id: scheduledMessageId,
+      post_at: getResponseNumber(resp.post_at) ?? input.postAt,
+      thread_ts: input.threadTs,
+    };
+  }
+
   if (input.attachPaths.length === 0) {
     const resp = await input.client.api("chat.postMessage", {
       channel: input.channelId,
@@ -268,6 +305,17 @@ async function sendMessageToChannel(input: {
     channel_id: input.channelId,
     thread_ts: input.threadTs,
   };
+}
+
+function getResponseNumber(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 export async function editMessage(input: {

@@ -25,6 +25,17 @@ All commands print JSON to stdout.
   - `ts?: "<seconds>.<micros>"` — the posted message's ts; absent on file-attachment sends
   - `thread_ts?: "<seconds>.<micros>"` — present only when the send was into an existing thread
   - `permalink?: "https://.../archives/..."` — present when `ts` is known and a workspace URL was resolvable
+  - `scheduled_message_id?: "Q..."` — present for `--schedule` / `--schedule-in` sends
+  - `post_at?: <unix-seconds>` — present for scheduled sends
+
+- `message scheduled list` returns:
+  - `scheduled_messages: [{ id, channel_id, post_at, date_created?, text? }]`
+  - `next_cursor?: "<cursor>"`
+
+- `message scheduled cancel` returns:
+  - `ok: true`
+  - `channel_id: "C..." | "D..."`
+  - `scheduled_message_id: "Q..."`
 
 Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` mentions in rendered content).
 `referenced_users` provides display metadata for those IDs. The cache is per-workspace with a 24-hour per-entry TTL.

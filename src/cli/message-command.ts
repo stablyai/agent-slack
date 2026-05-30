@@ -10,6 +10,7 @@ import {
   type MessageCommandOptions,
 } from "./message-actions.ts";
 import { draftMessage } from "./draft-actions.ts";
+import { registerScheduledMessageCommand } from "./message-scheduled-command.ts";
 
 function collectOptionValue(value: string, previous: string[] = []): string[] {
   return [...previous, value];
@@ -155,7 +156,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
 
   messageCmd
     .command("send")
-    .description("Send a message (optionally into a thread)")
+    .description("Send or schedule a message (optionally into a thread)")
     .argument("<target>", "Slack message URL, #name/name, or channel id")
     .argument("[text]", "Message text to post (optional when using --attach)")
     .option(
@@ -172,6 +173,14 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "--blocks <path>",
       "Path to a JSON file containing a Block Kit blocks array. Bypasses automatic markdown-to-rich-text conversion. Use '-' to read from stdin. Cannot be combined with --attach.",
     )
+    .option(
+      "--schedule <time>",
+      "Schedule delivery at an ISO 8601 timestamp with explicit timezone (or Unix timestamp). Cannot be combined with --attach.",
+    )
+    .option(
+      "--schedule-in <duration>",
+      "Schedule delivery after a duration or future phrase, e.g. 3h, tomorrow 9am, monday 9am. Cannot be combined with --attach.",
+    )
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
@@ -182,10 +191,13 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
           attach?: string[];
           blocks?: string;
           replyBroadcast?: boolean;
+          schedule?: string;
+          scheduleIn?: string;
         },
       ];
       const hasAttach = (options.attach ?? []).length > 0;
       const hasBlocks = options.blocks !== undefined;
+      const hasSchedule = options.schedule !== undefined || options.scheduleIn !== undefined;
       if (!text && !hasAttach && !hasBlocks) {
         console.error("Error: <text> is required when no --attach files or --blocks are provided.");
         process.exitCode = 1;
@@ -203,6 +215,18 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
         process.exitCode = 1;
         return;
       }
+      if (options.schedule !== undefined && options.scheduleIn !== undefined) {
+        console.error("Error: --schedule and --schedule-in are mutually exclusive.");
+        process.exitCode = 1;
+        return;
+      }
+      if (hasSchedule && hasAttach) {
+        console.error(
+          "Error: --schedule/--schedule-in cannot be combined with --attach (Slack scheduled messages do not support file uploads).",
+        );
+        process.exitCode = 1;
+        return;
+      }
       try {
         const payload = await sendMessage({
           ctx: input.ctx,
@@ -216,6 +240,8 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
         process.exitCode = 1;
       }
     });
+
+  registerScheduledMessageCommand({ messageCmd, ctx: input.ctx });
 
   messageCmd
     .command("draft")
