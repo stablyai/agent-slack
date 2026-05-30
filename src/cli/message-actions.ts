@@ -284,9 +284,7 @@ export async function editMessage(input: {
   }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
   const formattedText = formatOutboundSlackText(input.text);
-  const blocks = input.text
-    ? textToRichTextBlocks(input.text, { includeInlineFormatting: true })
-    : null;
+  const blocks = input.text ? textToRichTextBlocks(input.text) : null;
 
   await input.ctx.withAutoRefresh({
     workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,

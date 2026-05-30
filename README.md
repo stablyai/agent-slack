@@ -232,6 +232,8 @@ agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "17
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
+`message edit` keeps inline formatting text-only and converts bullet/numbered lists to Slack native rich text.
+
 Send options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable; `<text>` is optional when attaching files)

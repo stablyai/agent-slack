@@ -76,6 +76,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 - `agent-slack message edit <target> <text>`
   - URL target edits that exact message.
   - Channel target requires `--ts`.
+  - Inline formatting is sent as text; bullet/numbered lists are converted to Slack native rich text.
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required for channel targets)

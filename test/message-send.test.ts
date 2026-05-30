@@ -539,7 +539,7 @@ describe("editMessage", () => {
     ]);
   });
 
-  test("edits a message URL with rich text blocks when text contains a link label", async () => {
+  test("edits a message URL with a link label without blocks", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);
 
@@ -555,24 +555,44 @@ describe("editMessage", () => {
     expect(calls[0]?.params.channel).toBe("C12345678");
     expect(calls[0]?.params.ts).toBe("1770165109.628379");
     expect(calls[0]?.params.text).toBe("Visit <https://example.com|Example>");
-    expect(calls[0]?.params.blocks).toEqual([
-      {
-        type: "rich_text",
-        elements: [
-          {
-            type: "rich_text_section",
-            elements: [
-              { type: "text", text: "Visit " },
-              { type: "link", url: "https://example.com", text: "Example" },
-              { type: "text", text: "\n" },
-            ],
-          },
-        ],
-      },
-    ]);
+    expect(calls[0]?.params.blocks).toBeUndefined();
   });
 
-  test("edits a channel target with rich text blocks when text contains formatting", async () => {
+  test("edits an inline mailto link without escaping it", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "Email <mailto:bob@example.com|Bob>",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.text).toBe("Email <mailto:bob@example.com|Bob>");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("edits an inline usergroup mention without escaping it", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "Ping <!subteam^S12345678|@team>",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.text).toBe("Ping <!subteam^S12345678|@team>");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("edits a channel target with inline formatting without blocks", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);
 
@@ -585,16 +605,45 @@ describe("editMessage", () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.method).toBe("chat.update");
+    expect(calls[0]?.params.text).toBe("Update *now*");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("edits a channel target with rich text blocks when text contains a list", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await editMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "- Post in <#C87654321|general>\n- Update *now*",
+      options: { workspace: "https://workspace.slack.com", ts: "1770165109.628379" },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("chat.update");
     expect(calls[0]?.params.blocks).toEqual([
       {
         type: "rich_text",
         elements: [
           {
-            type: "rich_text_section",
+            type: "rich_text_list",
+            style: "bullet",
             elements: [
-              { type: "text", text: "Update " },
-              { type: "text", text: "now", style: { bold: true } },
-              { type: "text", text: "\n" },
+              {
+                type: "rich_text_section",
+                elements: [
+                  { type: "text", text: "Post in " },
+                  { type: "channel", channel_id: "C87654321" },
+                ],
+              },
+              {
+                type: "rich_text_section",
+                elements: [
+                  { type: "text", text: "Update " },
+                  { type: "text", text: "now", style: { bold: true } },
+                ],
+              },
             ],
           },
         ],
