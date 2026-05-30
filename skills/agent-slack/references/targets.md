@@ -38,7 +38,7 @@ agent-slack message get "general" --ts "1770165109.628379"
 ```bash
 agent-slack message list "general" --thread-ts "1770165109.000001"
 agent-slack message list "general" --ts "1770165109.628379"
-agent-slack message list "general" --without-reaction dart --limit 20
+agent-slack message list "general" --without-reaction dart --oldest "1770165109.000000" --limit 20
 ```
 
 ### Reactions by channel + `--ts`
