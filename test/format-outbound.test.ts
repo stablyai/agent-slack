@@ -14,6 +14,13 @@ describe("formatOutboundSlackText", () => {
     expect(formatOutboundSlackText("hi <@U123456A|nick>!")).toBe("hi <@U123456A|nick>!");
   });
 
+  test("leaves already-formatted usergroup mention tokens alone", () => {
+    expect(formatOutboundSlackText("ping <!subteam^S12345678|@team>")).toBe(
+      "ping <!subteam^S12345678|@team>",
+    );
+    expect(formatOutboundSlackText("ping <!subteam^S12345678>")).toBe("ping <!subteam^S12345678>");
+  });
+
   test("promotes broadcast mentions", () => {
     expect(formatOutboundSlackText("@here ping")).toBe("<!here> ping");
     expect(formatOutboundSlackText("cc @channel and @everyone")).toBe(
@@ -28,6 +35,9 @@ describe("formatOutboundSlackText", () => {
   test("does not escape inside already-formatted Slack tokens", () => {
     expect(formatOutboundSlackText("see <https://example.com|link>")).toBe(
       "see <https://example.com|link>",
+    );
+    expect(formatOutboundSlackText("mail <mailto:bob@example.com|Bob>")).toBe(
+      "mail <mailto:bob@example.com|Bob>",
     );
     expect(formatOutboundSlackText("see <https://a.test/?x=1&y=2>")).toBe(
       "see <https://a.test/?x=1&y=2>",

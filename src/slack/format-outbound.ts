@@ -4,7 +4,8 @@
  * Slack's mrkdwn contract requires:
  *  - literal `&`, `<`, `>` escaped as `&amp;`, `&lt;`, `&gt;`
  *  - user mentions wrapped as `<@U123>`, channel mentions as `<#C123>`,
- *    broadcast mentions as `<!here>` / `<!channel>` / `<!everyone>`
+ *    usergroup mentions as `<!subteam^S123>`, and broadcast mentions as
+ *    `<!here>` / `<!channel>` / `<!everyone>`
  *
  * Humans (and LLMs piping text into the CLI) commonly write `@U123` and
  * raw `&`/`<`/`>` — this helper normalizes that to what Slack expects,
@@ -18,7 +19,7 @@ export function formatOutboundSlackText(text: string): string {
   // Protect already-formatted Slack tokens so `<`/`>` inside them aren't escaped.
   const stash: string[] = [];
   let out = text.replace(
-    /<(?:@[UWB][A-Z0-9]+(?:\|[^>]*)?|#[CG][A-Z0-9]+(?:\|[^>]*)?|![a-zA-Z]+(?:\|[^>]*)?|https?:\/\/[^>]+)>/g,
+    /<(?:@[UWB][A-Z0-9]+(?:\|[^>]*)?|#[CG][A-Z0-9]+(?:\|[^>]*)?|!subteam\^[A-Z0-9]+(?:\|[^>]*)?|![a-zA-Z]+(?:\|[^>]*)?|(?:https?:\/\/|mailto:)[^>]+)>/g,
     (m) => {
       stash.push(m);
       return `\u0000${stash.length - 1}\u0000`;

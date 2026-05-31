@@ -1,6 +1,6 @@
 ---
 name: agent-slack
-description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canvases/workflows, search messages/files, download attachments, lookup users, list/create/invite channels, open DMs, draft messages, and explicit sends/edits/deletes/reactions/mark-read/uploads."
+description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canvases/workflows, search messages/files, download attachments, lookup users, list/create/invite channels, open DMs, draft messages, schedule sends, and explicit sends/edits/deletes/reactions/mark-read/uploads."
 ---
 
 # agent-slack
@@ -13,9 +13,9 @@ curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.s
 
 Fallback: `npm i -g agent-slack` (Node >= 22.5).
 
-Safety: read/search freely. Do not send, edit, delete, react, invite, create channels, or mark read unless explicitly asked. Prefer `message draft`.
+Safety: read/search freely. Do not send, edit, delete, react, invite, create channels, mark read, schedule, upload, or cancel scheduled messages unless explicitly asked. Prefer `message draft`.
 
-Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, then `auth test`.
+Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then `auth test`.
 
 Common commands:
 
@@ -26,6 +26,9 @@ agent-slack message list "general" --limit 20
 agent-slack search messages "query" --channel "general"
 agent-slack message draft "general" "text"
 agent-slack message send "URL_OR_CHANNEL" "text" --attach ./file.md
+agent-slack message send "general" "text" --schedule-in "3h"
+agent-slack message scheduled list
+agent-slack message scheduled cancel "SCHEDULED_ID" --channel "CHANNEL_ID"
 agent-slack unreads
 agent-slack later list
 agent-slack canvas get "CANVAS_URL"

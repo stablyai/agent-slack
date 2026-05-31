@@ -15,14 +15,47 @@ export type BraveExtracted = {
 
 const IS_MACOS = platform() === "darwin";
 
+// Brave (like Chrome) ships with `Allow JavaScript from Apple Events` OFF.
+// Without it, `execute javascript` from osascript fails — and that's how this
+// module reads `localStorage.localConfig_v2` from a Slack tab. We detect that
+// specific failure and surface an actionable message instead of swallowing it.
+export class BraveAppleScriptDisabledError extends Error {
+  constructor() {
+    super(
+      "Brave is blocking JavaScript from Apple Events.\n" +
+        "Enable it: Brave menu → View → Developer → Allow JavaScript from Apple Events\n" +
+        "(macOS will prompt for your password the first time.)\n" +
+        "Then re-run: agent-slack auth import-brave",
+    );
+    this.name = "BraveAppleScriptDisabledError";
+  }
+}
+
 // --- AppleScript helpers (for extracting teams from Brave tabs) ---
 
+const APPLESCRIPT_JS_DISABLED_MARKER = "Executing JavaScript through AppleScript is turned off";
+
 function osascript(script: string): string {
-  return execFileSync("osascript", ["-e", script], {
-    encoding: "utf8",
-    timeout: 7000,
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  try {
+    return execFileSync("osascript", ["-e", script], {
+      encoding: "utf8",
+      timeout: 7000,
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  } catch (err: unknown) {
+    const stderr =
+      err && typeof err === "object" && "stderr" in err
+        ? String((err as { stderr: unknown }).stderr ?? "")
+        : "";
+    const message = err instanceof Error ? err.message : String(err);
+    if (
+      stderr.includes(APPLESCRIPT_JS_DISABLED_MARKER) ||
+      message.includes(APPLESCRIPT_JS_DISABLED_MARKER)
+    ) {
+      throw new BraveAppleScriptDisabledError();
+    }
+    throw err;
+  }
 }
 
 const TEAM_JSON_PATHS = [
@@ -179,7 +212,10 @@ export async function extractFromBrave(): Promise<BraveExtracted | null> {
     }
 
     return { cookie_d, teams };
-  } catch {
+  } catch (err) {
+    if (err instanceof BraveAppleScriptDisabledError) {
+      throw err;
+    }
     return null;
   }
 }
