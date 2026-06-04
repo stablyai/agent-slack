@@ -55,6 +55,15 @@ const SLACK_SUPPORT_DIR_WIN_APPDATA = join(
   "Slack",
 );
 
+const WINDOWS_STORE_SLACK_PACKAGE_PREFIXES = [
+  "com.tinyspeck.slackdesktop_",
+  "91750D7E.Slack_",
+] as const;
+
+export function isWindowsStoreSlackPackageName(entry: string): boolean {
+  return WINDOWS_STORE_SLACK_PACKAGE_PREFIXES.some((prefix) => entry.startsWith(prefix));
+}
+
 /**
  * Find the Microsoft Store Slack app data directory.
  * The package folder name includes a publisher hash suffix that varies per machine,
@@ -64,7 +73,7 @@ function getWindowsStoreSlackPath(): string | null {
   const pkgBase = join(process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local"), "Packages");
   try {
     const entries = readdirSync(pkgBase);
-    const slackPkg = entries.find((e) => e.startsWith("com.tinyspeck.slackdesktop_"));
+    const slackPkg = entries.find(isWindowsStoreSlackPackageName);
     if (slackPkg) {
       return join(pkgBase, slackPkg, "LocalCache", "Roaming", "Slack");
     }
