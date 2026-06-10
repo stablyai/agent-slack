@@ -13,7 +13,7 @@ curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.s
 
 Fallback: `npm i -g agent-slack` (Node >= 22.5).
 
-Safety: read/search freely. Do not send, edit, delete, react, invite, create channels, mark read, schedule, upload, or cancel scheduled messages unless explicitly asked. Prefer `message draft`.
+Safety: read/search freely. Do not send, edit, delete, react, invite, create channels, mark read, schedule, upload, or cancel scheduled messages unless explicitly asked. Prefer `message draft`. With `AGENT_SLACK_SAFE_MODE=1` set, `message send` redirects to the draft editor and `edit`/`delete` are blocked.
 
 Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then `auth test`.
 

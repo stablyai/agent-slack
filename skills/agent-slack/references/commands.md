@@ -75,6 +75,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--reply-broadcast` when replying in a thread, also post the reply to the parent channel. For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
     - `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (or Unix timestamp). Must be in the future and within Slack's 120-day scheduled-send limit. Compatible with `--blocks`, `--thread-ts`, and `--reply-broadcast`; cannot be combined with `--attach`.
     - `--schedule-in <duration>` schedule delivery after a duration or simple future phrase (`30m`, `3h`, `2d`, `tomorrow 9am`, `monday 9am`; phrases use your local timezone). Mutually exclusive with `--schedule`; cannot be combined with `--attach`.
+  - Safe mode (`AGENT_SLACK_SAFE_MODE=1` or global `--safe-mode`): `send` is redirected to the draft editor for human review (output includes `"safe_mode": true`); `--attach`/`--blocks`/`--schedule`/`--schedule-in`/`--reply-broadcast` are rejected while it is active.
 
 - `agent-slack message scheduled list`
   - Lists pending scheduled messages from Slack's server-side scheduled message queue.
@@ -99,6 +100,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required for channel targets)
+  - Blocked when safe mode is active (`AGENT_SLACK_SAFE_MODE=1` or `--safe-mode`).
 
 - `agent-slack message delete <target>`
   - URL target deletes that exact message.
@@ -106,6 +108,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
   - Options:
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
     - `--ts <seconds>.<micros>` (required for channel targets)
+  - Blocked when safe mode is active (`AGENT_SLACK_SAFE_MODE=1` or `--safe-mode`).
 
 - `agent-slack message react add <target> <emoji>`
 - `agent-slack message react remove <target> <emoji>`

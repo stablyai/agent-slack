@@ -17,7 +17,11 @@ const program = new Command();
 program
   .name("agent-slack")
   .description("Slack automation CLI for AI agents")
-  .version(getPackageVersion());
+  .version(getPackageVersion())
+  .option(
+    "--safe-mode",
+    'Human-in-the-loop enforcement: redirect "message send" to the draft editor and block "message edit"/"message delete" (also: AGENT_SLACK_SAFE_MODE=1)',
+  );
 
 const ctx = createCliContext();
 
