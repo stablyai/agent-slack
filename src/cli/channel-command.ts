@@ -3,6 +3,7 @@ import type { CliContext } from "./context.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
 import {
   listAllConversations,
+  listConversationsViaCounts,
   listUserConversations,
   markConversation,
   resolveChannelId,
@@ -21,6 +22,7 @@ type ChannelListOptions = {
   workspace?: string;
   user?: string;
   all?: boolean;
+  viaCounts?: boolean;
   limit: string;
   cursor?: string;
 };
@@ -39,6 +41,10 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     )
     .option("--user <user>", "User id (U...) or @handle/handle")
     .option("--all", "List all conversations (conversations.list); incompatible with --user")
+    .option(
+      "--via-counts",
+      "List joined conversations via client.counts (works on Enterprise Grid where users.conversations/conversations.list are restricted for browser tokens; incompatible with --all/--user)",
+    )
     .option("--limit <n>", "Max conversations in one page (default 100)", "100")
     .option("--cursor <cursor>", "Pagination cursor for the next page")
     .action(async (...args) => {
@@ -46,6 +52,12 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
       try {
         if (options.all && options.user) {
           throw new Error("--all cannot be used with --user");
+        }
+        if (options.viaCounts && options.all) {
+          throw new Error("--via-counts cannot be used with --all");
+        }
+        if (options.viaCounts && options.user) {
+          throw new Error("--via-counts cannot be used with --user");
         }
 
         const limit = Number.parseInt(options.limit, 10);
@@ -58,6 +70,9 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
           workspaceUrl,
           work: async () => {
             const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            if (options.viaCounts) {
+              return await listConversationsViaCounts(client, { limit });
+            }
             if (options.all) {
               return await listAllConversations(client, {
                 limit,
