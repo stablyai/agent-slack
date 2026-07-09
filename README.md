@@ -78,6 +78,11 @@ agent-slack
 │   │   ├── list                   # list pending scheduled messages
 │   │   └── cancel <id>            # cancel a pending scheduled message
 │   ├── draft <target> [text]      # open Slack-like editor in browser
+│   ├── drafts
+│   │   ├── list                   # list Slack-native drafts
+│   │   ├── create <target> <text> # create a Slack-native draft
+│   │   ├── update <id> <text>     # replace a draft's text
+│   │   └── delete <id>            # delete a draft
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
 │   └── react
@@ -216,6 +221,25 @@ agent-slack message draft "https://workspace.slack.com/archives/C123/p1700000000
 ```
 
 After sending, the editor shows a "View in Slack" link to the posted message.
+
+### Slack-native drafts
+
+Manage drafts through Slack's own drafts API, so they show up natively in the user's Slack client (mobile and desktop) ready to review and send. Requires browser-style auth (xoxc/xoxd).
+
+```bash
+# List unsent drafts
+agent-slack message drafts list
+
+# Draft a message to a channel (shows up in Slack's Drafts section)
+agent-slack message drafts create "#general" "Here's my update"
+
+# Draft a thread reply
+agent-slack message drafts create "https://workspace.slack.com/archives/C123/p1700000000000000" "Looking into it"
+
+# Replace a draft's text, or delete it
+agent-slack message drafts update "DR_ID" "Here's my revised update"
+agent-slack message drafts delete "DR_ID"
+```
 
 ### Reply, edit, delete, and react
 

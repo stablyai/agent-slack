@@ -92,6 +92,36 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
     - `--channel <channel>` required channel/DM id or channel name for the scheduled message
     - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
 
+- `agent-slack message drafts list`
+  - Lists Slack-native message drafts (the ones shown in the Slack client's Drafts section). Requires browser-style auth (xoxc/xoxd).
+  - Options:
+    - `--workspace <url-or-unique-substring>` (defaults to configured workspace)
+    - `--limit <n>` max drafts to return
+    - `--all` include sent/inactive drafts
+
+- `agent-slack message drafts create <target> <text>`
+  - Creates a Slack-native draft addressed to a channel, DM, or thread. The draft appears in the user's Slack client ready to review and send — nothing is posted.
+  - If `<target>` is a Slack message URL, the draft is a reply in that message's thread.
+  - Inline formatting and bullet/numbered lists are converted to Slack native rich text.
+  - Options:
+    - `--workspace <url-or-unique-substring>` (needed for channel _names_ across multiple workspaces)
+    - `--thread-ts <seconds>.<micros>` (optional, channel mode only)
+    - `--broadcast` also send the thread reply to the channel when posted (requires thread context)
+
+- `agent-slack message drafts update <draft-id> <text>`
+  - Replaces the draft's text (drafts are replaced whole; destination and attached files are preserved unless overridden).
+  - Options:
+    - `--channel <target>` re-address the draft to a different channel/DM/message URL
+    - `--thread-ts <seconds>.<micros>` (optional)
+    - `--broadcast` (requires thread context)
+    - `--last-updated-ts <ts>` conflict-detection ts (auto-fetched when omitted)
+    - `--workspace <url-or-unique-substring>`
+
+- `agent-slack message drafts delete <draft-id>`
+  - Options:
+    - `--last-updated-ts <ts>` conflict-detection ts (auto-fetched when omitted)
+    - `--workspace <url-or-unique-substring>`
+
 - `agent-slack message edit <target> <text>`
   - URL target edits that exact message.
   - Channel target requires `--ts`.

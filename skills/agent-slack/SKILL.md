@@ -13,7 +13,7 @@ curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.s
 
 Fallback: `npm i -g agent-slack` (Node >= 22.5).
 
-Safety: read/search freely. Do not send, edit, delete, react, invite, create channels, mark read, schedule, upload, or cancel scheduled messages unless explicitly asked. Prefer `message draft`.
+Safety: read/search freely. Do not send, edit, delete, react, invite, create channels, mark read, schedule, upload, or cancel scheduled messages unless explicitly asked. Prefer `message draft` (interactive editor) or `message drafts create` (Slack-native draft, nothing is posted).
 
 Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then `auth test`.
 
@@ -25,6 +25,8 @@ agent-slack message list "SLACK_URL"
 agent-slack message list "general" --limit 20
 agent-slack search messages "query" --channel "general"
 agent-slack message draft "general" "text"
+agent-slack message drafts list
+agent-slack message drafts create "general" "text"
 agent-slack message send "URL_OR_CHANNEL" "text" --attach ./file.md
 agent-slack message send "general" "text" --schedule-in "3h"
 agent-slack message scheduled list
