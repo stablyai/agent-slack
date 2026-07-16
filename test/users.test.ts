@@ -11,6 +11,15 @@ describe("resolveUserId", () => {
     expect(await resolveUserId(client as never, "U01ABCDEFG")).toBe("U01ABCDEFG");
   });
 
+  test("returns W-prefixed user ids unchanged", async () => {
+    const client = {
+      api: async () => {
+        throw new Error("should not call api for user id");
+      },
+    };
+    expect(await resolveUserId(client as never, "W01ABCDEFG")).toBe("W01ABCDEFG");
+  });
+
   test("resolves @handle via users.list", async () => {
     const client = {
       api: async (method: string) => {

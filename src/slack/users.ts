@@ -1,5 +1,6 @@
 import type { SlackApiClient } from "./client.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
+import { isUserId } from "./user-id.ts";
 
 export type CompactSlackUser = {
   id: string;
@@ -91,7 +92,7 @@ export async function getUser(client: SlackApiClient, input: string): Promise<Co
 
 export async function resolveUserId(client: SlackApiClient, input: string): Promise<string | null> {
   const trimmed = input.trim();
-  if (/^U[A-Z0-9]{8,}$/.test(trimmed)) {
+  if (isUserId(trimmed)) {
     return trimmed;
   }
 

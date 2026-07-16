@@ -130,6 +130,33 @@ describe("sendMessage", () => {
     });
   });
 
+  test("opens and sends to a DM for a W-prefixed user target", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "W12345678",
+      text: "hello",
+      options: {},
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "conversations.open",
+        params: { users: "W12345678" },
+      },
+      {
+        method: "chat.postMessage",
+        params: {
+          channel: "D12345678",
+          text: "hello",
+          thread_ts: undefined,
+        },
+      },
+    ]);
+  });
+
   test("returns a permalink when the workspace was resolved implicitly", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);

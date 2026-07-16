@@ -18,7 +18,7 @@ export type SearchOptions = {
   query: string;
   kind: SearchKind;
   channels?: string[];
-  user?: string; // @name, name, or U...
+  user?: string; // @name, name, or U.../W...
   after?: string; // YYYY-MM-DD
   before?: string; // YYYY-MM-DD
   content_type?: ContentType;

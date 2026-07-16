@@ -333,7 +333,7 @@ agent-slack channel new --name "incident-war-room"
 agent-slack channel new --name "incident-leads" --private
 
 # Invite users by id, handle, or email
-agent-slack channel invite --channel "incident-war-room" --users "U01AAAA,@alice,bob@example.com"
+agent-slack channel invite --channel "incident-war-room" --users "U01234567,@alice,bob@example.com"
 
 # Invite external Slack Connect users by email (restricted by default)
 agent-slack channel invite --channel "incident-war-room" --users "partner@vendor.com" --external
@@ -408,6 +408,8 @@ Tips:
 <!-- AI search (assistant.search.*) is described in design.doc but not currently implemented. -->
 
 ### Users
+
+Treat Slack user IDs beginning with `U` or `W` equivalently.
 
 ```bash
 # List users (email requires appropriate Slack scopes; fields are pruned if missing)

@@ -37,7 +37,7 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
     )
-    .option("--user <user>", "User id (U...) or @handle/handle")
+    .option("--user <user>", "User ID (U.../W...) or @handle/handle")
     .option("--all", "List all conversations (conversations.list); incompatible with --user")
     .option("--limit <n>", "Max conversations in one page (default 100)", "100")
     .option("--cursor <cursor>", "Pagination cursor for the next page")
@@ -125,7 +125,10 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     .command("invite")
     .description("Invite users to a channel")
     .requiredOption("--channel <id-or-name>", "Channel id/name (#general, general, C...)")
-    .requiredOption("--users <users>", "Comma-separated users (U..., @handle, handle, email)")
+    .requiredOption(
+      "--users <users>",
+      "Comma-separated users (U.../W..., @handle, handle, or email)",
+    )
     .option("--external", "Send Slack Connect external invites (email targets only)")
     .option(
       "--allow-external-user-invites",
@@ -158,7 +161,7 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
 
         const userInputs = parseInviteUsersCsv(options.users);
         if (userInputs.length === 0) {
-          throw new Error('No users provided. Pass --users "U01...,@alice,bob@example.com"');
+          throw new Error('No users provided. Pass --users "U01234567,@alice,bob@example.com"');
         }
 
         const payload = await input.ctx.withAutoRefresh({

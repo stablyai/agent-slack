@@ -1,6 +1,7 @@
 import type { SlackApiClient } from "./client.ts";
 import { normalizeChannelInput } from "./channels.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
+import { isUserId } from "./user-id.ts";
 
 export async function buildSlackSearchQuery(
   client: SlackApiClient,
@@ -68,7 +69,7 @@ async function userTokenForSearch(client: SlackApiClient, user: string): Promise
   if (trimmed.startsWith("@")) {
     return `from:@${trimmed.slice(1)}`;
   }
-  if (/^U[A-Z0-9]{8,}$/.test(trimmed)) {
+  if (isUserId(trimmed)) {
     try {
       const info = await client.api("users.info", { user: trimmed });
       const infoUser = isRecord(info) ? info.user : null;
@@ -118,7 +119,7 @@ export async function resolveUserId(
   if (!trimmed) {
     return undefined;
   }
-  if (/^U[A-Z0-9]{8,}$/.test(trimmed)) {
+  if (isUserId(trimmed)) {
     return trimmed;
   }
   const name = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;

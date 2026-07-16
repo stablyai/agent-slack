@@ -1,6 +1,7 @@
-# Targets: URL vs channel (reference)
+# Targets: URLs, channels, and users (reference)
 
-`agent-slack` accepts either a **Slack message URL** (preferred) or a **channel reference**.
+Message commands accept a **Slack message URL** (preferred) or a **channel reference**.
+`message send` also accepts a Slack user ID to open or reuse a direct message.
 
 ## Preferred: Slack message URL
 
@@ -19,6 +20,16 @@ Examples:
 - `agent-slack message delete "<url>"`
 - `agent-slack message react add "<url>" "eyes"`
 - `agent-slack channel mark "<url>"`
+
+## Direct-message target (`message send` only)
+
+Pass a `U...` or `W...` user ID to open or reuse that user's direct-message channel:
+
+```bash
+agent-slack message send "W12345678" "Hello"
+```
+
+Other message operations require a message URL or channel reference.
 
 ## Channel targets (when you don’t have a URL)
 

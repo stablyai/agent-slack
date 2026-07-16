@@ -157,7 +157,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
   messageCmd
     .command("send")
     .description("Send or schedule a message (optionally into a thread)")
-    .argument("<target>", "Slack message URL, #name/name, or channel id")
+    .argument("<target>", "Slack message URL, #name/name, channel ID, or user ID (U.../W...)")
     .argument("[text]", "Message text to post (optional when using --attach)")
     .option(
       "--workspace <url>",

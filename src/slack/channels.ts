@@ -1,6 +1,8 @@
 import type { SlackApiClient } from "./client.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 
+export { isUserId } from "./user-id.ts";
+
 const DEFAULT_CONVERSATION_TYPES = "public_channel,private_channel,im,mpim";
 
 export type ConversationsPage = {
@@ -10,10 +12,6 @@ export type ConversationsPage = {
 
 export function isChannelId(input: string): boolean {
   return /^[CDG][A-Z0-9]{8,}$/.test(input);
-}
-
-export function isUserId(input: string): boolean {
-  return /^U[A-Z0-9]{8,}$/.test(input);
 }
 
 /**
