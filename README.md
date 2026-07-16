@@ -504,24 +504,6 @@ agent-slack canvas get "F456" --workspace "https://workspace.slack.com"
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
----
+## Check out our other OSS project
 
-<p align="center">
-  <a href="https://stably.ai">
-    <img src="https://public-artifacts.stably.ai/logo-white-with-bg.png" height="96" alt="Stably">
-  </a>
-</p>
-
-<h3 align="center">
-  <a href="https://stably.ai">Stably</a>
-</h3>
-
-<p align="center">
-  Code. Ship. <s>Test.</s>
-</p>
-
-<p align="center">
-  <a href="https://docs.stably.ai/"><strong>Documentation</strong></a> ·
-  <a href="https://stably.ai/"><strong>Homepage</strong></a>
-</p>
-<br/>
+[Orca](https://github.com/stablyai/orca) - ADE for 100x builders
