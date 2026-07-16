@@ -61,7 +61,10 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
-    .option("--thread-ts <ts>", "Thread root ts (lists thread replies instead of channel history)")
+    .option(
+      "--thread-ts <ts>",
+      "Thread root ts (lists the thread root and replies instead of channel history)",
+    )
     .option("--ts <ts>", "Message ts (resolve message to its thread)")
     .option("--limit <n>", "Max messages to return for channel history (default 25, max 200)")
     .option("--oldest <ts>", "Only messages after this ts (channel history mode)")

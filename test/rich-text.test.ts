@@ -269,6 +269,22 @@ describe("textToRichTextBlocks", () => {
     ]);
   });
 
+  test("Slack manual links and CommonMark links remain distinct in list items", () => {
+    const result = textToRichTextBlocks(
+      "- Review <https://example.com/pull/42|PR #42>\n- Review [PR #43](https://example.com/pull/43)",
+    )!;
+    const list = result[0]!.elements.find((e) => e.type === "rich_text_list") as {
+      elements: { elements: unknown[] }[];
+    };
+    expect(list.elements[0]!.elements).toEqual([
+      { type: "text", text: "Review " },
+      { type: "link", url: "https://example.com/pull/42", text: "PR #42" },
+    ]);
+    expect(list.elements[1]!.elements).toEqual([
+      { type: "text", text: "Review [PR #43](https://example.com/pull/43)" },
+    ]);
+  });
+
   test("code block is preserved", () => {
     const result = textToRichTextBlocks("- Item\n```\ncode here\n```")!;
     expect(result).not.toBeNull();

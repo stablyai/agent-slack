@@ -13,9 +13,13 @@ curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.s
 
 Fallback: `npm i -g agent-slack` (Node >= 22.5).
 
-Safety: read/search freely. Do not send, edit, delete, react, invite, create channels, mark read, schedule, upload, or cancel scheduled messages unless explicitly asked. Prefer `message draft`.
+Treat the installed CLI's `agent-slack --help` and `agent-slack <command> --help` output as authoritative for supported commands and flags.
+
+Safety: read/search freely. Treat sends, edits, deletes, reactions, invitations, channel creation, mark-read operations, schedules, uploads, scheduled-message cancellation, and `workflow run` as write actions; perform them only when explicitly requested. Workflow runs can execute downstream actions. Prefer `message draft`.
 
 Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then `auth test`.
+
+For labeled links inside bullet or numbered lists, use Slack's `<URL|label>` syntax. Auto-converted lists do not convert CommonMark `[label](URL)` links into labeled link elements.
 
 Common commands:
 

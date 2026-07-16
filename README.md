@@ -42,6 +42,8 @@ nix run github:stablyai/agent-slack
 
 This repo ships an agent skill at `skills/agent-slack/` compatible with Claude Code, Codex, Cursor, etc
 
+Treat the installed CLI's `agent-slack --help` and `agent-slack <command> --help` output as authoritative for supported commands and flags.
+
 **Install via [skills.sh](https://skills.sh)** (recommended):
 
 ```bash
@@ -237,7 +239,7 @@ agent-slack message edit "#general" "Updated text" --workspace "myteam" --ts "17
 agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.628379"
 ```
 
-`message send` and `message edit` convert bullet/numbered lists to Slack native rich text. Inline mentions, broadcasts, emoji shortcodes, and `<#C...>` channel references inside those lists are preserved as Slack elements.
+`message edit` and ordinary `message send` calls convert bullet/numbered lists to Slack native rich text. `message send --blocks` uses the supplied blocks instead, while `message send --attach` sends its initial comment as plain text without automatic list conversion. Inside auto-converted lists, inline mentions, broadcasts, emoji shortcodes, `<#C...>` channel references, and Slack manual links such as `<https://example.com/pull/42|PR #42>` are preserved as Slack elements. CommonMark links such as `[PR #42](https://example.com/pull/42)` are not converted into labeled link elements.
 
 Send options for `message send`:
 
@@ -361,7 +363,7 @@ Notes:
 }
 ```
 
-**`message list`** fetches all replies in a thread, or recent channel messages when no thread is specified. Use this when you need the full conversation:
+**`message list`** fetches the thread root plus all replies, or recent channel messages when no thread is specified. Use this when you need the full conversation:
 
 ```json
 {
