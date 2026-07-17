@@ -33,6 +33,7 @@ agent-slack unreads
 agent-slack later list
 agent-slack canvas get "CANVAS_URL"
 agent-slack workflow list "general"
+agent-slack workflow run "Ft123ABC" --channel "general" --field "Title=My request"
 agent-slack user list
 agent-slack channel list
 agent-slack user dm-open @alice @bob
