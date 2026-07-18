@@ -4,6 +4,7 @@ import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { queryReadonlySqlite } from "./firefox-profile.ts";
 import { decryptChromiumCookieValue } from "./chromium-cookie.ts";
+import { getKeychainTimeoutMs } from "./keychain.ts";
 import { isRecord } from "../lib/object-type-guards.ts";
 
 type BraveExtractedTeam = { url: string; name?: string; token: string };
@@ -136,6 +137,7 @@ function getSafeStoragePasswords(): string[] {
       const out = execFileSync("security", ["find-generic-password", "-w", "-s", service], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
+        timeout: getKeychainTimeoutMs(),
       }).trim();
       if (out) {
         passwords.push(out);
