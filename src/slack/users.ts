@@ -236,6 +236,7 @@ export function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
     deleted: typeof u.deleted === "boolean" ? u.deleted : undefined,
     status_text: getString(profile.status_text) ?? undefined,
     status_emoji: getString(profile.status_emoji) ?? undefined,
-    status_expiration: typeof profile.status_expiration === "number" ? profile.status_expiration : undefined,
+    status_expiration:
+      typeof profile.status_expiration === "number" ? profile.status_expiration : undefined,
   };
 }
