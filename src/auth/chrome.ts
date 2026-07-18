@@ -1,5 +1,10 @@
-import { execSync } from "node:child_process";
-import { platform } from "node:os";
+import { execFileSync, execSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { readdir } from "node:fs/promises";
+import { homedir, platform } from "node:os";
+import { join } from "node:path";
+import { decryptChromiumCookieValue } from "./chromium-cookie.ts";
+import { copySqliteForRead, queryReadonlySqlite } from "./firefox-profile.ts";
 
 type ChromeExtractedTeam = { url: string; name?: string; token: string };
 
@@ -9,6 +14,7 @@ export type ChromeExtracted = {
 };
 
 const IS_MACOS = platform() === "darwin";
+const CHROME_SUPPORT_DIR = join(homedir(), "Library", "Application Support", "Google", "Chrome");
 
 function escapeOsaScript(script: string): string {
   // osascript -e '...'
@@ -36,6 +42,100 @@ function cookieScript(): string {
       return ""
     end tell
   `;
+}
+
+function getSafeStoragePasswords(): string[] {
+  const services = ["Chrome Safe Storage", "Chromium Safe Storage"];
+  const passwords: string[] = [];
+  for (const service of services) {
+    try {
+      const out = execFileSync("security", ["find-generic-password", "-w", "-s", service], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (out) {
+        passwords.push(out);
+      }
+    } catch {
+      // continue
+    }
+  }
+  return [...new Set(passwords)];
+}
+
+async function chromeCookieDbCandidates(): Promise<string[]> {
+  if (!existsSync(CHROME_SUPPORT_DIR)) {
+    return [];
+  }
+
+  const entries = await readdir(CHROME_SUPPORT_DIR, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(CHROME_SUPPORT_DIR, entry.name, "Cookies"))
+    .filter((path) => existsSync(path))
+    .sort((a, b) => {
+      const aName = a.split("/").at(-2) ?? "";
+      const bName = b.split("/").at(-2) ?? "";
+      if (aName === "Default") {
+        return -1;
+      }
+      if (bName === "Default") {
+        return 1;
+      }
+      return aName.localeCompare(bName);
+    });
+}
+
+async function extractCookieDFromChromeDb(): Promise<string> {
+  const passwords = getSafeStoragePasswords();
+  if (passwords.length === 0) {
+    return "";
+  }
+
+  for (const dbPath of await chromeCookieDbCandidates()) {
+    const snapshot = await copySqliteForRead(dbPath);
+    try {
+      const rows = (await queryReadonlySqlite(
+        snapshot.copyPath,
+        "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
+      )) as {
+        host_key: string;
+        name: string;
+        value: string;
+        encrypted_value: Uint8Array;
+      }[];
+
+      for (const row of rows) {
+        if (row.value && row.value.startsWith("xoxd-")) {
+          return row.value;
+        }
+
+        const encrypted = Buffer.from(row.encrypted_value || []);
+        if (encrypted.length === 0) {
+          continue;
+        }
+
+        const prefix = encrypted.subarray(0, 3).toString("utf8");
+        const data = prefix === "v10" || prefix === "v11" ? encrypted.subarray(3) : encrypted;
+
+        for (const password of passwords) {
+          try {
+            const decrypted = decryptChromiumCookieValue(data, { password, iterations: 1003 });
+            const match = decrypted.match(/xoxd-[A-Za-z0-9%/+_=.-]+/);
+            if (match) {
+              return match[0]!;
+            }
+          } catch {
+            // continue
+          }
+        }
+      }
+    } finally {
+      await snapshot.cleanup();
+    }
+  }
+
+  return "";
 }
 
 const TEAM_JSON_PATHS = [
@@ -81,12 +181,15 @@ function teamsScript(): string {
   `;
 }
 
-export function extractFromChrome(): ChromeExtracted | null {
+export async function extractFromChrome(): Promise<ChromeExtracted | null> {
   if (!IS_MACOS) {
     return null;
   }
   try {
-    const cookie = osascript(cookieScript());
+    let cookie = osascript(cookieScript());
+    if (!cookie || !cookie.startsWith("xoxd-")) {
+      cookie = await extractCookieDFromChromeDb();
+    }
     if (!cookie || !cookie.startsWith("xoxd-")) {
       return null;
     }
