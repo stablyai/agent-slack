@@ -20,6 +20,20 @@ describe("reactions compaction", () => {
     expect(b.reactions?.[0]?.count).toBeUndefined();
   });
 
+  test("preserves W-prefixed user IDs while compacting reactions", () => {
+    const msg: SlackMessageSummary = {
+      channel_id: "C1",
+      ts: "1.000001",
+      text: "hi",
+      markdown: "hi",
+      reactions: [{ name: "eyes", users: ["W12345678", "B12345678"], count: 2 }],
+    };
+
+    const compact = toCompactMessage(msg, { includeReactions: true });
+    expect(compact.reactions?.[0]?.users).toEqual(["W12345678"]);
+    expect(compact.reactions?.[0]?.count).toBe(2);
+  });
+
   test("adds forwarded thread metadata for shared messages with thread_ts", () => {
     const msg: SlackMessageSummary = {
       channel_id: "C1",

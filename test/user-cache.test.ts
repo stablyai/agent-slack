@@ -35,17 +35,17 @@ describe("user-cache helpers", () => {
       {
         channel_id: "C1",
         ts: "1.000001",
-        text: "hey <@U22222222>",
-        markdown: "hey @U22222222",
-        user: "U11111111",
-        reactions: [{ name: "eyes", users: ["U11111111", "U44444444"] }],
+        text: "hey <@W22222222> and <@B22222222>",
+        markdown: "hey @W22222222",
+        user: "W11111111",
+        reactions: [{ name: "eyes", users: ["W11111111", "W44444444"] }],
       },
     ];
 
     expect(collectReferencedUserIds(messages, { includeReactions: true }).sort()).toEqual([
-      "U11111111",
-      "U22222222",
-      "U44444444",
+      "W11111111",
+      "W22222222",
+      "W44444444",
     ]);
   });
 

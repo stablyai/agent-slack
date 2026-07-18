@@ -13,9 +13,13 @@ curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.s
 
 Fallback: `npm i -g agent-slack` (Node >= 22.5).
 
-Safety: read/search freely. Do not send, edit, delete, react, invite, create channels or canvases, mark read, schedule, upload, or cancel scheduled messages unless explicitly asked. Prefer `message draft`.
+Treat the installed CLI's `agent-slack --help` and `agent-slack <command> --help` output as authoritative for supported commands and flags.
+
+Safety: read/search freely. Treat sends, edits, deletes, reactions, invitations, channel or canvas creation, mark-read operations, schedules, uploads, scheduled-message cancellation, and `workflow run` as write actions; perform them only when explicitly requested. Workflow runs can execute downstream actions. Prefer `message draft`.
 
 Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then `auth test`.
+
+For labeled links inside bullet or numbered lists, use Slack's `<URL|label>` syntax. Auto-converted lists do not convert CommonMark `[label](URL)` links into labeled link elements.
 
 Common commands:
 
@@ -41,9 +45,10 @@ agent-slack user dm-open @alice @bob
 ```
 
 With multiple workspaces, pass `--workspace "team"` or set `SLACK_WORKSPACE_URL`. Attachments include local `path` in JSON.
+Treat Slack user IDs beginning with `U` or `W` equivalently.
 
 For non-trivial usage, read the bundled references:
 
 - [references/commands.md](references/commands.md): command map and flags
-- [references/targets.md](references/targets.md): URL vs channel targeting rules
+- [references/targets.md](references/targets.md): URL, channel, and direct-message targeting rules
 - [references/output.md](references/output.md): JSON shapes and download paths

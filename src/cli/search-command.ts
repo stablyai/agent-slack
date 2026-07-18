@@ -23,7 +23,7 @@ function addSearchOptions(cmd: Command): Command {
       "Workspace selector (full URL or unique substring; needed when searching across multiple workspaces)",
     )
     .option("--channel <channel...>", "Channel filter (#name, name, or id). Repeatable.")
-    .option("--user <user>", "User filter (@name, name, or user id U...)")
+    .option("--user <user>", "User filter (U.../W..., @handle, or handle)")
     .option("--after <date>", "Only results after YYYY-MM-DD")
     .option("--before <date>", "Only results before YYYY-MM-DD")
     .option(

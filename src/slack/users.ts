@@ -1,5 +1,6 @@
 import type { SlackApiClient } from "./client.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
+import { isUserId } from "./user-id.ts";
 
 export type CompactSlackUser = {
   id: string;
@@ -12,6 +13,9 @@ export type CompactSlackUser = {
   is_bot?: boolean;
   deleted?: boolean;
   dm_id?: string;
+  status_text?: string;
+  status_emoji?: string;
+  status_expiration?: number;
 };
 
 export async function listUsers(
@@ -91,7 +95,7 @@ export async function getUser(client: SlackApiClient, input: string): Promise<Co
 
 export async function resolveUserId(client: SlackApiClient, input: string): Promise<string | null> {
   const trimmed = input.trim();
-  if (/^U[A-Z0-9]{8,}$/.test(trimmed)) {
+  if (isUserId(trimmed)) {
     return trimmed;
   }
 
@@ -231,5 +235,9 @@ export function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
     tz: getString(u.tz) ?? undefined,
     is_bot: typeof u.is_bot === "boolean" ? u.is_bot : undefined,
     deleted: typeof u.deleted === "boolean" ? u.deleted : undefined,
+    status_text: getString(profile.status_text) ?? undefined,
+    status_emoji: getString(profile.status_emoji) ?? undefined,
+    status_expiration:
+      typeof profile.status_expiration === "number" ? profile.status_expiration : undefined,
   };
 }

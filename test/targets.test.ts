@@ -50,6 +50,15 @@ describe("parseMsgTarget", () => {
     expect(t.userId).toBe("U12345ABCDE");
   });
 
+  test("accepts W-prefixed user IDs as DM targets", () => {
+    const t = parseMsgTarget("W12345ABCDE");
+    expect(t.kind).toBe("user");
+    if (t.kind !== "user") {
+      throw new Error("expected user");
+    }
+    expect(t.userId).toBe("W12345ABCDE");
+  });
+
   test("accepts user IDs with leading/trailing whitespace", () => {
     const t = parseMsgTarget("  U09GDJJKCCW  ");
     expect(t.kind).toBe("user");
@@ -61,6 +70,11 @@ describe("parseMsgTarget", () => {
 
   test("does not treat short U-prefixed strings as user IDs", () => {
     const t = parseMsgTarget("U1234");
+    expect(t.kind).toBe("channel");
+  });
+
+  test("does not treat short W-prefixed strings as user IDs", () => {
+    const t = parseMsgTarget("W1234");
     expect(t.kind).toBe("channel");
   });
 });

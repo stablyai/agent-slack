@@ -12,10 +12,6 @@ export function isChannelId(input: string): boolean {
   return /^[CDG][A-Z0-9]{8,}$/.test(input);
 }
 
-export function isUserId(input: string): boolean {
-  return /^U[A-Z0-9]{8,}$/.test(input);
-}
-
 /**
  * Open (or reuse) a DM channel with a user via conversations.open.
  * Returns the DM channel ID.
