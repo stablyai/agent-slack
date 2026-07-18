@@ -1,5 +1,5 @@
 import type { CliContext } from "./context.ts";
-import { draftMessage } from "./draft-actions.ts";
+import { composeMessage } from "./compose-actions.ts";
 
 const TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
 
@@ -50,7 +50,7 @@ export async function redirectSendToDraft(
     text: string;
     options: SendOptionsForRedirect;
   },
-  draftFn: typeof draftMessage = draftMessage,
+  draftFn: typeof composeMessage = composeMessage,
 ): Promise<Record<string, unknown>> {
   const unsupported: string[] = [];
   if ((input.options.attach ?? []).length > 0) {
