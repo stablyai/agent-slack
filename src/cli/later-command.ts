@@ -240,7 +240,10 @@ export function registerLaterCommand(input: { program: Command; ctx: CliContext 
     .command("remind")
     .description("Set a reminder for a saved message")
     .argument("<target>", "Slack message URL or channel ID")
-    .requiredOption("--in <duration>", "When to remind: 30m, 1h, 3h, 2d, tomorrow, monday, etc.")
+    .requiredOption(
+      "--in <duration>",
+      "When to remind: 30m, 1h, 3h, 2d, tomorrow, monday, or Unix timestamp; named days use this process's local timezone at 9:00",
+    )
     .option("--workspace <url>", "Workspace URL")
     .option("--ts <ts>", "Message ts (required when using channel ID)")
     .action(async (...args) => {

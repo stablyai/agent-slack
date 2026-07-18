@@ -44,7 +44,7 @@ export function registerScheduledMessageCommand(input: {
     .argument("<id>", "scheduled_message_id returned by message send --schedule")
     .requiredOption(
       "--channel <channel>",
-      "Channel/DM id or channel name for the scheduled message",
+      "Required channel/DM id or channel name for the scheduled message",
     )
     .option("--workspace <url>", "Workspace selector (full URL or unique substring)")
     .action(async (...args) => {

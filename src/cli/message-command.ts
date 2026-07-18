@@ -166,23 +166,31 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
-    .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
+    .option(
+      "--thread-ts <ts>",
+      "Thread root ts for channel targets; URL targets derive their thread context",
+    )
     .option(
       "--reply-broadcast",
-      "Also broadcast this thread reply to the parent channel (requires thread context; use --thread-ts for channel targets; cannot be combined with --attach).",
+      "Also broadcast this thread reply to the parent channel (requires thread context; use --thread-ts for channel targets; not supported for user-ID/DM targets; cannot be combined with --attach).",
     )
-    .option("--attach <path>", "Attach a local file path (repeatable)", collectOptionValue, [])
+    .option(
+      "--attach <path>",
+      "Attach a local file path (repeatable); text becomes an initial comment without automatic list conversion",
+      collectOptionValue,
+      [],
+    )
     .option(
       "--blocks <path>",
       "Path to a JSON file containing a Block Kit blocks array. Bypasses automatic markdown-to-rich-text conversion. Use '-' to read from stdin. Cannot be combined with --attach.",
     )
     .option(
       "--schedule <time>",
-      "Schedule delivery at an ISO 8601 timestamp with explicit timezone (or Unix timestamp). Cannot be combined with --attach.",
+      "Schedule delivery at an ISO 8601 timestamp with explicit timezone (or Unix timestamp), within 120 days. Cannot be combined with --attach.",
     )
     .option(
       "--schedule-in <duration>",
-      "Schedule delivery after a duration or future phrase, e.g. 3h, tomorrow 9am, monday 9am. Cannot be combined with --attach.",
+      "Schedule delivery within 120 days after a duration or future phrase, e.g. 3h or monday 9am. Named phrases use this process's local timezone. Cannot be combined with --attach.",
     )
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
@@ -248,14 +256,19 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
 
   messageCmd
     .command("draft")
-    .description("Open a rich Slack-like editor to compose and send a message")
+    .description(
+      "Open a send-capable rich editor; CI skips the editor and immediately sends supplied text",
+    )
     .argument("<target>", "Slack message URL, #name/name, or channel id")
-    .argument("[text]", "Initial draft text (mrkdwn format)")
+    .argument("[text]", "Initial draft text (sent immediately when CI skips the editor)")
     .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
-    .option("--thread-ts <ts>", "Thread root ts to post into (optional)")
+    .option(
+      "--thread-ts <ts>",
+      "Thread root ts to post into; overrides the URL-derived thread when supplied",
+    )
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,

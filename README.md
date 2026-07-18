@@ -108,7 +108,7 @@ agent-slack
 
 Notes:
 
-- Output is **always JSON** and aggressively pruned (`null`/empty fields removed).
+- Slack data commands output aggressively pruned JSON (`null`/empty fields removed); help, update, and some authentication setup commands output text.
 - Attached files are auto-downloaded and returned as absolute local paths.
 
 ## Authentication (no fancy setup)
@@ -219,6 +219,8 @@ agent-slack message draft "https://workspace.slack.com/archives/C123/p1700000000
 ```
 
 After sending, the editor shows a "View in Slack" link to the posted message.
+
+`message draft` is send-capable. In CI, it skips the browser editor and immediately sends supplied text; do not use it for a compose-only request in a noninteractive environment.
 
 ### Reply, edit, delete, and react
 
@@ -384,7 +386,7 @@ When to use which:
 
 ### Files (snippets/images/attachments)
 
-`message get/list` auto-download attached files to an agent-friendly temp directory and return file metadata in `message.files[]`, including `name` when Slack provides the original filename and `path` for the local download. Failed downloads keep the attachment entry, preserve `message.files[].path` with a local `.download-error.txt` file, and include `message.files[].error`. `search messages` and `search all` use the same attachment shape for message results, while `search files` skips entries whose download fails.
+`message get/list` auto-download attached files to an agent-friendly temp directory and return file metadata in `message.files[]`, including `name` when Slack provides the original filename and `path` for the local download. Failed downloads keep the attachment entry, preserve `message.files[].path` with a local `.download-error.txt` file, and include `message.files[].error`. `search messages` and `search all` use the same attachment shape for message results, while `search files` skips entries whose download fails. Use `search messages --content-type file` when you also need the source-message permalink for a reply.
 
 - macOS default: `~/.agent-slack/tmp/downloads/`
 
@@ -421,6 +423,9 @@ agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq
 # Get one user by id or handle
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
+
+# Open a DM or group DM with one to eight other users (the caller is implicit)
+agent-slack user dm-open "@alice" "@bob" --workspace "https://workspace.slack.com" | jq .
 ```
 
 ### Unreads (inbox view)
@@ -497,6 +502,8 @@ agent-slack later remove "https://workspace.slack.com/archives/C123/p17000000000
 agent-slack later remind "https://workspace.slack.com/archives/C123/p1700000000000000" --in 1h
 agent-slack later remind "https://workspace.slack.com/archives/C123/p1700000000000000" --in tomorrow
 ```
+
+Named reminder days such as `tomorrow` and `monday` mean 9:00 in the CLI process's local timezone. Use a Unix timestamp when timezone precision matters.
 
 ### Create or fetch a Canvas as Markdown
 

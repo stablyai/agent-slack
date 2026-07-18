@@ -227,10 +227,13 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     .command("mark")
     .description("Mark a channel/DM as read up to a given message")
     .argument("<target>", "Slack message URL, #channel, or channel ID")
-    .option("--ts <ts>", "Message ts to mark as read (required when target is a channel name/ID)")
+    .option(
+      "--ts <ts>",
+      "Message ts to mark as read (required for channel name/ID targets; overrides a URL timestamp)",
+    )
     .option(
       "--workspace <url>",
-      "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
+      "Workspace selector for channel name/ID targets; cannot be used with URL targets",
     )
     .action(async (...args) => {
       const [targetArg, options] = args as [string, { ts?: string; workspace?: string }];
