@@ -1,5 +1,16 @@
 # Output + downloads (reference)
 
+## Contents
+
+- [Output format](#output-format)
+- [Message shapes](#message-shapes-high-level)
+- [Later shape](#later-shape-high-level)
+- [Unreads shape](#unreads-shape-high-level)
+- [Search shapes](#search-shapes-high-level)
+- [Channel shapes](#channel-shapes-high-level)
+- [File fields in compact messages](#file-fields-in-compact-messages)
+- [Attachment downloads](#attachment-downloads)
+
 ## Output format
 
 All commands print JSON to stdout.
@@ -37,7 +48,7 @@ All commands print JSON to stdout.
   - `channel_id: "C..." | "D..."`
   - `scheduled_message_id: "Q..."`
 
-Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` mentions in rendered content).
+Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` or `@W...` mentions in rendered content).
 `referenced_users` provides display metadata for those IDs. The cache is per-workspace with a 24-hour per-entry TTL.
 This behavior is opt-in and requires passing the `--resolve-users` flag (or `--refresh-users` to bypass the cache).
 

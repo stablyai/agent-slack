@@ -540,6 +540,40 @@ describe("sendMessage", () => {
     expect(calls[0]?.params.blocks).toEqual(blocks);
   });
 
+  test("sends Slack manual links in lists as rich-text link blocks", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "- Review <https://example.com/pull/42|PR #42>",
+      options: {},
+    });
+
+    expect(calls[0]?.method).toBe("chat.postMessage");
+    expect(calls[0]?.params.blocks).toEqual([
+      {
+        type: "rich_text",
+        elements: [
+          {
+            type: "rich_text_list",
+            style: "bullet",
+            elements: [
+              {
+                type: "rich_text_section",
+                elements: [
+                  { type: "text", text: "Review " },
+                  { type: "link", url: "https://example.com/pull/42", text: "PR #42" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+
   test("--blocks: errors when an array element is not an object", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);
