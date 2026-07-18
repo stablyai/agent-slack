@@ -6,7 +6,7 @@ Guiding principle:
 
 - **Token-efficient** — (compact JSON, minimal duplication, and empty/null fields pruned) so LLMs can consume results cheaply.
 - **Zero-config auth** — Auth just works if you have Slack Desktop (with fallbacks available). No Python dependency.
-- **Human-in-the-loop** — When appropriate (not in CI environments), loop humans in. Ex: `message draft`
+- **Human-in-the-loop** — When appropriate (not in CI environments), loop humans in. Ex: `message compose`
   <img width="1228" height="741" alt="image" src="https://github.com/user-attachments/assets/92ecbb71-18ca-4516-a874-c83c154b0709" />
 
 ## Getting started
@@ -35,6 +35,7 @@ nix run github:stablyai/agent-slack
 - **Search**: messages + files (with filters)
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
 - **Write**: send now or schedule delivery, edit/delete messages, add reactions (bullet lists auto-render as native Slack rich text)
+- **Compose & drafts**: open a browser editor (`message compose`), or manage Slack-native drafts that show up in your Slack client (`message draft`)
 - **Channels**: list conversations, create channels, and invite users by id/handle/email
 - **Canvas**: create Slack canvases from Markdown and fetch them as Markdown
 
@@ -79,7 +80,12 @@ agent-slack
 │   ├── scheduled
 │   │   ├── list                   # list pending scheduled messages
 │   │   └── cancel <id>            # cancel a pending scheduled message
-│   ├── draft <target> [text]      # open Slack-like editor in browser
+│   ├── compose <target> [text]    # open Slack-like editor in browser
+│   ├── draft                      # Slack-native drafts (appear in your Slack client)
+│   │   ├── list                   # list Slack-native drafts
+│   │   ├── create <target> <text> # create a Slack-native draft
+│   │   ├── update <id> <text>     # replace a draft's text
+│   │   └── delete <id>            # delete a draft
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
 │   └── react
@@ -203,24 +209,46 @@ Optional:
 agent-slack message get "https://workspace.slack.com/archives/C123/p1700000000000000" --include-reactions
 ```
 
-### Draft a message (browser editor)
+### Compose a message (browser editor)
 
 Opens a Slack-like WYSIWYG editor in your browser for composing messages with full formatting support (bold, italic, strikethrough, links, lists, quotes, code, code blocks).
 
 ```bash
 # Open editor for a channel
-agent-slack message draft "#general"
+agent-slack message compose "#general"
 
 # Open editor with initial text
-agent-slack message draft "#general" "Here's my update"
+agent-slack message compose "#general" "Here's my update"
 
 # Reply in a thread
-agent-slack message draft "https://workspace.slack.com/archives/C123/p1700000000000000"
+agent-slack message compose "https://workspace.slack.com/archives/C123/p1700000000000000"
 ```
 
 After sending, the editor shows a "View in Slack" link to the posted message.
 
-`message draft` is send-capable. In CI, it skips the browser editor and immediately sends supplied text; do not use it for a compose-only request in a noninteractive environment.
+`message compose` is send-capable. In CI, it skips the browser editor and immediately sends supplied text; do not use it for a compose-only request in a noninteractive environment.
+
+### Slack-native drafts
+
+Manage drafts through Slack's own drafts API, so they show up natively in the user's Slack client (mobile and desktop) ready to review and send. Requires browser-style auth (xoxc/xoxd).
+
+> [!NOTE]
+> These commands use Slack's **undocumented** internal `drafts.*` client endpoints (the same ones the Slack app uses), authenticated with your own browser session. They act only as you, on your own drafts — nothing is exposed that you can't already see, and `create` posts nothing. But because the endpoints are unsupported: their behavior may change without notice, and on **Enterprise Grid** this style of session-token API use can be flagged by Slack's security/anomaly detection. This is the same auth model the rest of agent-slack already uses (`later`, `unreads`, `search`); use it where that's acceptable.
+
+```bash
+# List unsent drafts
+agent-slack message draft list
+
+# Draft a message to a channel (shows up in Slack's Drafts section)
+agent-slack message draft create "#general" "Here's my update"
+
+# Draft a thread reply
+agent-slack message draft create "https://workspace.slack.com/archives/C123/p1700000000000000" "Looking into it"
+
+# Replace a draft's text, or delete it
+agent-slack message draft update "DR_ID" "Here's my revised update"
+agent-slack message draft delete "DR_ID"
+```
 
 ### Reply, edit, delete, and react
 

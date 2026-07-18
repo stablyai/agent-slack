@@ -9,8 +9,9 @@ import {
   sendMessage,
   type MessageCommandOptions,
 } from "./message-actions.ts";
-import { draftMessage } from "./draft-actions.ts";
+import { composeMessage } from "./compose-actions.ts";
 import { registerScheduledMessageCommand } from "./message-scheduled-command.ts";
+import { registerMessageDraftCommand } from "./message-draft-command.ts";
 
 function collectOptionValue(value: string, previous: string[] = []): string[] {
   return [...previous, value];
@@ -253,14 +254,15 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     });
 
   registerScheduledMessageCommand({ messageCmd, ctx: input.ctx });
+  registerMessageDraftCommand({ messageCmd, ctx: input.ctx });
 
   messageCmd
-    .command("draft")
+    .command("compose")
     .description(
-      "Open a send-capable rich editor; CI skips the editor and immediately sends supplied text",
+      "Open a send-capable rich editor in the browser; CI skips the editor and immediately sends supplied text",
     )
     .argument("<target>", "Slack message URL, #name/name, or channel id")
-    .argument("[text]", "Initial draft text (sent immediately when CI skips the editor)")
+    .argument("[text]", "Initial message text (mrkdwn; sent immediately when CI skips the editor)")
     .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
@@ -276,7 +278,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
         { workspace?: string; threadTs?: string },
       ];
       try {
-        const payload = await draftMessage({
+        const payload = await composeMessage({
           ctx: input.ctx,
           targetInput,
           initialText: text,

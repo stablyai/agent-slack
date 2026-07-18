@@ -49,12 +49,20 @@ describe("agent-facing help contracts", () => {
     expect(optionDescription(send, "--reply-broadcast")).toContain("DM targets");
   });
 
-  test("message draft identifies its CI send behavior", () => {
-    const draft = findCommand(buildProgram(), "message", "draft");
+  test("message compose identifies its CI send behavior", () => {
+    const compose = findCommand(buildProgram(), "message", "compose");
 
-    expect(draft.description()).toContain("CI skips the editor");
-    expect(draft.registeredArguments[1]?.description).toContain("sent immediately");
-    expect(optionDescription(draft, "--thread-ts")).toContain("overrides the URL-derived thread");
+    expect(compose.description()).toContain("CI skips the editor");
+    expect(compose.registeredArguments[1]?.description).toContain("sent immediately");
+    expect(optionDescription(compose, "--thread-ts")).toContain("overrides the URL-derived thread");
+  });
+
+  test("Slack-native drafts document DM targeting and inherited-broadcast controls", () => {
+    const create = findCommand(buildProgram(), "message", "draft", "create");
+    expect(create.registeredArguments[0]?.description).toContain("user id");
+
+    const update = findCommand(buildProgram(), "message", "draft", "update");
+    expect(optionDescription(update, "--no-broadcast")).toContain("inherited");
   });
 
   test("scheduled cancellation identifies its required channel", () => {
