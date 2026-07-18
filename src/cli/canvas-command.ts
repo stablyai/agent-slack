@@ -51,13 +51,13 @@ export function registerCanvasCommand(input: { program: Command; ctx: CliContext
 
   canvasCmd
     .command("create")
-    .description("Create a Slack canvas from Markdown")
-    .option("--file <path>", "Read Markdown from a local file")
-    .option("--markdown <text>", "Use a Markdown string directly")
+    .description("Create a Slack canvas from exactly one Markdown source")
+    .option("--file <path>", "Read Markdown from a local file; mutually exclusive with --markdown")
+    .option("--markdown <text>", "Use a Markdown string; mutually exclusive with --file")
     .option("--title <title>", "Canvas title")
     .option(
       "--channel <id-or-name>",
-      "Add the canvas as a channel tab (required on free Slack plans)",
+      "Add as a channel tab (required on free Slack plans; requires a standard token with canvases:write; browser auth supports standalone canvases only)",
     )
     .option(
       "--workspace <url>",

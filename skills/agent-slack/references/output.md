@@ -1,148 +1,28 @@
-# Output + downloads (reference)
+# JSON output and downloads
 
-## Contents
-
-- [Output format](#output-format)
-- [Message shapes](#message-shapes-high-level)
-- [Later shape](#later-shape-high-level)
-- [Unreads shape](#unreads-shape-high-level)
-- [Search shapes](#search-shapes-high-level)
-- [Channel shapes](#channel-shapes-high-level)
-- [File fields in compact messages](#file-fields-in-compact-messages)
-- [Attachment downloads](#attachment-downloads)
-
-## Output format
-
-All commands print JSON to stdout.
+Slack data commands print JSON to stdout. Help, update, and some authentication setup commands print text instead.
 
 - Empty values are pruned (`null`, `[]`, `{}` are removed where possible).
 - `auth whoami` redacts secrets in its output.
 
-## Message shapes (high-level)
+`message get` returns one message and an optional thread summary. `message list` returns chronological messages; in thread mode this includes the root and all replies.
 
-- `message get` returns:
-  - `message: { ... }`
-  - `thread?: { ts, length }` (summary only; present when threaded)
-  - `referenced_users?: { [user_id]: { id, name?, real_name?, display_name?, ... } }`
+Immediate non-attachment sends return `ts` and usually a `permalink`. Attachment sends return neither; scheduled sends return `scheduled_message_id` and `post_at` instead.
 
-- `message list` returns:
-  - `messages: [ ... ]` (the full thread)
-  - `referenced_users?: { [user_id]: { id, name?, real_name?, display_name?, ... } }`
-  - Messages are compact and omit redundant fields on each item where possible.
+`canvas create` returns `canvas: { id, title?, channel_id? }`. `canvas get` returns `canvas: { id, title?, markdown }`.
 
-- `message send` returns:
-  - `ok: true`
-  - `channel_id: "C..." | "D..."`
-  - `ts?: "<seconds>.<micros>"` — the posted message's ts; absent on file-attachment sends
-  - `thread_ts?: "<seconds>.<micros>"` — present only when the send was into an existing thread
-  - `permalink?: "https://.../archives/..."` — present when `ts` is known and a workspace URL was resolvable
-  - `scheduled_message_id?: "Q..."` — present for `--schedule` / `--schedule-in` sends
-  - `post_at?: <unix-seconds>` — present for scheduled sends
+Message payloads keep canonical user IDs. Pass `--resolve-users` to add display metadata under `referenced_users`, or `--refresh-users` to refresh the 24-hour per-workspace cache before resolving.
 
-- `message scheduled list` returns:
-  - `scheduled_messages: [{ id, channel_id, post_at, date_created?, text? }]`
-  - `next_cursor?: "<cursor>"`
+Use `--max-body-chars`, `--max-content-chars`, `--limit`, or a command's counts-only mode to keep results within the task's needs.
 
-- `message scheduled cancel` returns:
-  - `ok: true`
-  - `channel_id: "C..." | "D..."`
-  - `scheduled_message_id: "Q..."`
+## Downloaded files
 
-Message payload fields keep canonical user IDs (for example `author.user_id`, reaction `users[]`, and `@U...` or `@W...` mentions in rendered content).
-`referenced_users` provides display metadata for those IDs. The cache is per-workspace with a 24-hour per-entry TTL.
-This behavior is opt-in and requires passing the `--resolve-users` flag (or `--refresh-users` to bypass the cache).
-
-Use `--max-body-chars` to cap message bodies for token budget control.
-
-## Later shape (high-level)
-
-- `later list` returns:
-  - `counts: { in_progress, archived, completed, total }`
-  - `items: [{ channel_id, channel_name, ts, state, date_saved, message? }]`
-  - `message` includes `author`, `content`, `thread_ts`, `reply_count`
-  - Items sorted by most recently saved first
-  - With `--counts-only`, `items` is omitted
-
-- `later complete/archive/reopen/save/remove` returns `{ ok: true }`
-- `later remind` returns `{ ok: true, remind_at }`
-
-## Unreads shape (high-level)
-
-- `unreads` returns:
-  - `channels: [{ channel_id, channel_name, channel_type, unread_count, mention_count, messages? }]`
-  - `threads?: { has_unreads, mention_count }` (present when there are unread thread replies)
-  - `channel_type` is one of: `"channel"`, `"dm"`, `"mpim"`, `"group"`
-  - Channels sorted by mention count (desc), then unread count (desc)
-  - System messages (joins, leaves, topic changes) are excluded by default; use `--include-system` to include them
-  - With `--counts-only`, `messages` is omitted
-
-## Search shapes (high-level)
-
-- `search messages|all` returns `messages: [ ... ]`
-- `search messages|all` may include `referenced_users?: { [user_id]: { id, name?, real_name?, display_name?, ... } }`
-- `search files|all` returns `files: [ ... ]`
-
-Use `--max-content-chars` (messages) and `--limit` to control size.
-
-## Channel shapes (high-level)
-
-- `channel list` returns:
-  - `channels: [ ... ]`
-  - `next_cursor?: string` (present when more pages are available)
-
-- `channel new` returns:
-  - `channel: { id, name, is_private }`
-
-- `channel invite` returns:
-  - Internal invite mode:
-    - `channel_id`
-    - `invited_user_ids: [ ... ]`
-    - `already_in_channel_user_ids?: [ ... ]`
-    - `unresolved_users?: [ ... ]`
-  - External invite mode (`--external`):
-    - `channel_id`
-    - `external: true`
-    - `external_limited: boolean`
-    - `invited_emails: [ ... ]`
-    - `already_invited_emails?: [ ... ]`
-    - `invalid_external_targets?: [ ... ]`
-
-- `channel mark` returns:
-  - `ok: boolean`
-  - `channel: string` (resolved channel ID)
-  - `ts: string`
-
-## Canvas shapes (high-level)
-
-- `canvas create` returns:
-  - `canvas: { id, title?, channel_id? }`
-- `canvas get` returns:
-  - `canvas: { id, title?, markdown }`
-
-## File fields in compact messages
-
-When messages include file attachments, each file object contains:
-
-- `name` — the original filename (e.g. `"report.pdf"`), omitted if unavailable
-- `mimetype` — MIME type (e.g. `"application/pdf"`)
-- `mode` — Slack file mode (e.g. `"hosted"`, `"snippet"`)
-- `path` — absolute local path to the downloaded file
-
-Only files with a successful download are included.
-
-## Attachment downloads
-
-Attachments are downloaded to an agent-friendly temp directory.
+Message reads and searches download Slack files locally. Each successful file includes an absolute `path` plus available metadata such as `name`, `mimetype`, and `mode`.
 
 - Successful downloads are returned as absolute paths in output.
-- `message get/list` preserves failed attachment downloads with `message.files[].error` and keeps `message.files[].path` pointing to a local `.download-error.txt` file.
+- `message get` preserves failed downloads in `message.files[]`; `message list` uses `messages[].files[]`. Each failed entry has `error` and a `path` to a local `.download-error.txt` file.
 - Message results from `search messages|all` preserve failed attachment downloads with `messages[].files[].error` and keep `messages[].files[].path` pointing to a local `.download-error.txt` file.
-- `search files` skips files whose download fails and continues returning the remaining matches.
+- `search files` warns and skips files whose download fails. Do not treat a skip warning as proof that no matching file exists; retry through the source message with `message get/list` when possible.
+- For download-then-reply workflows, use `search messages --content-type file`: `search files` results include local paths but no source-message permalink or thread target.
 
-Default download root:
-
-- `~/.agent-slack/tmp/downloads/`
-
-If `XDG_RUNTIME_DIR` is set, downloads live under:
-
-- `$XDG_RUNTIME_DIR/agent-slack/tmp/downloads/`
+Downloads use `$XDG_RUNTIME_DIR/agent-slack/tmp/downloads/` when `XDG_RUNTIME_DIR` is set; otherwise they use `~/.agent-slack/tmp/downloads/`.

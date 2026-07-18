@@ -6,7 +6,7 @@
 
 - [README](https://github.com/stablyai/agent-slack/blob/main/README.md): Full documentation with installation, authentication, and usage examples
 - [Agent Skill (SKILL.md)](https://github.com/stablyai/agent-slack/blob/main/skills/agent-slack/SKILL.md): Integration guide for Claude Code, Cursor, Codex, and custom AI agents
-- [Command References](https://github.com/stablyai/agent-slack/blob/main/skills/agent-slack/references/): Detailed per-command documentation with examples
+- [Agent References](https://github.com/stablyai/agent-slack/blob/main/skills/agent-slack/references/): Non-obvious targeting, output, and download behavior
 
 ## Key Features
 

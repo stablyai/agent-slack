@@ -70,7 +70,7 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
   userCmd
     .command("dm-open")
     .description("Open or get a DM / group DM channel")
-    .argument("<users...>", "One or more user IDs (U.../W...) or @handles")
+    .argument("<users...>", "One to 8 other user IDs (U.../W...) or @handles; caller is implicit")
     .option("--workspace <url>", "Workspace URL (required if you have multiple workspaces)")
     .action(async (...args) => {
       const [users, options] = args as [string[], { workspace?: string }];

@@ -5,7 +5,7 @@ description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canv
 
 # agent-slack
 
-CLI on `$PATH`: `agent-slack ...`. If missing, prefer:
+Use `agent-slack` from `$PATH`. If it is missing, install it with:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.sh | sh
@@ -13,42 +13,30 @@ curl -fsSL https://raw.githubusercontent.com/stablyai/agent-slack/main/install.s
 
 Fallback: `npm i -g agent-slack` (Node >= 22.5).
 
-Treat the installed CLI's `agent-slack --help` and `agent-slack <command> --help` output as authoritative for supported commands and flags.
+Run `agent-slack --help` or the relevant subcommand help before guessing a command or flag.
+If a capability named here is absent from installed help, report version skew instead of guessing. Do not self-update the CLI without explicit authorization.
 
-Safety: read/search freely. Treat sends, edits, deletes, reactions, invitations, channel or canvas creation, mark-read operations, schedules, uploads, scheduled-message cancellation, and `workflow run` as write actions; perform them only when explicitly requested. Workflow runs can execute downstream actions. Prefer `message draft`.
+## Safety
 
-Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then `auth test`.
+- Read and search freely.
+- Perform write actions only when explicitly requested: sends, edits, deletes, reactions, invitations, channel or canvas creation, mark-read operations, scheduling or canceling delivery, uploads, Later state/reminder changes, DM/group-DM creation, and `workflow run`. Workflow runs can execute downstream actions.
+- For compose- or review-only requests, return proposed text without invoking Slack. `message draft` is send-capable; use it only when the user explicitly asks to open the interactive editor. In CI or another noninteractive environment, do not invoke it without separate authorization to send immediately: CI skips the editor and sends supplied text.
 
-For labeled links inside bullet or numbered lists, use Slack's `<URL|label>` syntax. Auto-converted lists do not convert CommonMark `[label](URL)` links into labeled link elements.
+## Workflow
 
-Common commands:
+1. Run `agent-slack auth whoami`. If needed, import credentials with `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then run `auth test`.
+2. Prefer a Slack message URL when one is available. It carries the workspace, channel, and timestamp needed by most message operations.
+3. Choose the narrowest read operation: `message get` for one message, `message list` for a full thread or channel history, and `search messages` or `search files` for discovery.
+4. Use output limits such as `--limit`, `--max-body-chars`, and `--max-content-chars` to avoid unnecessary context.
+5. For a requested write, execute only the requested mutation and verify the resulting JSON metadata.
 
-```bash
-agent-slack message get "SLACK_URL"
-agent-slack message list "SLACK_URL"
-agent-slack message list "general" --limit 20
-agent-slack search messages "query" --channel "general"
-agent-slack message draft "general" "text"
-agent-slack message send "URL_OR_CHANNEL" "text" --attach ./file.md
-agent-slack message send "general" "text" --schedule-in "3h"
-agent-slack message scheduled list
-agent-slack message scheduled cancel "SCHEDULED_ID" --channel "CHANNEL_ID"
-agent-slack unreads
-agent-slack later list
-agent-slack canvas create --file ./plan.md --title "Plan"
-agent-slack canvas create --markdown $'# Plan\n\n- [ ] Ship it'
-agent-slack canvas get "CANVAS_URL"
-agent-slack workflow list "general"
-agent-slack user list
-agent-slack channel list
-agent-slack user dm-open @alice @bob
-```
+For scheduled writes, prefer `--schedule` with an ISO 8601 timestamp and explicit offset when timezone matters. Named `--schedule-in` phrases use the executing environment's local timezone; confirm that it matches the user's intent.
 
-With multiple workspaces, pass `--workspace "team"` or set `SLACK_WORKSPACE_URL`. Attachments include local `path` in JSON.
-Treat Slack user IDs beginning with `U` or `W` equivalently.
+Named `later remind --in` values such as `tomorrow` or `monday` also use the executing environment's local timezone at 9:00. Confirm that timezone or pass an explicit Unix timestamp.
 
-For non-trivial usage, read the bundled references:
+Ordinary `message send` and `message edit` calls auto-convert lists. `message send --blocks` uses supplied blocks, while `message send --attach` sends its initial comment without automatic list conversion. Inside auto-converted lists, use Slack's `<URL|label>` syntax because CommonMark `[label](URL)` links are not converted into labeled link elements.
 
-- [references/commands.md](references/commands.md): command map and flags
-- [references/targets.md](references/targets.md): URL, channel, and direct-message targeting rules
-- [references/output.md](references/output.md): JSON shapes and download paths
+## Conditional references
+
+- Read [references/targets.md](references/targets.md) only when choosing between a message URL, channel, or user target, or when resolving multiple workspaces.
+- Read [references/output.md](references/output.md) only when handling returned message or canvas metadata, resolved users, or downloaded and failed attachments.
