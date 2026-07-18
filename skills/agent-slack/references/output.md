@@ -112,6 +112,13 @@ Use `--max-content-chars` (messages) and `--limit` to control size.
   - `channel: string` (resolved channel ID)
   - `ts: string`
 
+## Canvas shapes (high-level)
+
+- `canvas create` returns:
+  - `canvas: { id, title?, channel_id? }`
+- `canvas get` returns:
+  - `canvas: { id, title?, markdown }`
+
 ## File fields in compact messages
 
 When messages include file attachments, each file object contains:

@@ -35,10 +35,26 @@ export class SlackApiClient {
       throw new Error("Browser auth requires workspace URL.");
     }
     const auth = this.auth as Extract<SlackAuth, { auth_type: "browser" }>;
-    const url = `${this.workspaceUrl.replace(/\/$/, "")}/api/${method}`;
+    return this.browserApiMultipart({
+      workspaceUrl: this.workspaceUrl,
+      auth,
+      method,
+      params,
+    });
+  }
+
+  private async browserApiMultipart(input: {
+    workspaceUrl: string;
+    auth: Extract<SlackAuth, { auth_type: "browser" }>;
+    method: string;
+    params: Record<string, unknown>;
+    attempt?: number;
+  }): Promise<Record<string, unknown>> {
+    const attempt = input.attempt ?? 0;
+    const url = `${input.workspaceUrl.replace(/\/$/, "")}/api/${input.method}`;
     const fd = new FormData();
-    fd.append("token", auth.xoxc_token);
-    for (const [k, v] of Object.entries(params)) {
+    fd.append("token", input.auth.xoxc_token);
+    for (const [k, v] of Object.entries(input.params)) {
       if (v !== undefined) {
         fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
       }
@@ -46,19 +62,30 @@ export class SlackApiClient {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Cookie: `d=${encodeURIComponent(auth.xoxd_cookie)}`,
+        Cookie: `d=${encodeURIComponent(input.auth.xoxd_cookie)}`,
         Origin: "https://app.slack.com",
         "User-Agent": getUserAgent(),
       },
       body: fd,
     });
+
+    if (response.status === 429 && attempt < 3) {
+      const retryAfter = Number(response.headers.get("Retry-After") ?? "5");
+      const delayMs = Math.min(Math.max(retryAfter, 1) * 1000, 30000);
+      await new Promise((r) => setTimeout(r, delayMs));
+      return this.browserApiMultipart({
+        ...input,
+        attempt: attempt + 1,
+      });
+    }
+
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(`Slack HTTP ${response.status} calling ${method}`);
+      throw new Error(`Slack HTTP ${response.status} calling ${input.method}`);
     }
     if (!isRecord(data) || data.ok !== true) {
       const error = isRecord(data) && typeof data.error === "string" ? data.error : null;
-      throw new Error(error || `Slack API error calling ${method}`);
+      throw new Error(error || `Slack API error calling ${input.method}`);
     }
     return data;
   }

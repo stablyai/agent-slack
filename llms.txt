@@ -18,7 +18,7 @@
 - Zero-config auth: auto-detects Slack Desktop credentials on macOS, Windows, and Linux — with Chrome, Brave, and Firefox fallbacks
 - Multi-workspace Slack management with automatic workspace resolution
 - Human-in-the-loop message drafting via browser-based WYSIWYG rich text editor
-- Slack canvas export to Markdown
+- Slack canvas creation from Markdown files or inline content, plus export to Markdown
 - Slack channel creation, user invites, and Slack Connect external invites
 
 ## Optional

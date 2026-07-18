@@ -12,6 +12,61 @@ export type SlackCanvasRef = {
   raw: string;
 };
 
+export const BROWSER_AUTH_CANVAS_CHANNEL_ERROR =
+  "Adding a canvas as a channel tab requires a standard Slack token; imported browser credentials can create standalone canvases only";
+
+export async function createCanvasFromMarkdown(
+  client: SlackApiClient,
+  input: {
+    auth: SlackAuth;
+    markdown: string;
+    title?: string;
+    channelId?: string;
+  },
+): Promise<{ canvas: { id: string; title?: string; channel_id?: string } }> {
+  if (!input.markdown.trim()) {
+    throw new Error("Canvas Markdown is empty");
+  }
+
+  const title = input.title?.trim() || undefined;
+  let response: Record<string, unknown>;
+  let canvasId: string | undefined;
+
+  if (input.auth.auth_type === "browser") {
+    if (input.channelId) {
+      throw new Error(BROWSER_AUTH_CANVAS_CHANNEL_ERROR);
+    }
+    response = await client.apiMultipart("files.createCanvas", {
+      title: title ?? "Untitled",
+      markdown: input.markdown,
+      loosenValidation: true,
+    });
+    canvasId = getString(response.file_id);
+  } else {
+    response = await client.api("canvases.create", {
+      title,
+      document_content: {
+        type: "markdown",
+        markdown: input.markdown,
+      },
+      channel_id: input.channelId,
+    });
+    canvasId = getString(response.canvas_id);
+  }
+
+  if (!canvasId) {
+    throw new Error("Slack returned no canvas id");
+  }
+
+  return {
+    canvas: {
+      id: canvasId,
+      title: title ?? (input.auth.auth_type === "browser" ? "Untitled" : undefined),
+      channel_id: input.channelId,
+    },
+  };
+}
+
 export function parseSlackCanvasUrl(input: string): SlackCanvasRef {
   let url: URL;
   try {

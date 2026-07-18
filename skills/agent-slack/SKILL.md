@@ -1,6 +1,6 @@
 ---
 name: agent-slack
-description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canvases/workflows, search messages/files, download attachments, lookup users, list/create/invite channels, open DMs, draft messages, schedule sends, and explicit sends/edits/deletes/reactions/mark-read/uploads."
+description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canvases/workflows, create canvases from Markdown, search messages/files, download attachments, lookup users, list/create/invite channels, open DMs, draft messages, schedule sends, and explicit sends/edits/deletes/reactions/mark-read/uploads."
 ---
 
 # agent-slack
@@ -15,7 +15,7 @@ Fallback: `npm i -g agent-slack` (Node >= 22.5).
 
 Treat the installed CLI's `agent-slack --help` and `agent-slack <command> --help` output as authoritative for supported commands and flags.
 
-Safety: read/search freely. Treat sends, edits, deletes, reactions, invitations, channel creation, mark-read operations, schedules, uploads, scheduled-message cancellation, and `workflow run` as write actions; perform them only when explicitly requested. Workflow runs can execute downstream actions. Prefer `message draft`.
+Safety: read/search freely. Treat sends, edits, deletes, reactions, invitations, channel or canvas creation, mark-read operations, schedules, uploads, scheduled-message cancellation, and `workflow run` as write actions; perform them only when explicitly requested. Workflow runs can execute downstream actions. Prefer `message draft`.
 
 Auth: `agent-slack auth whoami`; if needed `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then `auth test`.
 
@@ -35,6 +35,8 @@ agent-slack message scheduled list
 agent-slack message scheduled cancel "SCHEDULED_ID" --channel "CHANNEL_ID"
 agent-slack unreads
 agent-slack later list
+agent-slack canvas create --file ./plan.md --title "Plan"
+agent-slack canvas create --markdown $'# Plan\n\n- [ ] Ship it'
 agent-slack canvas get "CANVAS_URL"
 agent-slack workflow list "general"
 agent-slack user list
