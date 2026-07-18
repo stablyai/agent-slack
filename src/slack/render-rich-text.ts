@@ -4,8 +4,14 @@
 
 import { isRecord } from "../lib/object-type-guards.ts";
 
+const ENCODED_ID_PATTERN = /^[A-Z0-9]+$/;
+
 function getString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function isSafeEncodedId(value: string): boolean {
+  return ENCODED_ID_PATTERN.test(value);
 }
 
 export function extractMrkdwnFromRichTextBlock(block: unknown): string {
@@ -116,12 +122,22 @@ function extractMrkdwnFromRichTextElement(el: unknown): string {
 
   if (t === "user") {
     const userId = getString(el.user_id);
-    return userId ? `<@${userId}>` : "";
+    return isSafeEncodedId(userId) ? `<@${userId}>` : "";
   }
 
   if (t === "channel") {
     const channelId = getString(el.channel_id);
-    return channelId ? `<#${channelId}>` : "";
+    return isSafeEncodedId(channelId) ? `<#${channelId}>` : "";
+  }
+
+  if (t === "usergroup") {
+    const usergroupId = getString(el.usergroup_id);
+    return isSafeEncodedId(usergroupId) ? `<!subteam^${usergroupId}>` : "";
+  }
+
+  if (t === "broadcast") {
+    const range = getString(el.range);
+    return range === "here" || range === "channel" || range === "everyone" ? `<!${range}>` : "";
   }
 
   return "";
