@@ -106,7 +106,7 @@ agent-slack
 │   ├── list    <channel>          # workflows bookmarked in a channel
 │   ├── preview <trigger-id>       # trigger metadata (no side effects)
 │   ├── get     <id>               # workflow definition + form fields
-│   └── run     <trigger-id>       # trip a workflow trigger
+│   └── run     <trigger-id>       # trip a trigger (--field for form submission)
 └── canvas
     ├── create                     # markdown file/blob → canvas
     └── get <canvas-url-or-id>     # canvas → markdown
