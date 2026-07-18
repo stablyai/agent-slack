@@ -38,6 +38,8 @@ Ordinary `message send` and `message edit` calls auto-convert lists. `message se
 
 Slack-native drafts (`message draft list|create|update|delete`) manage drafts that appear in the user's Slack client; `create` posts nothing. They use undocumented session endpoints and require browser-style auth (xoxc/xoxd).
 
+`workflow run <trigger>` trips a trigger. Add `--field "Title=Value"` (repeatable) to submit a workflow's form when one is presented; field titles are validated against the workflow schema. Form submission requires browser-style auth (xoxc/xoxd).
+
 ## Conditional references
 
 - Read [references/targets.md](references/targets.md) only when choosing between a message URL, channel, or user target, or when resolving multiple workspaces.
