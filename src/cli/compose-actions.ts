@@ -5,7 +5,7 @@ import { resolveChannelId, resolveChannelName, normalizeChannelInput } from "../
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { openDraftEditor } from "./draft-server.ts";
 
-export async function draftMessage(input: {
+export async function composeMessage(input: {
   ctx: CliContext;
   targetInput: string;
   initialText?: string;
@@ -14,7 +14,7 @@ export async function draftMessage(input: {
   const target = parseMsgTarget(String(input.targetInput));
   if (target.kind === "user") {
     throw new Error(
-      "message draft does not support user ID targets. Use a channel name, channel ID, or message URL.",
+      "message compose does not support user ID targets. Use a channel name, channel ID, or message URL.",
     );
   }
 
