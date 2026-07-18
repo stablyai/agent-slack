@@ -7,10 +7,13 @@ const originalSetTimeout = globalThis.setTimeout;
 afterEach(() => {
   globalThis.fetch = originalFetch;
   globalThis.setTimeout = originalSetTimeout;
+  delete process.env.AGENT_SLACK_RATE_LIMIT_MAX_WAIT_MS;
 });
 
 describe("SlackApiClient browser multipart transport", () => {
   test("retries HTTP 429 responses using Retry-After", async () => {
+    // Fail-fast defaults to 0ms; opt in to waiting so the retry path runs.
+    process.env.AGENT_SLACK_RATE_LIMIT_MAX_WAIT_MS = "30000";
     const responses = [
       new Response(JSON.stringify({ ok: false, error: "ratelimited" }), {
         status: 429,
