@@ -36,7 +36,7 @@ nix run github:stablyai/agent-slack
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
 - **Write**: send now or schedule delivery, edit/delete messages, add reactions (bullet lists auto-render as native Slack rich text)
 - **Channels**: list conversations, create channels, and invite users by id/handle/email
-- **Canvas**: fetch Slack canvases as Markdown
+- **Canvas**: create Slack canvases from Markdown and fetch them as Markdown
 
 ## Agent skill
 
@@ -100,6 +100,7 @@ agent-slack
 │   ├── get     <id>               # workflow definition + form fields
 │   └── run     <trigger-id>       # trip a workflow trigger
 └── canvas
+    ├── create                     # markdown file/blob → canvas
     └── get <canvas-url-or-id>     # canvas → markdown
 ```
 
@@ -493,12 +494,26 @@ agent-slack later remind "https://workspace.slack.com/archives/C123/p17000000000
 agent-slack later remind "https://workspace.slack.com/archives/C123/p1700000000000000" --in tomorrow
 ```
 
-### Fetch a Canvas as Markdown
+### Create or fetch a Canvas as Markdown
 
 ```bash
+# Create from a local Markdown file
+agent-slack canvas create --file ./launch-plan.md --title "Launch plan"
+
+# Create from an inline Markdown blob
+agent-slack canvas create --markdown $'# Launch plan\n\n- [ ] Ship it' --title "Launch plan"
+
+# Add the new canvas as a channel tab (required on free Slack plans)
+agent-slack canvas create --file ./launch-plan.md --channel "project-launch"
+
+# Fetch an existing canvas as Markdown
 agent-slack canvas get "https://workspace.slack.com/docs/T123/F456"
 agent-slack canvas get "F456" --workspace "https://workspace.slack.com"
 ```
+
+`canvas create` requires exactly one of `--file <path>` or `--markdown <text>`. Use
+`--workspace <url-or-unique-substring>` to select a workspace when needed. The command returns
+`canvas: { id, title?, channel_id? }`; creating canvases requires Slack's `canvases:write` scope.
 
 ## Developing / Contributing
 

@@ -12,6 +12,41 @@ export type SlackCanvasRef = {
   raw: string;
 };
 
+export async function createCanvasFromMarkdown(
+  client: SlackApiClient,
+  input: {
+    markdown: string;
+    title?: string;
+    channelId?: string;
+  },
+): Promise<{ canvas: { id: string; title?: string; channel_id?: string } }> {
+  if (!input.markdown.trim()) {
+    throw new Error("Canvas Markdown is empty");
+  }
+
+  const title = input.title?.trim() || undefined;
+  const response = await client.api("canvases.create", {
+    title,
+    document_content: {
+      type: "markdown",
+      markdown: input.markdown,
+    },
+    channel_id: input.channelId,
+  });
+  const canvasId = getString(response.canvas_id);
+  if (!canvasId) {
+    throw new Error("canvases.create returned no canvas id");
+  }
+
+  return {
+    canvas: {
+      id: canvasId,
+      title,
+      channel_id: input.channelId,
+    },
+  };
+}
+
 export function parseSlackCanvasUrl(input: string): SlackCanvasRef {
   let url: URL;
   try {
