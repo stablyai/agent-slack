@@ -322,7 +322,7 @@ export async function editMessage(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; ts?: string };
+  options: { workspace?: string; ts?: string; blocks?: string };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
   if (target.kind === "user") {
@@ -332,7 +332,11 @@ export async function editMessage(input: {
   }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
   const formattedText = formatOutboundSlackText(input.text);
-  const blocks = input.text ? textToRichTextBlocks(input.text) : null;
+  const blocks = input.options.blocks
+    ? loadBlocksFromPath(input.options.blocks)
+    : input.text
+      ? textToRichTextBlocks(input.text)
+      : null;
 
   await input.ctx.withAutoRefresh({
     workspaceUrl: target.kind === "url" ? target.ref.workspace_url : workspaceUrl,
