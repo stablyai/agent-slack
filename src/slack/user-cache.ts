@@ -6,11 +6,11 @@ import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 import type { SlackApiClient } from "./client.ts";
 import type { SlackMessageSummary } from "./messages.ts";
 import { toCompactUser, type CompactSlackUser } from "./users.ts";
+import { isUserId } from "./user-id.ts";
 
 const CACHE_VERSION = 1;
 const USER_TTL_MS = 24 * 60 * 60 * 1000;
-const USER_ID_PATTERN = /^(U|W)[A-Z0-9]{8,}$/;
-const USER_MENTION_PATTERN = /<@((U|W)[A-Z0-9]{8,})(?:\|[^>]+)?>/g;
+const USER_MENTION_PATTERN = /<@([^>|]+)(?:\|[^>]*)?>/g;
 
 type UserCacheEntry = {
   fetched_at: number;
@@ -126,7 +126,7 @@ function dedupeUserIds(ids: string[]): string[] {
   const seen = new Set<string>();
   for (const raw of ids) {
     const userId = String(raw).trim();
-    if (!USER_ID_PATTERN.test(userId)) {
+    if (!isUserId(userId)) {
       continue;
     }
     seen.add(userId);
@@ -162,7 +162,7 @@ async function loadCache(path: string): Promise<UserCacheFile> {
 
   const entries: Record<string, UserCacheEntry> = {};
   for (const [userId, rawEntry] of Object.entries(file.entries)) {
-    if (!USER_ID_PATTERN.test(userId) || !isRecord(rawEntry)) {
+    if (!isUserId(userId) || !isRecord(rawEntry)) {
       continue;
     }
     const fetchedAt = typeof rawEntry.fetched_at === "number" ? rawEntry.fetched_at : undefined;
@@ -233,7 +233,7 @@ function collectUserIdsFromUnknown(value: unknown, out: Set<string>): void {
 
   for (const [key, child] of Object.entries(value)) {
     if ((key === "user" || key === "user_id") && typeof child === "string") {
-      if (USER_ID_PATTERN.test(child)) {
+      if (isUserId(child)) {
         out.add(child);
       }
       continue;
@@ -242,7 +242,7 @@ function collectUserIdsFromUnknown(value: unknown, out: Set<string>): void {
     if (key === "users") {
       for (const maybeUserId of asArray(child)) {
         const userId = String(maybeUserId);
-        if (USER_ID_PATTERN.test(userId)) {
+        if (isUserId(userId)) {
           out.add(userId);
         }
       }
@@ -258,7 +258,7 @@ function collectUserIdsFromMessage(
   out: Set<string>,
   options: { includeReactions: boolean },
 ): void {
-  if (message.user && USER_ID_PATTERN.test(message.user)) {
+  if (message.user && isUserId(message.user)) {
     out.add(message.user);
   }
 
@@ -282,7 +282,7 @@ function collectMentionUserIds(text: string, out: Set<string>): void {
       break;
     }
     const userId = match[1] ?? "";
-    if (USER_ID_PATTERN.test(userId)) {
+    if (isUserId(userId)) {
       out.add(userId);
     }
   }

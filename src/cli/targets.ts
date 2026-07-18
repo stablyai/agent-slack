@@ -1,5 +1,6 @@
 import { parseSlackMessageUrl, type SlackMessageRef } from "../slack/url.ts";
-import { isChannelId, isUserId } from "../slack/channels.ts";
+import { isChannelId } from "../slack/channels.ts";
+import { isUserId } from "../slack/user-id.ts";
 
 export type MsgTarget =
   | { kind: "url"; ref: SlackMessageRef }

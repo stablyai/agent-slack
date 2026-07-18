@@ -39,9 +39,10 @@ agent-slack user dm-open @alice @bob
 ```
 
 With multiple workspaces, pass `--workspace "team"` or set `SLACK_WORKSPACE_URL`. Attachments include local `path` in JSON.
+Treat Slack user IDs beginning with `U` or `W` equivalently.
 
 For non-trivial usage, read the bundled references:
 
 - [references/commands.md](references/commands.md): command map and flags
-- [references/targets.md](references/targets.md): URL vs channel targeting rules
+- [references/targets.md](references/targets.md): URL, channel, and direct-message targeting rules
 - [references/output.md](references/output.md): JSON shapes and download paths

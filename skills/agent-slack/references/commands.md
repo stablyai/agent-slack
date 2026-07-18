@@ -62,6 +62,7 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 
 - `agent-slack message send <target> [text]`
   - If `<target>` is a Slack message URL, replies in that message’s thread.
+  - A user ID target (`U...` or `W...`) opens or reuses that user's DM.
   - Otherwise posts to the channel/DM.
   - `[text]` is optional when uploading files with `--attach`; when present, it becomes the initial comment on the first uploaded file.
   - Bullet lists (`- `, `* `, `• `, `1. `, etc.) are automatically converted to Slack’s native rich text format, so recipients see real editable bullets instead of plain-text dashes. Inline mentions, broadcasts, emoji shortcodes, and `<#C...>` channel references inside those lists are preserved as Slack elements.
@@ -115,14 +116,14 @@ Run `agent-slack --help` (or `agent-slack <command> --help`) for the full option
 
 ## Channels
 
-- `agent-slack channel list [--workspace <url-or-unique-substring>] [--user <U...|@handle|handle> | --all] [--limit <n>] [--cursor <cursor>]`
+- `agent-slack channel list [--workspace <url-or-unique-substring>] [--user <U...|W...|@handle|handle> | --all] [--limit <n>] [--cursor <cursor>]`
   - Default mode calls `users.conversations` for the current user.
   - `--user` resolves handles/ids and lists conversations for that user.
   - `--all` switches to `conversations.list` (mutually exclusive with `--user`).
   - Returns one page and optional `next_cursor`; pass `--cursor` to continue.
 - `agent-slack channel new --name <name> [--private] [--workspace <url-or-unique-substring>]`
-- `agent-slack channel invite --channel <id|name> --users "<U...,@handle,email,...>" [--workspace <url-or-unique-substring>]`
-  - Internal invite (default): resolves users (`U...`, `@handle`, `handle`, `email`) and uses `conversations.invite`
+- `agent-slack channel invite --channel <id|name> --users "<user,...>" [--workspace <url-or-unique-substring>]`
+  - Internal invite (default): each `<user>` may be a `U...`/`W...` ID, `@handle`, handle, or email; uses `conversations.invite`
   - External invite: add `--external` (email targets only) to use `conversations.inviteShared`
   - Optional: `--allow-external-user-invites` sets `external_limited=false` for external invites
 - `agent-slack channel mark <target> [--ts <seconds>.<micros>] [--workspace <url-or-unique-substring>]`
@@ -172,7 +173,7 @@ Common options:
 
 - `--workspace <url-or-unique-substring>` (recommended when using channel names across multiple workspaces)
 - `--channel <channel...>` repeatable (`#name`, `name`, or id)
-- `--user <@name|name|U...>`
+- `--user <U...|W...|@name|name>`
 - `--after YYYY-MM-DD`
 - `--before YYYY-MM-DD`
 - `--content-type any|text|image|snippet|file`
@@ -198,5 +199,5 @@ Common options:
 ## Users
 
 - `agent-slack user list [--workspace <url-or-unique-substring>] [--limit <n>] [--cursor <cursor>] [--include-bots]`
-- `agent-slack user get <U...|@handle|handle> [--workspace <url-or-unique-substring>]`
-- `agent-slack user dm-open <users...> [--workspace <url-or-unique-substring>]` — get DM or group DM channel ID for one or more users (max 8)
+- `agent-slack user get <U...|W...|@handle|handle> [--workspace <url-or-unique-substring>]`
+- `agent-slack user dm-open <users...> [--workspace <url-or-unique-substring>]` — get a DM or group DM channel ID for one or more `U...`/`W...` IDs or handles (max 8)

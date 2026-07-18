@@ -2,6 +2,7 @@ import type { SlackMessageSummary } from "./messages.ts";
 import type { DownloadResult } from "./files.ts";
 import { renderSlackMessageContent } from "./render.ts";
 import { getNumber, getString, isRecord } from "../lib/object-type-guards.ts";
+import { isUserId } from "./user-id.ts";
 
 export type CompactSlackMessage = {
   channel_id: string;
@@ -92,9 +93,7 @@ export function compactReactions(
     if (!name) {
       continue;
     }
-    const users = Array.isArray(r.users)
-      ? r.users.map((u) => String(u)).filter((u) => /^U[A-Z0-9]{8,}$/.test(u))
-      : [];
+    const users = Array.isArray(r.users) ? r.users.map((u) => String(u)).filter(isUserId) : [];
     const count = typeof r.count === "number" && r.count !== users.length ? r.count : undefined;
     out.push({ name, users, count });
   }

@@ -43,8 +43,8 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
 
   userCmd
     .command("get")
-    .description("Get a single user by id (U...) or handle (@name)")
-    .argument("<user>", "User id (U...) or @handle/handle")
+    .description("Get a single workspace user")
+    .argument("<user>", "User ID (U.../W...) or @handle/handle")
     .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
@@ -69,10 +69,8 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
 
   userCmd
     .command("dm-open")
-    .description(
-      "Open or get a DM / group DM channel for one or more users by id (U...) or handle (@name)",
-    )
-    .argument("<users...>", "One or more user ids or @handles (space-separated)")
+    .description("Open or get a DM / group DM channel")
+    .argument("<users...>", "One or more user IDs (U.../W...) or @handles")
     .option("--workspace <url>", "Workspace URL (required if you have multiple workspaces)")
     .action(async (...args) => {
       const [users, options] = args as [string[], { workspace?: string }];
