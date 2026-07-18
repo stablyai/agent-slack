@@ -63,7 +63,7 @@ function createContext(
       teams: [],
       source: { leveldb_path: "", cookies_path: "" },
     }),
-    importChrome: () => ({ cookie_d: "", teams: [] }),
+    importChrome: async () => ({ cookie_d: "", teams: [] }),
     importBrave: async () => null,
     importFirefox: async () => null,
   };
