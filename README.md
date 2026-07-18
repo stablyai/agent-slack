@@ -250,6 +250,26 @@ agent-slack message draft update "DR_ID" "Here's my revised update"
 agent-slack message draft delete "DR_ID"
 ```
 
+### Safe mode (enforced human-in-the-loop)
+
+Skill instructions like "always use `draft`, never `send`" are guidance an agent can ignore. Safe mode enforces it at the tool level — useful when an AI agent has access to `agent-slack` and you want a guarantee that nothing posts without human review.
+
+```bash
+# Env var (recommended for agent environments)
+export AGENT_SLACK_SAFE_MODE=1
+
+# Or a global CLI flag
+agent-slack --safe-mode message send "#general" "hello"
+```
+
+While safe mode is active:
+
+- `message send` → redirected to the draft editor with the text pre-filled; you review and send from the browser. The output includes `"safe_mode": true` and `"redirected_from": "send"`, and a warning is printed to stderr. Flags the editor cannot represent (`--attach`, `--blocks`, `--schedule`, `--schedule-in`, `--reply-broadcast`) are rejected with an error instead of being silently dropped.
+- `message edit` and `message delete` → blocked with an error.
+- All read operations (`get`, `list`, `search`, etc.) and reactions are unchanged.
+
+The env var accepts `1`, `true`, `yes`, or `on` (case-insensitive); anything else leaves safe mode off.
+
 ### Reply, edit, delete, and react
 
 ```bash

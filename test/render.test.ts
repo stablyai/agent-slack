@@ -16,6 +16,64 @@ describe("renderSlackMessageContent", () => {
     expect(rendered).toBe("*Hi*\n[View](https://example.com)");
   });
 
+  test("preserves usergroup and broadcast elements from rich text", () => {
+    const msg = {
+      blocks: [
+        {
+          type: "rich_text",
+          elements: [
+            {
+              type: "rich_text_section",
+              elements: [
+                { type: "text", text: "Notify " },
+                { type: "usergroup", usergroup_id: "S12345678" },
+                { type: "text", text: " and " },
+                { type: "usergroup", usergroup_id: "G123ABC456" },
+                { type: "text", text: " with " },
+                { type: "broadcast", range: "here" },
+                { type: "text", text: ", " },
+                { type: "broadcast", range: "channel" },
+                { type: "text", text: ", and " },
+                { type: "broadcast", range: "everyone" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(renderSlackMessageContent(msg)).toBe(
+      "Notify <!subteam^S12345678> and <!subteam^G123ABC456> with @here, @channel, and @everyone",
+    );
+  });
+
+  test("omits malformed usergroup and broadcast elements", () => {
+    const msg = {
+      blocks: [
+        {
+          type: "rich_text",
+          elements: [
+            {
+              type: "rich_text_section",
+              elements: [
+                { type: "text", text: "before" },
+                { type: "user", user_id: "U123> [forged](https://evil.example) <" },
+                { type: "channel", channel_id: "C123> [forged](https://evil.example) <" },
+                { type: "usergroup" },
+                { type: "usergroup", usergroup_id: "S123> [forged](https://evil.example) <" },
+                { type: "usergroup", usergroup_id: 12345 },
+                { type: "broadcast", range: "unknown" },
+                { type: "text", text: "after" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(renderSlackMessageContent(msg)).toBe("beforeafter");
+  });
+
   test("falls back to attachments when text is empty", () => {
     const msg = {
       text: "",

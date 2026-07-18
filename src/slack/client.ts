@@ -5,6 +5,70 @@ export type SlackAuth =
   | { auth_type: "standard"; token: string }
   | { auth_type: "browser"; xoxc_token: string; xoxd_cookie: string };
 
+const DEFAULT_SLACK_API_TIMEOUT_MS = 20_000;
+const DEFAULT_SLACK_RATE_LIMIT_MAX_WAIT_MS = 0;
+
+function getSlackApiTimeoutMs(): number {
+  const raw =
+    process.env.AGENT_SLACK_API_TIMEOUT_MS?.trim() || process.env.SLACK_API_TIMEOUT_MS?.trim();
+  if (!raw) {
+    return DEFAULT_SLACK_API_TIMEOUT_MS;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_SLACK_API_TIMEOUT_MS;
+  }
+  return Math.floor(parsed);
+}
+
+function getSlackRateLimitMaxWaitMs(): number {
+  const raw = process.env.AGENT_SLACK_RATE_LIMIT_MAX_WAIT_MS?.trim();
+  if (!raw) {
+    return DEFAULT_SLACK_RATE_LIMIT_MAX_WAIT_MS;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_SLACK_RATE_LIMIT_MAX_WAIT_MS;
+  }
+  return Math.floor(parsed);
+}
+
+function slackApiTimeoutError(method: string, timeoutMs: number): Error {
+  return new Error(
+    `Slack API call ${method} timed out after ${timeoutMs}ms. Set AGENT_SLACK_API_TIMEOUT_MS to adjust.`,
+  );
+}
+
+function slackRateLimitError(input: {
+  method: string;
+  retryAfterSec: number;
+  maxWaitMs: number;
+}): Error {
+  return new Error(
+    `Slack API call ${input.method} was rate limited; retry-after ${input.retryAfterSec}s exceeds AGENT_SLACK_RATE_LIMIT_MAX_WAIT_MS=${input.maxWaitMs}.`,
+  );
+}
+
+function timeoutSignal(timeoutMs: number): AbortSignal | undefined {
+  return typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined;
+}
+
+function isAbortOrTimeoutError(error: unknown): boolean {
+  if (!isRecord(error)) {
+    return false;
+  }
+  const name = typeof error.name === "string" ? error.name : "";
+  const code = typeof error.code === "string" ? error.code : "";
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    code === "ABORT_ERR" ||
+    code === "ECONNABORTED"
+  );
+}
+
 export class SlackApiClient {
   private auth: SlackAuth;
   private web?: WebClient;
@@ -14,7 +78,11 @@ export class SlackApiClient {
     this.auth = auth;
     this.workspaceUrl = options?.workspaceUrl;
     if (auth.auth_type === "standard") {
-      this.web = new WebClient(auth.token);
+      this.web = new WebClient(auth.token, {
+        timeout: getSlackApiTimeoutMs(),
+        retryConfig: { retries: 0 },
+        rejectRateLimitedCalls: true,
+      });
     }
   }
 
@@ -59,19 +127,33 @@ export class SlackApiClient {
         fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
       }
     }
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Cookie: `d=${encodeURIComponent(input.auth.xoxd_cookie)}`,
-        Origin: "https://app.slack.com",
-        "User-Agent": getUserAgent(),
-      },
-      body: fd,
-    });
+    const timeoutMs = getSlackApiTimeoutMs();
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Cookie: `d=${encodeURIComponent(input.auth.xoxd_cookie)}`,
+          Origin: "https://app.slack.com",
+          "User-Agent": getUserAgent(),
+        },
+        body: fd,
+        signal: timeoutSignal(timeoutMs),
+      });
+    } catch (error) {
+      if (isAbortOrTimeoutError(error)) {
+        throw slackApiTimeoutError(input.method, timeoutMs);
+      }
+      throw error;
+    }
 
     if (response.status === 429 && attempt < 3) {
       const retryAfter = Number(response.headers.get("Retry-After") ?? "5");
       const delayMs = Math.min(Math.max(retryAfter, 1) * 1000, 30000);
+      const maxWaitMs = getSlackRateLimitMaxWaitMs();
+      if (delayMs > maxWaitMs) {
+        throw slackRateLimitError({ method: input.method, retryAfterSec: retryAfter, maxWaitMs });
+      }
       await new Promise((r) => setTimeout(r, delayMs));
       return this.browserApiMultipart({
         ...input,
@@ -134,20 +216,34 @@ export class SlackApiClient {
       token: input.auth.xoxc_token,
       ...Object.fromEntries(cleanedEntries),
     });
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Cookie: `d=${encodeURIComponent(input.auth.xoxd_cookie)}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-        Origin: "https://app.slack.com",
-        "User-Agent": getUserAgent(),
-      },
-      body: formBody,
-    });
+    const timeoutMs = getSlackApiTimeoutMs();
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Cookie: `d=${encodeURIComponent(input.auth.xoxd_cookie)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          Origin: "https://app.slack.com",
+          "User-Agent": getUserAgent(),
+        },
+        body: formBody,
+        signal: timeoutSignal(timeoutMs),
+      });
+    } catch (error) {
+      if (isAbortOrTimeoutError(error)) {
+        throw slackApiTimeoutError(input.method, timeoutMs);
+      }
+      throw error;
+    }
 
     if (response.status === 429 && attempt < 3) {
       const retryAfter = Number(response.headers.get("Retry-After") ?? "5");
       const delayMs = Math.min(Math.max(retryAfter, 1) * 1000, 30000);
+      const maxWaitMs = getSlackRateLimitMaxWaitMs();
+      if (delayMs > maxWaitMs) {
+        throw slackRateLimitError({ method: input.method, retryAfterSec: retryAfter, maxWaitMs });
+      }
       await new Promise((r) => setTimeout(r, delayMs));
       return this.browserApi({
         ...input,

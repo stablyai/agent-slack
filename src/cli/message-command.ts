@@ -12,12 +12,15 @@ import {
 import { composeMessage } from "./compose-actions.ts";
 import { registerScheduledMessageCommand } from "./message-scheduled-command.ts";
 import { registerMessageDraftCommand } from "./message-draft-command.ts";
+import { isSafeModeEnabled, redirectSendToDraft, safeModeBlockedError } from "./safe-mode.ts";
 
 function collectOptionValue(value: string, previous: string[] = []): string[] {
   return [...previous, value];
 }
 
 export function registerMessageCommand(input: { program: Command; ctx: CliContext }): void {
+  const safeModeActive = (): boolean =>
+    isSafeModeEnabled({ cliFlag: Boolean(input.program.opts().safeMode) });
   const messageCmd = input.program
     .command("message")
     .description("Read/write Slack messages (token-efficient JSON)");
@@ -114,13 +117,17 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
     )
     .option("--ts <ts>", "Message ts (required when using #channel/channel id)")
+    .option("--blocks <path>", "Read Block Kit blocks JSON from file or '-'")
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
         string,
-        { workspace?: string; ts?: string },
+        { workspace?: string; ts?: string; blocks?: string },
       ];
       try {
+        if (safeModeActive()) {
+          throw safeModeBlockedError("edit");
+        }
         const payload = await editMessage({
           ctx: input.ctx,
           targetInput,
@@ -146,6 +153,9 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .action(async (...args) => {
       const [targetInput, options] = args as [string, { workspace?: string; ts?: string }];
       try {
+        if (safeModeActive()) {
+          throw safeModeBlockedError("delete");
+        }
         const payload = await deleteMessage({
           ctx: input.ctx,
           targetInput,
@@ -240,12 +250,19 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
         return;
       }
       try {
-        const payload = await sendMessage({
-          ctx: input.ctx,
-          targetInput,
-          text: text ?? "",
-          options,
-        });
+        const payload = safeModeActive()
+          ? await redirectSendToDraft({
+              ctx: input.ctx,
+              targetInput,
+              text: text ?? "",
+              options,
+            })
+          : await sendMessage({
+              ctx: input.ctx,
+              targetInput,
+              text: text ?? "",
+              options,
+            });
         console.log(JSON.stringify(payload, null, 2));
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));

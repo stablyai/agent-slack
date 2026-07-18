@@ -4,6 +4,7 @@ import { createDecipheriv, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isRecord } from "../lib/object-type-guards.ts";
+import { getKeychainTimeoutMs } from "./keychain.ts";
 
 const IS_MACOS = process.platform === "darwin";
 const IS_LINUX = process.platform === "linux";
@@ -31,6 +32,7 @@ export function getSafeStoragePasswords(prefix: string): string[] {
         const out = execFileSync("security", ["find-generic-password", ...args], {
           encoding: "utf8",
           stdio: ["ignore", "pipe", "ignore"],
+          timeout: getKeychainTimeoutMs(),
         }).trim();
         if (out) {
           passwords.push(out);
@@ -57,6 +59,7 @@ export function getSafeStoragePasswords(prefix: string): string[] {
         const out = execFileSync("secret-tool", ["lookup", ...pair], {
           encoding: "utf8",
           stdio: ["ignore", "pipe", "ignore"],
+          timeout: getKeychainTimeoutMs(),
         }).trim();
         if (out) {
           passwords.push(out);

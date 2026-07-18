@@ -6,7 +6,7 @@ import {
   searchFilesInChannelsFallback,
   searchFilesViaSearchApi,
 } from "../src/slack/search-files.ts";
-import type { SlackAuth, SlackApiClient } from "../src/slack/client.ts";
+import { SlackApiClient, type SlackAuth } from "../src/slack/client.ts";
 
 const AUTH: SlackAuth = { auth_type: "standard", token: "xoxb-test" };
 const originalFetch = globalThis.fetch;
@@ -138,5 +138,45 @@ describe("searchFilesInChannelsFallback", () => {
       mimetype: "text/plain",
     });
     expect(result[0]!.path.endsWith("/F2.txt")).toBe(true);
+  });
+});
+
+describe("SlackApiClient browser API guards", () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    delete process.env.AGENT_SLACK_API_TIMEOUT_MS;
+    delete process.env.AGENT_SLACK_RATE_LIMIT_MAX_WAIT_MS;
+  });
+
+  function browserClient(): SlackApiClient {
+    return new SlackApiClient(
+      { auth_type: "browser", xoxc_token: "xoxc-test", xoxd_cookie: "xoxd-test" },
+      { workspaceUrl: "https://example.slack.com" },
+    );
+  }
+
+  test("fails fast on rate-limit retry windows by default", async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: false, error: "ratelimited" }), {
+        status: 429,
+        headers: { "Retry-After": "5" },
+      })) as unknown as typeof fetch;
+
+    await expect(browserClient().api("auth.test")).rejects.toThrow(
+      "Slack API call auth.test was rate limited",
+    );
+  });
+
+  test("surfaces request timeouts with the Slack method name", async () => {
+    process.env.AGENT_SLACK_API_TIMEOUT_MS = "12";
+    globalThis.fetch = (async () => {
+      const error = new Error("deadline exceeded");
+      error.name = "TimeoutError";
+      throw error;
+    }) as unknown as typeof fetch;
+
+    await expect(browserClient().api("auth.test")).rejects.toThrow(
+      "Slack API call auth.test timed out after 12ms",
+    );
   });
 });
