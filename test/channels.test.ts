@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   listAllConversations,
+  listConversationsViaCounts,
   listUserConversations,
   normalizeConversationsPage,
 } from "../src/slack/channels.ts";
@@ -111,5 +112,84 @@ describe("conversations list helpers", () => {
     });
     // Empty string from getString - falsy so consumers can check `if (page.next_cursor)`
     expect(normalized.next_cursor).toBeFalsy();
+  });
+
+  test("listConversationsViaCounts enumerates channels/mpims/ims and enriches via conversations.info", async () => {
+    const countsResponse = {
+      channels: [{ id: "C1", has_unreads: true }],
+      mpims: [{ id: "G1" }],
+      ims: [{ id: "D1" }],
+    };
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method === "client.counts") {
+          return countsResponse;
+        }
+        if (method === "conversations.info") {
+          const id = params.channel as string;
+          return { channel: { id, name: `name-${id}`, is_channel: id.startsWith("C") } };
+        }
+        throw new Error(`unexpected method: ${method}`);
+      },
+    } as unknown as SlackApiClient;
+
+    const page = await listConversationsViaCounts(client, { limit: 100 });
+
+    expect(calls[0]?.method).toBe("client.counts");
+    expect(calls[0]?.params).toEqual({ thread_count_by_channel: true });
+    const infoCalls = calls.filter((c) => c.method === "conversations.info");
+    expect(infoCalls).toHaveLength(3);
+    expect(infoCalls.map((c) => c.params.channel)).toEqual(["C1", "G1", "D1"]);
+    expect(page.next_cursor).toBeUndefined();
+    expect(page.channels).toHaveLength(3);
+    expect(page.channels.map((c) => c.id)).toEqual(["C1", "G1", "D1"]);
+    expect(page.channels[0]?.name).toBe("name-C1");
+  });
+
+  test("listConversationsViaCounts keeps the id when conversations.info fails", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method === "client.counts") {
+          return { channels: [{ id: "C1" }], mpims: [], ims: [] };
+        }
+        if (method === "conversations.info") {
+          throw new Error("channel_not_found");
+        }
+        throw new Error(`unexpected method: ${method}`);
+      },
+    } as unknown as SlackApiClient;
+
+    const page = await listConversationsViaCounts(client, { limit: 100 });
+    expect(page.channels).toEqual([{ id: "C1" }]);
+  });
+
+  test("listConversationsViaCounts slices to limit and skips entries without an id", async () => {
+    const countsResponse = {
+      channels: [{ id: "C1" }, { no_id: true }, { id: "C2" }, { id: "C3" }],
+      mpims: [],
+      ims: [],
+    };
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method === "client.counts") {
+          return countsResponse;
+        }
+        if (method === "conversations.info") {
+          return { channel: { id: params.channel } };
+        }
+        throw new Error(`unexpected method: ${method}`);
+      },
+    } as unknown as SlackApiClient;
+
+    const page = await listConversationsViaCounts(client, { limit: 2 });
+    const infoCalls = calls.filter((c) => c.method === "conversations.info");
+    expect(infoCalls).toHaveLength(2);
+    expect(page.channels.map((c) => c.id)).toEqual(["C1", "C2"]);
   });
 });
