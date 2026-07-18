@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
 import {
+  BROWSER_AUTH_CANVAS_CHANNEL_ERROR,
   createCanvasFromMarkdown,
   fetchCanvasMarkdown,
   parseSlackCanvasUrl,
@@ -78,6 +79,9 @@ export function registerCanvasCommand(input: { program: Command; ctx: CliContext
           workspaceUrl,
           work: async () => {
             const { client, auth } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            if (options.channel && auth.auth_type === "browser") {
+              throw new Error(BROWSER_AUTH_CANVAS_CHANNEL_ERROR);
+            }
             const channelId = options.channel
               ? await resolveChannelId(client, options.channel)
               : undefined;

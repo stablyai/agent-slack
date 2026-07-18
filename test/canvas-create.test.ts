@@ -6,22 +6,31 @@ import { Command } from "commander";
 import type { CliContext } from "../src/cli/context.ts";
 import { readCanvasMarkdownInput, registerCanvasCommand } from "../src/cli/canvas-command.ts";
 import { createCanvasFromMarkdown } from "../src/slack/canvas.ts";
-import type { SlackApiClient } from "../src/slack/client.ts";
+import type { SlackApiClient, SlackAuth } from "../src/slack/client.ts";
 
 function createClient(response: Record<string, unknown> = { ok: true, canvas_id: "F12345678" }) {
-  const calls: { method: string; params: Record<string, unknown> }[] = [];
-  const api = async (method: string, params: Record<string, unknown>) => {
-    calls.push({ method, params });
-    return response;
+  const calls: {
+    transport: "json" | "multipart";
+    method: string;
+    params: Record<string, unknown>;
+  }[] = [];
+  const api = (transport: "json" | "multipart") => {
+    return async (method: string, params: Record<string, unknown>) => {
+      calls.push({ transport, method, params });
+      return response;
+    };
   };
   const client = {
-    api,
-    apiMultipart: api,
+    api: api("json"),
+    apiMultipart: api("multipart"),
   } as unknown as SlackApiClient;
   return { client, calls };
 }
 
-function createContext(client: SlackApiClient) {
+function createContext(
+  client: SlackApiClient,
+  auth: SlackAuth = { auth_type: "standard", token: "x" },
+) {
   const workspaceSelections: (string | undefined)[] = [];
   const assertedChannels: string[][] = [];
   const ctx: CliContext = {
@@ -37,7 +46,7 @@ function createContext(client: SlackApiClient) {
       workspaceSelections.push(workspaceUrl);
       return {
         client,
-        auth: { auth_type: "standard" as const, token: "x" },
+        auth,
         workspace_url: workspaceUrl,
       };
     },
@@ -74,6 +83,7 @@ describe("createCanvasFromMarkdown", () => {
 
     expect(calls).toEqual([
       {
+        transport: "json",
         method: "canvases.create",
         params: {
           title: "Launch plan",
@@ -127,6 +137,7 @@ describe("createCanvasFromMarkdown", () => {
 
     expect(calls).toEqual([
       {
+        transport: "multipart",
         method: "files.createCanvas",
         params: {
           title: "Untitled",
@@ -250,6 +261,28 @@ describe("canvas create command", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  test("rejects browser-auth channel tabs before resolving the channel", async () => {
+    const { client, calls } = createClient({ ok: true, file_id: "F87654321" });
+    const { ctx } = createContext(client, {
+      auth_type: "browser",
+      xoxc_token: "xoxc-test",
+      xoxd_cookie: "xoxd-test",
+    });
+    const program = new Command();
+    registerCanvasCommand({ program, ctx });
+    const error = mock((_value?: unknown) => {});
+    console.error = error as typeof console.error;
+
+    await program.parseAsync(
+      ["canvas", "create", "--markdown", "# Browser auth\n", "--channel", "project-launch"],
+      { from: "user" },
+    );
+
+    expect(calls).toHaveLength(0);
+    expect(String(error.mock.calls[0]?.[0])).toContain("requires a standard Slack token");
+    expect(process.exitCode).toBe(1);
   });
 
   test("rejects missing or conflicting sources before authenticating", async () => {

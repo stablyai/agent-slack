@@ -12,6 +12,9 @@ export type SlackCanvasRef = {
   raw: string;
 };
 
+export const BROWSER_AUTH_CANVAS_CHANNEL_ERROR =
+  "Adding a canvas as a channel tab requires a standard Slack token; imported browser credentials can create standalone canvases only";
+
 export async function createCanvasFromMarkdown(
   client: SlackApiClient,
   input: {
@@ -31,9 +34,7 @@ export async function createCanvasFromMarkdown(
 
   if (input.auth.auth_type === "browser") {
     if (input.channelId) {
-      throw new Error(
-        "Adding a canvas as a channel tab requires a standard Slack token; imported browser credentials can create standalone canvases only",
-      );
+      throw new Error(BROWSER_AUTH_CANVAS_CHANNEL_ERROR);
     }
     response = await client.apiMultipart("files.createCanvas", {
       title: title ?? "Untitled",
