@@ -77,11 +77,12 @@ export function registerCanvasCommand(input: { program: Command; ctx: CliContext
         const payload = await input.ctx.withAutoRefresh({
           workspaceUrl,
           work: async () => {
-            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            const { client, auth } = await input.ctx.getClientForWorkspace(workspaceUrl);
             const channelId = options.channel
               ? await resolveChannelId(client, options.channel)
               : undefined;
             return await createCanvasFromMarkdown(client, {
+              auth,
               markdown,
               title: options.title,
               channelId,

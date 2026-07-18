@@ -15,6 +15,7 @@ export type SlackCanvasRef = {
 export async function createCanvasFromMarkdown(
   client: SlackApiClient,
   input: {
+    auth: SlackAuth;
     markdown: string;
     title?: string;
     channelId?: string;
@@ -25,23 +26,41 @@ export async function createCanvasFromMarkdown(
   }
 
   const title = input.title?.trim() || undefined;
-  const response = await client.api("canvases.create", {
-    title,
-    document_content: {
-      type: "markdown",
+  let response: Record<string, unknown>;
+  let canvasId: string | undefined;
+
+  if (input.auth.auth_type === "browser") {
+    if (input.channelId) {
+      throw new Error(
+        "Adding a canvas as a channel tab requires a standard Slack token; imported browser credentials can create standalone canvases only",
+      );
+    }
+    response = await client.apiMultipart("files.createCanvas", {
+      title: title ?? "Untitled",
       markdown: input.markdown,
-    },
-    channel_id: input.channelId,
-  });
-  const canvasId = getString(response.canvas_id);
+      loosenValidation: true,
+    });
+    canvasId = getString(response.file_id);
+  } else {
+    response = await client.api("canvases.create", {
+      title,
+      document_content: {
+        type: "markdown",
+        markdown: input.markdown,
+      },
+      channel_id: input.channelId,
+    });
+    canvasId = getString(response.canvas_id);
+  }
+
   if (!canvasId) {
-    throw new Error("canvases.create returned no canvas id");
+    throw new Error("Slack returned no canvas id");
   }
 
   return {
     canvas: {
       id: canvasId,
-      title,
+      title: title ?? (input.auth.auth_type === "browser" ? "Untitled" : undefined),
       channel_id: input.channelId,
     },
   };

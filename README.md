@@ -513,7 +513,8 @@ agent-slack canvas get "F456" --workspace "https://workspace.slack.com"
 
 `canvas create` requires exactly one of `--file <path>` or `--markdown <text>`. Use
 `--workspace <url-or-unique-substring>` to select a workspace when needed. The command returns
-`canvas: { id, title?, channel_id? }`; creating canvases requires Slack's `canvases:write` scope.
+`canvas: { id, title?, channel_id? }`. Imported browser credentials can create standalone
+canvases; `--channel` requires a standard Slack token with Slack's `canvases:write` scope.
 
 ## Developing / Contributing
 

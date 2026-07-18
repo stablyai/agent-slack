@@ -10,11 +10,13 @@ import type { SlackApiClient } from "../src/slack/client.ts";
 
 function createClient(response: Record<string, unknown> = { ok: true, canvas_id: "F12345678" }) {
   const calls: { method: string; params: Record<string, unknown> }[] = [];
+  const api = async (method: string, params: Record<string, unknown>) => {
+    calls.push({ method, params });
+    return response;
+  };
   const client = {
-    api: async (method: string, params: Record<string, unknown>) => {
-      calls.push({ method, params });
-      return response;
-    },
+    api,
+    apiMultipart: api,
   } as unknown as SlackApiClient;
   return { client, calls };
 }
@@ -64,6 +66,7 @@ describe("createCanvasFromMarkdown", () => {
     const { client, calls } = createClient();
 
     const result = await createCanvasFromMarkdown(client, {
+      auth: { auth_type: "standard", token: "x" },
       markdown: "# Launch plan\n\n- Ship it\n",
       title: "  Launch plan  ",
       channelId: "C12345678",
@@ -90,18 +93,66 @@ describe("createCanvasFromMarkdown", () => {
   test("rejects empty Markdown before calling Slack", async () => {
     const { client, calls } = createClient();
 
-    await expect(createCanvasFromMarkdown(client, { markdown: "  \n" })).rejects.toThrow(
-      "Canvas Markdown is empty",
-    );
+    await expect(
+      createCanvasFromMarkdown(client, {
+        auth: { auth_type: "standard", token: "x" },
+        markdown: "  \n",
+      }),
+    ).rejects.toThrow("Canvas Markdown is empty");
     expect(calls).toHaveLength(0);
   });
 
   test("rejects a success response without a canvas id", async () => {
     const { client } = createClient({ ok: true });
 
-    await expect(createCanvasFromMarkdown(client, { markdown: "Hello" })).rejects.toThrow(
-      "canvases.create returned no canvas id",
-    );
+    await expect(
+      createCanvasFromMarkdown(client, {
+        auth: { auth_type: "standard", token: "x" },
+        markdown: "Hello",
+      }),
+    ).rejects.toThrow("Slack returned no canvas id");
+  });
+
+  test("uses Slack's Markdown canvas method with imported browser credentials", async () => {
+    const { client, calls } = createClient({ ok: true, file_id: "F87654321" });
+
+    const result = await createCanvasFromMarkdown(client, {
+      auth: {
+        auth_type: "browser",
+        xoxc_token: "xoxc-test",
+        xoxd_cookie: "xoxd-test",
+      },
+      markdown: "# Browser auth\n",
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "files.createCanvas",
+        params: {
+          title: "Untitled",
+          markdown: "# Browser auth\n",
+          loosenValidation: true,
+        },
+      },
+    ]);
+    expect(result).toEqual({ canvas: { id: "F87654321", title: "Untitled" } });
+  });
+
+  test("rejects channel tabs with browser credentials before calling Slack", async () => {
+    const { client, calls } = createClient({ ok: true, file_id: "F87654321" });
+
+    await expect(
+      createCanvasFromMarkdown(client, {
+        auth: {
+          auth_type: "browser",
+          xoxc_token: "xoxc-test",
+          xoxd_cookie: "xoxd-test",
+        },
+        markdown: "# Browser auth\n",
+        channelId: "C12345678",
+      }),
+    ).rejects.toThrow("requires a standard Slack token");
+    expect(calls).toHaveLength(0);
   });
 });
 

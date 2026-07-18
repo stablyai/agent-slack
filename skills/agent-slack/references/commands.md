@@ -190,9 +190,9 @@ Common options:
     - `--file <path>` read Markdown from a local file (mutually exclusive with `--markdown`)
     - `--markdown <text>` use a Markdown string directly (mutually exclusive with `--file`)
     - `--title <title>` set the canvas title
-    - `--channel <id-or-name>` add the canvas as a channel tab; required on free Slack plans
+    - `--channel <id-or-name>` add the canvas as a channel tab; required on free Slack plans and requires a standard Slack token
     - `--workspace <url-or-unique-substring>` select the workspace; required for a channel name across multiple workspaces
-  - Requires Slack's `canvases:write` scope.
+  - Imported browser credentials support standalone canvases. Standard tokens require Slack's `canvases:write` scope and are required with `--channel`.
 - `agent-slack canvas get <canvas-url-or-id>`
   - Options:
     - `--workspace <url-or-unique-substring>` (required when passing an id and multiple workspaces)
