@@ -5,6 +5,7 @@ node_modules
 
 # bun
 bun.lockb
+package-lock.json
 
 # build
 dist
