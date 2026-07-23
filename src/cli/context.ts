@@ -42,8 +42,28 @@ function effectiveWorkspaceUrl(flag?: string): string | undefined {
   return flag?.trim() || process.env.SLACK_WORKSPACE_URL?.trim() || undefined;
 }
 
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+export function errorMessage(err: unknown): string {
+  if (!(err instanceof Error)) {
+    return String(err);
+  }
+  const { message: rootMessage, cause: rootCause } = err;
+  let message = rootMessage;
+  let cause: unknown = rootCause;
+  while (cause !== undefined && cause !== null) {
+    if (cause instanceof AggregateError && cause.errors.length > 0) {
+      message += `: ${cause.errors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ")}`;
+      break;
+    }
+    if (cause instanceof Error) {
+      const { message: causeMessage, cause: nextCause } = cause;
+      message += `: ${causeMessage}`;
+      cause = nextCause;
+      continue;
+    }
+    message += `: ${String(cause)}`;
+    break;
+  }
+  return message;
 }
 
 function parseContentType(value: unknown): "any" | "text" | "image" | "snippet" | "file" {
