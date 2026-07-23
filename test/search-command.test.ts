@@ -49,6 +49,7 @@ function createClient(calls: ApiCall[]) {
 
       if (method === "conversations.history") {
         return {
+          has_more: false,
           messages: [
             {
               ts: "1.000001",
@@ -152,6 +153,78 @@ describe("search referenced users", () => {
       U22222222: { id: "U22222222", name: "bob", display_name: "Bob" },
     });
     expect(result.referenced_users).not.toHaveProperty("U44444444");
+  });
+
+  test("searchSlack scans older channel history pages", async () => {
+    const calls: ApiCall[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method !== "conversations.history") {
+          throw new Error(`Unexpected API method: ${method}`);
+        }
+        if (params.latest === undefined) {
+          return {
+            has_more: true,
+            messages: [{ ts: "2.000002", text: "not a match", user: "U11111111" }],
+          };
+        }
+        if (params.latest === "2.000002") {
+          return {
+            has_more: false,
+            messages: [{ ts: "1.000001", text: "needle", user: "U22222222" }],
+          };
+        }
+        throw new Error(`Unexpected latest timestamp: ${String(params.latest)}`);
+      },
+    };
+
+    const result = await searchSlack({
+      client: client as never,
+      auth: { auth_type: "standard", token: "x" },
+      options: {
+        workspace_url: "https://workspace.slack.com",
+        query: "needle",
+        kind: "messages",
+        channels: ["C12345678"],
+        limit: 20,
+        max_content_chars: 4000,
+        content_type: "any",
+        download: false,
+      },
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages?.[0]?.content).toBe("needle");
+    expect(
+      calls
+        .filter((call) => call.method === "conversations.history")
+        .map((call) => call.params.latest),
+    ).toEqual([undefined, "2.000002"]);
+  });
+
+  test("searchSlack does not resolve users at the result limit without opt-in", async () => {
+    const calls: ApiCall[] = [];
+    const client = createClient(calls) as never;
+
+    const result = await searchSlack({
+      client,
+      auth: { auth_type: "standard", token: "x" },
+      options: {
+        workspace_url: "https://workspace.slack.com",
+        query: "hello",
+        kind: "messages",
+        channels: ["C12345678"],
+        limit: 1,
+        max_content_chars: 4000,
+        content_type: "any",
+        download: false,
+      },
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.referenced_users).toBeUndefined();
+    expect(calls.filter((call) => call.method === "users.info")).toHaveLength(0);
   });
 
   test("search command forwards --refresh-users and bypasses cached user lookups", async () => {
