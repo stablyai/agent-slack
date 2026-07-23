@@ -49,7 +49,12 @@ export function errorMessage(err: unknown): string {
   const { message: rootMessage, cause: rootCause } = err;
   let message = rootMessage;
   let cause: unknown = rootCause;
+  const seenCauses = new Set<unknown>([err]);
   while (cause !== undefined && cause !== null) {
+    if (seenCauses.has(cause)) {
+      break;
+    }
+    seenCauses.add(cause);
     if (cause instanceof AggregateError && cause.errors.length > 0) {
       message += `: ${cause.errors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ")}`;
       break;

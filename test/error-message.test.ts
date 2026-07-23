@@ -35,4 +35,17 @@ describe("errorMessage", () => {
     const err = new Error("fetch failed", { cause: middle });
     expect(errorMessage(err)).toBe("fetch failed: request failed: connect ECONNREFUSED");
   });
+
+  test("terminates on a self-referential cause instead of looping forever", () => {
+    const err = new Error("boom");
+    err.cause = err;
+    expect(errorMessage(err)).toBe("boom");
+  });
+
+  test("terminates on a longer cause cycle", () => {
+    const a = new Error("a");
+    const b = new Error("b", { cause: a });
+    a.cause = b;
+    expect(errorMessage(a)).toBe("a: b");
+  });
 });
