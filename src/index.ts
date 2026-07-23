@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { installProxyDispatcher } from "./lib/proxy.ts";
 import { getPackageVersion } from "./lib/version.ts";
 import { createCliContext } from "./cli/context.ts";
 import { registerAuthCommand } from "./cli/auth-command.ts";
@@ -12,6 +13,8 @@ import { registerUserCommand } from "./cli/user-command.ts";
 import { registerChannelCommand } from "./cli/channel-command.ts";
 import { registerWorkflowCommand } from "./cli/workflow-command.ts";
 import { backgroundUpdateCheck } from "./lib/update.ts";
+
+installProxyDispatcher();
 
 const program = new Command();
 const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;

@@ -1,4 +1,5 @@
 import { WebClient } from "@slack/web-api";
+import { getSlackProxyAgent } from "../lib/proxy.ts";
 import { getUserAgent } from "../lib/version.ts";
 
 export type SlackAuth =
@@ -82,6 +83,7 @@ export class SlackApiClient {
         timeout: getSlackApiTimeoutMs(),
         retryConfig: { retries: 0 },
         rejectRateLimitedCalls: true,
+        agent: getSlackProxyAgent(),
       });
     }
   }
