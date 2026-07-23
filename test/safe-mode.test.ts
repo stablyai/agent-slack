@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Command } from "commander";
 import type { CliContext } from "../src/cli/context.ts";
+import { registerMessageCommand } from "../src/cli/message-command.ts";
 import {
   isSafeModeEnabled,
   redirectSendToDraft,
@@ -32,6 +34,73 @@ describe("safeModeBlockedError", () => {
     expect(safeModeBlockedError("edit").message).toContain('"message edit" is blocked');
     expect(safeModeBlockedError("delete").message).toContain('"message delete" is blocked');
   });
+});
+
+test("safe mode blocks message compose before CI can send directly", async () => {
+  const originalCi = process.env.CI;
+  const originalExitCode = process.exitCode;
+  const originalLog = console.log;
+  const originalError = console.error;
+  const apiCalls: string[] = [];
+  const errors: string[] = [];
+  const logs: string[] = [];
+  let exitCode: number | string | null | undefined;
+
+  const client = {
+    api: async (method: string) => {
+      apiCalls.push(method);
+      if (method === "conversations.info") {
+        return { channel: { id: "C12345678", name: "general" } };
+      }
+      if (method === "chat.postMessage") {
+        return { ok: true, ts: "1700000000.000001" };
+      }
+      throw new Error(`Unexpected API call: ${method}`);
+    },
+  };
+  const ctx = {
+    effectiveWorkspaceUrl: () => "https://workspace.slack.com",
+    assertWorkspaceSpecifiedForChannelNames: async () => {},
+    withAutoRefresh: async <T>(input: { work: () => Promise<T> }) => input.work(),
+    getClientForWorkspace: async () => ({
+      client,
+      auth: { auth_type: "standard", token: "xoxb-test" },
+    }),
+    errorMessage: (err: unknown) => (err instanceof Error ? err.message : String(err)),
+  } as unknown as CliContext;
+
+  try {
+    process.env.CI = "1";
+    process.exitCode = 0;
+    console.log = (...args: unknown[]) => {
+      logs.push(args.map(String).join(" "));
+    };
+    console.error = (...args: unknown[]) => {
+      errors.push(args.map(String).join(" "));
+    };
+
+    const program = new Command().option("--safe-mode");
+    registerMessageCommand({ program, ctx });
+    await program.parseAsync(
+      ["--safe-mode", "message", "compose", "C12345678", "review this first"],
+      { from: "user" },
+    );
+    ({ exitCode } = process);
+  } finally {
+    if (originalCi === undefined) {
+      delete process.env.CI;
+    } else {
+      process.env.CI = originalCi;
+    }
+    process.exitCode = originalExitCode ?? 0;
+    console.log = originalLog;
+    console.error = originalError;
+  }
+
+  expect(apiCalls).not.toContain("chat.postMessage");
+  expect(logs).toEqual([]);
+  expect(errors.join("\n")).toContain('"message compose" cannot skip the editor in CI');
+  expect(exitCode).toBe(1);
 });
 
 describe("redirectSendToDraft", () => {

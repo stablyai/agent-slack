@@ -276,10 +276,13 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
   messageCmd
     .command("compose")
     .description(
-      "Open a send-capable rich editor in the browser; CI skips the editor and immediately sends supplied text",
+      "Open a send-capable rich editor in the browser; CI skips the editor and immediately sends supplied text unless safe mode is active",
     )
     .argument("<target>", "Slack message URL, #name/name, or channel id")
-    .argument("[text]", "Initial message text (mrkdwn; sent immediately when CI skips the editor)")
+    .argument(
+      "[text]",
+      "Initial message text (mrkdwn; sent immediately when CI skips the editor unless safe mode is active)",
+    )
     .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; needed when using #channel/channel id across multiple workspaces)",
@@ -295,6 +298,11 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
         { workspace?: string; threadTs?: string },
       ];
       try {
+        if (safeModeActive() && process.env.CI) {
+          throw new Error(
+            'Safe mode is active: "message compose" cannot skip the editor in CI because that would post without human review.',
+          );
+        }
         const payload = await composeMessage({
           ctx: input.ctx,
           targetInput,
