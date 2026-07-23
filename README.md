@@ -226,7 +226,7 @@ agent-slack message compose "https://workspace.slack.com/archives/C123/p17000000
 
 After sending, the editor shows a "View in Slack" link to the posted message.
 
-`message compose` is send-capable. In CI, it skips the browser editor and immediately sends supplied text; do not use it for a compose-only request in a noninteractive environment.
+`message compose` is send-capable. In CI, it skips the browser editor and immediately sends supplied text; do not use it for a compose-only request in a noninteractive environment. Safe mode blocks this CI direct-send shortcut.
 
 ### Slack-native drafts
 
@@ -264,7 +264,8 @@ agent-slack --safe-mode message send "#general" "hello"
 
 While safe mode is active:
 
-- `message send` → redirected to the draft editor with the text pre-filled; you review and send from the browser. The output includes `"safe_mode": true` and `"redirected_from": "send"`, and a warning is printed to stderr. Flags the editor cannot represent (`--attach`, `--blocks`, `--schedule`, `--schedule-in`, `--reply-broadcast`) are rejected with an error instead of being silently dropped.
+- `message send` → redirected to the compose editor with the text pre-filled; you review and send from the browser. The output includes `"safe_mode": true` and `"redirected_from": "send"`, and a warning is printed to stderr. Flags the editor cannot represent (`--attach`, `--blocks`, `--schedule`, `--schedule-in`, `--reply-broadcast`) are rejected with an error instead of being silently dropped.
+- `message compose` → opens the browser editor normally. In CI, where compose would skip the editor and send directly, it is blocked with an error.
 - `message edit` and `message delete` → blocked with an error.
 - All read operations (`get`, `list`, `search`, etc.) and reactions are unchanged.
 

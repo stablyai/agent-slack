@@ -59,7 +59,7 @@ program
   .version(getPackageVersion())
   .option(
     "--safe-mode",
-    'Human-in-the-loop enforcement: redirect "message send" to the draft editor and block "message edit"/"message delete" (also: AGENT_SLACK_SAFE_MODE=1)',
+    'Human-in-the-loop enforcement: redirect "message send" to the compose editor, block the CI "message compose" direct-send shortcut, and block "message edit"/"message delete" (also: AGENT_SLACK_SAFE_MODE=1)',
   );
 
 startCommandWatchdog(process.argv.slice(2));
