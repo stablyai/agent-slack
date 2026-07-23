@@ -7,6 +7,15 @@ export type MsgTarget =
   | { kind: "channel"; channel: string }
   | { kind: "user"; userId: string };
 
+function isAbsoluteUrl(input: string): boolean {
+  try {
+    new URL(input);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function parseMsgTarget(input: string): MsgTarget {
   const trimmed = input.trim();
   if (!trimmed) {
@@ -16,8 +25,11 @@ export function parseMsgTarget(input: string): MsgTarget {
   try {
     const ref = parseSlackMessageUrl(trimmed);
     return { kind: "url", ref };
-  } catch {
-    // not a slack message URL
+  } catch (error) {
+    if (isAbsoluteUrl(trimmed)) {
+      throw error;
+    }
+    // Not a URL-shaped Slack message target.
   }
 
   if (isUserId(trimmed)) {

@@ -9,6 +9,7 @@ import {
 } from "../auth/store.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
 import { redactSecret } from "../lib/redact.ts";
+import { requireSingleSlackRealm } from "../auth/team-realm.ts";
 
 async function runAuthTest(input: {
   ctx: CliContext;
@@ -84,9 +85,10 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
             "Could not extract tokens from Chrome. Open Slack in Chrome and ensure you're logged in.",
           );
         }
+        requireSingleSlackRealm(extracted.teams);
 
-        for (const team of extracted.teams) {
-          await upsertWorkspace({
+        await upsertWorkspaces(
+          extracted.teams.map((team) => ({
             workspace_url: input.ctx.normalizeUrl(team.url),
             workspace_name: team.name,
             auth: {
@@ -94,8 +96,8 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
               xoxc_token: team.token,
               xoxd_cookie: extracted.cookie_d,
             },
-          });
-        }
+          })),
+        );
         console.log(`Imported ${extracted.teams.length} workspace token(s) from Chrome.`);
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
@@ -117,9 +119,10 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
               "If Brave is open with a Slack tab, also confirm View → Developer → Allow JavaScript from Apple Events is enabled.",
           );
         }
+        requireSingleSlackRealm(extracted.teams);
 
-        for (const team of extracted.teams) {
-          await upsertWorkspace({
+        await upsertWorkspaces(
+          extracted.teams.map((team) => ({
             workspace_url: input.ctx.normalizeUrl(team.url),
             workspace_name: team.name,
             auth: {
@@ -127,8 +130,8 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
               xoxc_token: team.token,
               xoxd_cookie: extracted.cookie_d,
             },
-          });
-        }
+          })),
+        );
         console.log(`Imported ${extracted.teams.length} workspace token(s) from Brave.`);
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
@@ -147,9 +150,10 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
             "Could not extract tokens from Firefox. Open Slack in Firefox and ensure you're logged in.",
           );
         }
+        requireSingleSlackRealm(extracted.teams);
 
-        for (const team of extracted.teams) {
-          await upsertWorkspace({
+        await upsertWorkspaces(
+          extracted.teams.map((team) => ({
             workspace_url: input.ctx.normalizeUrl(team.url),
             workspace_name: team.name,
             auth: {
@@ -157,8 +161,8 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
               xoxc_token: team.token,
               xoxd_cookie: extracted.cookie_d,
             },
-          });
-        }
+          })),
+        );
         console.log(`Imported ${extracted.teams.length} workspace token(s) from Firefox.`);
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
@@ -199,6 +203,7 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     .action(async () => {
       try {
         const extracted = await input.ctx.importDesktop();
+        requireSingleSlackRealm(extracted.teams);
         await upsertWorkspaces(
           extracted.teams.map((team) => ({
             workspace_url: input.ctx.normalizeUrl(team.url),
@@ -228,7 +233,10 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
   auth
     .command("add")
     .description("Add credentials (standard token or browser xoxc/xoxd)")
-    .requiredOption("--workspace-url <url>", "Workspace URL like https://myteam.slack.com")
+    .requiredOption(
+      "--workspace-url <url>",
+      "HTTPS workspace origin like https://myteam.slack.com or https://agency.slack-gov.com",
+    )
     .option("--token <token>", "Standard Slack token (xoxb/xoxp)")
     .option("--xoxc <token>", "Browser token (xoxc-...)")
     .option("--xoxd <cookie>", "Browser cookie d (xoxd-...)")
@@ -268,7 +276,10 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
   auth
     .command("set-default")
     .description("Set the default workspace URL")
-    .argument("<workspace-url>", "Workspace URL like https://myteam.slack.com")
+    .argument(
+      "<workspace-url>",
+      "HTTPS workspace origin like https://myteam.slack.com or https://agency.slack-gov.com",
+    )
     .action(async (...args) => {
       const [workspaceUrl] = args as [string];
       try {
@@ -283,7 +294,10 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
   auth
     .command("remove")
     .description("Remove a workspace from local config")
-    .argument("<workspace-url>", "Workspace URL like https://myteam.slack.com")
+    .argument(
+      "<workspace-url>",
+      "HTTPS workspace origin like https://myteam.slack.com or https://agency.slack-gov.com",
+    )
     .action(async (...args) => {
       const [workspaceUrl] = args as [string];
       try {

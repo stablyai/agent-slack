@@ -11,18 +11,20 @@ import {
 } from "../auth/store.ts";
 import { resolveWorkspaceSelector } from "./workspace-selector.ts";
 import { SlackApiClient, type SlackAuth } from "../slack/client.ts";
+import { normalizeSlackWorkspaceUrl } from "../slack/workspace-url.ts";
+import { requireSingleSlackRealm } from "../auth/team-realm.ts";
 
 export function normalizeUrl(u: string): string {
-  const url = new URL(u);
-  return `${url.protocol}//${url.host}`;
+  return normalizeSlackWorkspaceUrl(u);
 }
 
 function tryNormalizeUrl(u: string): string | undefined {
   try {
-    return normalizeUrl(u);
+    new URL(u);
   } catch {
     return undefined;
   }
+  return normalizeUrl(u);
 }
 
 function pickAuthFromEnv(): SlackAuth | null {
@@ -67,7 +69,8 @@ export async function getClientForWorkspace(workspaceUrl?: string): Promise<{
 
   const env = pickAuthFromEnv();
   if (env) {
-    const envWorkspaceUrl = process.env.SLACK_WORKSPACE_URL?.trim();
+    const rawEnvWorkspaceUrl = process.env.SLACK_WORKSPACE_URL?.trim();
+    const envWorkspaceUrl = rawEnvWorkspaceUrl ? normalizeUrl(rawEnvWorkspaceUrl) : undefined;
     const urlForBrowser = resolvedWorkspaceUrl || envWorkspaceUrl;
     return {
       client: new SlackApiClient(env, { workspaceUrl: urlForBrowser }),
@@ -104,6 +107,7 @@ export async function getClientForWorkspace(workspaceUrl?: string): Promise<{
 
   try {
     const extracted = await extractFromSlackDesktop();
+    requireSingleSlackRealm(extracted.teams);
     await upsertWorkspaces(
       extracted.teams.map((team) => ({
         workspace_url: normalizeUrl(team.url),
@@ -160,6 +164,7 @@ export async function getClientForWorkspace(workspaceUrl?: string): Promise<{
   }
 
   for (const source of browserSources) {
+    requireSingleSlackRealm(source.teams);
     const result = await matchAndUpsertBrowserTeam({
       teams: source.teams,
       cookieD: source.cookie_d,
@@ -196,7 +201,7 @@ async function matchAndUpsertBrowserTeam(input: {
     const matches = teams.filter((t) => {
       const normalizedUrl = normalizeUrl(t.url).toLowerCase();
       const host = new URL(t.url).host.toLowerCase();
-      const hostWithoutSlackSuffix = host.replace(/\.slack\.com$/i, "");
+      const hostWithoutSlackSuffix = host.replace(/\.slack(?:-gov)?\.com$/i, "");
       const name = t.name?.toLowerCase() ?? "";
       return (
         normalizedUrl.includes(normalizedSelector) ||

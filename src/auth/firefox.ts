@@ -7,6 +7,8 @@ import {
   pickCandidatesByProfile,
   queryReadonlySqlite,
 } from "./firefox-profile.ts";
+import { requireSingleSlackRealm, slackCookieHostCondition } from "./team-realm.ts";
+import type { SlackRealm } from "../slack/workspace-url.ts";
 
 type FirefoxTeam = { url: string; name?: string; token: string };
 
@@ -101,7 +103,7 @@ function extractTeamsFromRawText(raw: string): FirefoxTeam[] {
 
   // Fallback for partially damaged JSON: recover token/url/name triplets from raw text.
   const richPattern =
-    /"name":"([^"]+)".*?"url":"(https:\/\/[^"\s]+slack\.com\/)".*?"token":"(xoxc-[^"]+)"/gs;
+    /"name":"([^"]+)".*?"url":"(https:\/\/(?:[a-z0-9-]+\.)+slack(?:-gov)?\.com\/)".*?"token":"(xoxc-[^"]+)"/gis;
   for (const match of raw.matchAll(richPattern)) {
     const [, name, url, token] = match;
     if (!name || !url || !token) {
@@ -119,9 +121,9 @@ function extractTeamsFromRawText(raw: string): FirefoxTeam[] {
     return teams;
   }
 
-  const urls = Array.from(raw.matchAll(/"url":"(https:\/\/[^"\s]+slack\.com\/)"/g)).map(
-    (m) => m[1]!,
-  );
+  const urls = Array.from(
+    raw.matchAll(/"url":"(https:\/\/(?:[a-z0-9-]+\.)+slack(?:-gov)?\.com\/)"/gi),
+  ).map((m) => m[1]!);
   const tokens = Array.from(raw.matchAll(/"token":"(xoxc-[^"]+)"/g)).map((m) => m[1]!);
   const count = Math.min(urls.length, tokens.length);
   for (let i = 0; i < count; i++) {
@@ -149,6 +151,7 @@ function getLocalStorageDirs(profilePath: string): string[] {
       continue;
     }
     candidates.push(join(root, "https+++app.slack.com", "ls"));
+    candidates.push(join(root, "https+++app.slack-gov.com", "ls"));
   }
   return candidates;
 }
@@ -195,6 +198,7 @@ async function extractTeamsFromProfile(
 
 async function extractCookieDFromProfile(
   profilePath: string,
+  realm: SlackRealm,
 ): Promise<{ cookie_d: string; sourcePath: string } | null> {
   const dbPath = join(profilePath, "cookies.sqlite");
   if (!existsSync(dbPath)) {
@@ -205,7 +209,9 @@ async function extractCookieDFromProfile(
   try {
     const rows = (await queryReadonlySqlite(
       copied.copyPath,
-      "select value from moz_cookies where host like '%slack.com%' and name='d' order by length(value) desc",
+      "select value from moz_cookies where name = 'd' and " +
+        `${slackCookieHostCondition("host", realm)} ` +
+        "order by length(value) desc",
     )) as { value: string }[];
 
     for (const row of rows) {
@@ -260,7 +266,8 @@ export async function extractFromFirefox(input?: {
     if (!teamsResult) {
       continue;
     }
-    const cookieResult = await extractCookieDFromProfile(candidate.path);
+    const realm = requireSingleSlackRealm(teamsResult.teams);
+    const cookieResult = await extractCookieDFromProfile(candidate.path, realm);
     if (!cookieResult) {
       continue;
     }

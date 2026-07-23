@@ -10,6 +10,8 @@ import { isRecord } from "../lib/object-type-guards.ts";
 import { queryReadonlySqlite } from "./firefox-profile.ts";
 import { decryptChromiumCookieValue } from "./chromium-cookie.ts";
 import { getSafeStoragePasswords, decryptCookieWindows } from "./desktop-crypto.ts";
+import { requireSingleSlackRealm, slackCookieHostCondition } from "./team-realm.ts";
+import type { SlackRealm } from "../slack/workspace-url.ts";
 
 type DesktopTeam = { url: string; name?: string; token: string };
 
@@ -263,10 +265,12 @@ async function extractTeamsFromSlackLevelDb(leveldbDir: string): Promise<Desktop
   }
 }
 
-async function extractCookieDFromSlackCookiesDb(
-  cookiesPath: string,
-  slackDataDir: string,
-): Promise<string> {
+async function extractCookieDFromSlackCookiesDb(input: {
+  cookiesPath: string;
+  slackDataDir: string;
+  realm: SlackRealm;
+}): Promise<string> {
+  const { cookiesPath, slackDataDir, realm } = input;
   if (!existsSync(cookiesPath)) {
     throw new Error(`Slack Cookies DB not found: ${cookiesPath}`);
   }
@@ -289,7 +293,10 @@ async function extractCookieDFromSlackCookiesDb(
   try {
     rows = (await queryReadonlySqlite(
       dbPathToQuery,
-      "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
+      "select host_key, name, value, encrypted_value from cookies " +
+        "where name = 'd' and " +
+        `${slackCookieHostCondition("host_key", realm)} ` +
+        "order by length(encrypted_value) desc",
     )) as typeof rows;
   } finally {
     if (IS_WIN32 && dbPathToQuery !== cookiesPath) {
@@ -360,7 +367,12 @@ export async function extractFromSlackDesktop(): Promise<DesktopExtracted> {
   for (const { leveldbDir, cookiesDb, baseDir } of allPaths) {
     try {
       const teams = await extractTeamsFromSlackLevelDb(leveldbDir);
-      const cookie_d = await extractCookieDFromSlackCookiesDb(cookiesDb, baseDir);
+      const realm = requireSingleSlackRealm(teams);
+      const cookie_d = await extractCookieDFromSlackCookiesDb({
+        cookiesPath: cookiesDb,
+        slackDataDir: baseDir,
+        realm,
+      });
       return {
         cookie_d,
         teams,

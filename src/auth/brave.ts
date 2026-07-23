@@ -6,6 +6,8 @@ import { queryReadonlySqlite } from "./firefox-profile.ts";
 import { decryptChromiumCookieValue } from "./chromium-cookie.ts";
 import { getKeychainTimeoutMs } from "./keychain.ts";
 import { isRecord } from "../lib/object-type-guards.ts";
+import { requireSingleSlackRealm, slackCookieHostCondition } from "./team-realm.ts";
+import type { SlackRealm } from "../slack/workspace-url.ts";
 
 type BraveExtractedTeam = { url: string; name?: string; token: string };
 
@@ -74,7 +76,7 @@ function teamsScript(): string {
     tell application "Brave Browser"
       repeat with w in windows
         repeat with t in tabs of w
-          if URL of t contains "slack.com" then
+          if (URL of t contains ".slack.com") or (URL of t contains ".slack-gov.com") then
             return execute t javascript "(function(){ ${tryPaths.join(" ")} return '{}'; })()"
           end if
         end repeat
@@ -149,14 +151,17 @@ function getSafeStoragePasswords(): string[] {
   return passwords;
 }
 
-async function extractCookieDFromBrave(): Promise<string> {
+async function extractCookieDFromBrave(realm: SlackRealm): Promise<string> {
   if (!existsSync(BRAVE_COOKIES_DB)) {
     throw new Error(`Brave Cookies DB not found: ${BRAVE_COOKIES_DB}`);
   }
 
   const rows = (await queryReadonlySqlite(
     BRAVE_COOKIES_DB,
-    "select host_key, name, value, encrypted_value from cookies where name = 'd' and host_key like '%slack.com' order by length(encrypted_value) desc",
+    "select host_key, name, value, encrypted_value from cookies " +
+      "where name = 'd' and " +
+      `${slackCookieHostCondition("host_key", realm)} ` +
+      "order by length(encrypted_value) desc",
   )) as {
     host_key: string;
     name: string;
@@ -208,7 +213,8 @@ export async function extractFromBrave(): Promise<BraveExtracted | null> {
       return null;
     }
 
-    const cookie_d = await extractCookieDFromBrave();
+    const realm = requireSingleSlackRealm(teams);
+    const cookie_d = await extractCookieDFromBrave(realm);
     if (!cookie_d || !cookie_d.startsWith("xoxd-")) {
       return null;
     }

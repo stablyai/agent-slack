@@ -8,6 +8,7 @@ import { normalizeChannelInput } from "../slack/channels.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { type SlackAuth } from "../slack/client.ts";
 import { getClientForWorkspace, normalizeUrl } from "./context-client-resolver.ts";
+import { requireSingleSlackRealm } from "../auth/team-realm.ts";
 
 export type CliContext = {
   effectiveWorkspaceUrl: (flag?: string) => string | undefined;
@@ -95,6 +96,7 @@ async function refreshFromDesktopIfPossible(): Promise<boolean> {
   }
   try {
     const extracted = await extractFromSlackDesktop();
+    requireSingleSlackRealm(extracted.teams);
     await upsertWorkspaces(
       extracted.teams.map((team) => ({
         workspace_url: normalizeUrl(team.url),

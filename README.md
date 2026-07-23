@@ -153,11 +153,18 @@ export SLACK_TOKEN="xoxb-..."
 agent-slack auth test
 ```
 
+Credential configuration and `SLACK_WORKSPACE_URL` require a canonical HTTPS workspace origin
+under `.slack.com` or `.slack-gov.com` (for example, `https://workspace.slack.com` or
+`https://agency.slack-gov.com`). HTTP URLs, embedded credentials, custom ports, paths, and other
+hosts are rejected. Browser and Desktop imports must contain workspaces from only one of those
+Slack realms at a time.
+
 ## Targets: URL or channel
 
 `message get` / `message list` accept either a Slack message URL or a channel reference:
 
-- URL: `https://workspace.slack.com/archives/<channel>/p<digits>[?thread_ts=...]`
+- URL: `https://workspace.slack.com/archives/<channel>/p<digits>[?thread_ts=...]` (or the
+  corresponding `https://workspace.slack-gov.com/...` GovSlack URL)
 - Channel: `#general` (or bare `general`) or a channel ID like `C0123...`
 
 In practice:

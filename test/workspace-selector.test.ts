@@ -32,6 +32,11 @@ describe("resolveWorkspaceSelector", () => {
       team_domain: "stablylabs",
     }),
     browserWorkspace({ url: "https://acme.slack.com", workspace_name: "Acme" }),
+    browserWorkspace({
+      url: "https://agency.slack-gov.com",
+      workspace_name: "Agency",
+      team_domain: "agency",
+    }),
   ];
 
   test("matches exact URL", () => {
@@ -52,6 +57,15 @@ describe("resolveWorkspaceSelector", () => {
     expect(result.ambiguous).toHaveLength(0);
   });
 
+  test("matches GovSlack by exact URL and unique substring", () => {
+    expect(
+      resolveWorkspaceSelector(workspaces, "https://agency.slack-gov.com").match?.workspace_url,
+    ).toBe("https://agency.slack-gov.com");
+    expect(resolveWorkspaceSelector(workspaces, "agency").match?.workspace_url).toBe(
+      "https://agency.slack-gov.com",
+    );
+  });
+
   test("returns ambiguity when selector matches multiple workspaces", () => {
     const result = resolveWorkspaceSelector(workspaces, "stably");
     expect(result.match).toBeNull();
@@ -65,5 +79,27 @@ describe("resolveWorkspaceSelector", () => {
     const result = resolveWorkspaceSelector(workspaces, "does-not-exist");
     expect(result.match).toBeNull();
     expect(result.ambiguous).toHaveLength(0);
+  });
+
+  test("rejects unsafe URL selectors", () => {
+    for (const selector of [
+      "http://acme.slack.com",
+      "https://acme.slack.com.evil.test",
+      "https://user@acme.slack.com",
+      "https://acme.slack.com:8443",
+    ]) {
+      expect(() => resolveWorkspaceSelector(workspaces, selector), selector).toThrow(
+        "canonical HTTPS Slack or GovSlack origin",
+      );
+    }
+  });
+
+  test("ignores unsafe configured workspace candidates", () => {
+    const unsafe = browserWorkspace({
+      url: "https://acme.slack.com.evil.test",
+      workspace_name: "Unsafe",
+      team_domain: "unsafe",
+    });
+    expect(resolveWorkspaceSelector([unsafe], "unsafe").match).toBeNull();
   });
 });

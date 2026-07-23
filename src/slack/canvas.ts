@@ -5,6 +5,7 @@ import { ensureDownloadsDir } from "../lib/tmp-paths.ts";
 import { getString, isRecord } from "../lib/object-type-guards.ts";
 import { readFile } from "node:fs/promises";
 import { getUserAgent } from "../lib/version.ts";
+import { slackWorkspaceOriginFromUrl } from "./workspace-url.ts";
 
 export type SlackCanvasRef = {
   workspace_url: string;
@@ -75,9 +76,7 @@ export function parseSlackCanvasUrl(input: string): SlackCanvasRef {
     throw new Error(`Invalid URL: ${input}`);
   }
 
-  if (!/\.slack\.com$/i.test(url.hostname)) {
-    throw new Error(`Not a Slack workspace URL: ${url.hostname}`);
-  }
+  const workspace_url = slackWorkspaceOriginFromUrl(url);
 
   // Common form: /docs/<team_id>/<canvas_id>
   // Example seen in Slack docs: https://workspace.slack.com/docs/T.../F...
@@ -91,7 +90,6 @@ export function parseSlackCanvasUrl(input: string): SlackCanvasRef {
     throw new Error(`Could not find canvas id in: ${url.pathname}`);
   }
 
-  const workspace_url = `${url.protocol}//${url.host}`;
   return { workspace_url, canvas_id, raw: input };
 }
 

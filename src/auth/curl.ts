@@ -1,3 +1,5 @@
+import { slackWorkspaceOriginFromUrl } from "../slack/workspace-url.ts";
+
 export type ParsedCurlTokens = {
   workspace_url: string;
   xoxc_token: string;
@@ -5,11 +7,12 @@ export type ParsedCurlTokens = {
 };
 
 export function parseSlackCurlCommand(curlInput: string): ParsedCurlTokens {
-  const urlMatch = curlInput.match(/curl\s+['"]?(https?:\/\/([^.]+)\.slack\.com[^'"\s]*)/i);
-  if (!urlMatch) {
+  const urlMatch = curlInput.match(/curl\s+['"]?(https?:\/\/[^'"\s]+)/i);
+  const requestUrl = urlMatch?.[1];
+  if (!requestUrl) {
     throw new Error("Could not find Slack workspace URL in cURL command");
   }
-  const workspace_url = `https://${urlMatch[2]}.slack.com`;
+  const workspace_url = slackWorkspaceOriginFromUrl(requestUrl);
 
   const cookieMatch = curlInput.match(
     /(?:-b|--cookie)\s+\$?'([^']+)'|(?:-b|--cookie)\s+\$?"([^"]+)"|-H\s+\$?'[Cc]ookie:\s*([^']+)'|-H\s+\$?"[Cc]ookie:\s*([^"]+)"/,
