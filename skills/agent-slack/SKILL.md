@@ -25,7 +25,7 @@ If a capability named here is absent from installed help, report version skew in
 
 ## Workflow
 
-1. Run `agent-slack auth whoami`. If needed, import credentials with `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then run `auth test`.
+1. Run `agent-slack auth whoami`. If needed, import credentials with `auth import-desktop`, `auth import-brave`, `auth import-chrome`, or `auth import-firefox`, then run `auth test`. Browser and Desktop imports must contain workspaces from only one Slack realm (`slack.com` or `slack-gov.com`) at a time.
 2. Prefer a Slack message URL when one is available. It carries the workspace, channel, and timestamp needed by most message operations.
 3. Choose the narrowest read operation: `message get` for one message, `message list` for a full thread or channel history, and `search messages` or `search files` for discovery.
 4. Use output limits such as `--limit`, `--max-body-chars`, and `--max-content-chars` to avoid unnecessary context.

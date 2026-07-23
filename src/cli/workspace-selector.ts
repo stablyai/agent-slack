@@ -1,25 +1,23 @@
 import type { Workspace } from "../auth/schema.ts";
+import { normalizeSlackWorkspaceUrl } from "../slack/workspace-url.ts";
 
 export type WorkspaceSelectorResult = {
   match: Workspace | null;
   ambiguous: Workspace[];
 };
 
-function normalizeUrl(u: string): string {
-  const url = new URL(u);
-  return `${url.protocol}//${url.host}`;
-}
-
 function normalizedWorkspaceCandidates(workspace: Workspace): string[] {
-  let host = "";
+  let workspaceUrl: string;
+  let host: string;
   try {
-    host = new URL(workspace.workspace_url).host.toLowerCase();
+    workspaceUrl = normalizeSlackWorkspaceUrl(workspace.workspace_url).toLowerCase();
+    host = new URL(workspaceUrl).hostname;
   } catch {
-    host = "";
+    return [];
   }
-  const hostWithoutSlackSuffix = host.replace(/\.slack\.com$/i, "");
+  const hostWithoutSlackSuffix = host.replace(/\.slack(?:-gov)?\.com$/i, "");
   return [
-    workspace.workspace_url.toLowerCase(),
+    workspaceUrl,
     host,
     hostWithoutSlackSuffix,
     workspace.workspace_name?.toLowerCase() ?? "",
@@ -36,14 +34,24 @@ export function resolveWorkspaceSelector(
     return { match: null, ambiguous: [] };
   }
 
+  let parsedUrl: URL | undefined;
   try {
-    const normalized = normalizeUrl(raw).toLowerCase();
-    const exact = workspaces.find((w) => w.workspace_url.toLowerCase() === normalized);
+    parsedUrl = new URL(raw);
+  } catch {
+    parsedUrl = undefined;
+  }
+  if (parsedUrl) {
+    const normalized = normalizeSlackWorkspaceUrl(raw).toLowerCase();
+    const exact = workspaces.find((w) => {
+      try {
+        return normalizeSlackWorkspaceUrl(w.workspace_url).toLowerCase() === normalized;
+      } catch {
+        return false;
+      }
+    });
     if (exact) {
       return { match: exact, ambiguous: [] };
     }
-  } catch {
-    // Not a URL selector; continue with fuzzy matching.
   }
 
   const needle = raw.toLowerCase();

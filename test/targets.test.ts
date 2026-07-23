@@ -14,6 +14,26 @@ describe("parseMsgTarget", () => {
     expect(t.ref.message_ts).toBe("1770165109.628379");
   });
 
+  test("parses GovSlack message URLs", () => {
+    const target = parseMsgTarget(
+      "https://agency.slack-gov.com/archives/C060RS20UMV/p1770165109628379",
+    );
+    expect(target.kind).toBe("url");
+    if (target.kind !== "url") {
+      throw new Error("expected url");
+    }
+    expect(target.ref.workspace_url).toBe("https://agency.slack-gov.com");
+  });
+
+  test("does not reinterpret unsafe URLs as channel names", () => {
+    for (const url of [
+      "http://team.slack.com/archives/C060RS20UMV/p1770165109628379",
+      "https://team.slack.com.evil.test/archives/C060RS20UMV/p1770165109628379",
+    ]) {
+      expect(() => parseMsgTarget(url), url).toThrow("canonical HTTPS Slack or GovSlack origin");
+    }
+  });
+
   test("accepts #channel", () => {
     const t = parseMsgTarget("#general");
     expect(t.kind).toBe("channel");

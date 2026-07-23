@@ -1,5 +1,7 @@
 import { execSync } from "node:child_process";
 import { platform } from "node:os";
+import { requireSingleSlackRealm } from "./team-realm.ts";
+import type { SlackRealm } from "../slack/workspace-url.ts";
 
 type ChromeExtractedTeam = { url: string; name?: string; token: string };
 
@@ -23,12 +25,13 @@ function osascript(script: string): string {
   }).trim();
 }
 
-function cookieScript(): string {
+function cookieScript(realm: SlackRealm): string {
+  const domain = realm === "gov" ? ".slack-gov.com" : ".slack.com";
   return `
     tell application "Google Chrome"
       repeat with w in windows
         repeat with t in tabs of w
-          if URL of t contains "slack.com" then
+          if URL of t contains "${domain}" then
             return execute t javascript "document.cookie.split('; ').find(c => c.startsWith('d='))?.split('=')[1] || ''"
           end if
         end repeat
@@ -71,7 +74,7 @@ function teamsScript(): string {
     tell application "Google Chrome"
       repeat with w in windows
         repeat with t in tabs of w
-          if URL of t contains "slack.com" then
+          if (URL of t contains ".slack.com") or (URL of t contains ".slack-gov.com") then
             return execute t javascript "(function(){ ${tryPaths.join(" ")} return '{}'; })()"
           end if
         end repeat
@@ -86,11 +89,6 @@ export function extractFromChrome(): ChromeExtracted | null {
     return null;
   }
   try {
-    const cookie = osascript(cookieScript());
-    if (!cookie || !cookie.startsWith("xoxd-")) {
-      return null;
-    }
-
     const teamsRaw = osascript(teamsScript());
     let teamsObj: unknown = {};
     try {
@@ -105,6 +103,11 @@ export function extractFromChrome(): ChromeExtracted | null {
       .filter((t): t is ChromeExtractedTeam => t !== null);
 
     if (teams.length === 0) {
+      return null;
+    }
+    const realm = requireSingleSlackRealm(teams);
+    const cookie = osascript(cookieScript(realm));
+    if (!cookie || !cookie.startsWith("xoxd-")) {
       return null;
     }
     return { cookie_d: cookie, teams };

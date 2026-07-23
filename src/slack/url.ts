@@ -1,3 +1,5 @@
+import { normalizeSlackWorkspaceUrl, slackWorkspaceOriginFromUrl } from "./workspace-url.ts";
+
 export type SlackMessageRef = {
   workspace_url: string;
   channel_id: string;
@@ -16,9 +18,7 @@ export function parseSlackMessageUrl(input: string): SlackMessageRef {
     throw new Error(`Invalid URL: ${input}`);
   }
 
-  if (!/\.slack\.com$/i.test(url.hostname)) {
-    throw new Error(`Not a Slack workspace URL: ${url.hostname}`);
-  }
+  const workspace_url = slackWorkspaceOriginFromUrl(url);
 
   const parts = url.pathname.split("/").filter(Boolean);
   // /archives/<channel>/p<digits>
@@ -50,7 +50,6 @@ export function parseSlackMessageUrl(input: string): SlackMessageRef {
   const hasCid = url.searchParams.has("cid");
   const possiblyTruncated = Boolean(threadTsParam && !hasCid);
 
-  const workspace_url = `${url.protocol}//${url.host}`;
   return { workspace_url, channel_id, message_ts, thread_ts_hint, raw: input, possiblyTruncated };
 }
 
@@ -60,7 +59,7 @@ export function buildSlackMessageUrl(input: {
   message_ts: string;
   thread_ts?: string;
 }): string {
-  const workspaceUrl = input.workspace_url.replace(/\/$/, "");
+  const workspaceUrl = normalizeSlackWorkspaceUrl(input.workspace_url);
   const digits = input.message_ts.replace(".", "");
   const url = new URL(`${workspaceUrl}/archives/${input.channel_id}/p${digits}`);
   if (input.thread_ts && input.thread_ts !== input.message_ts) {

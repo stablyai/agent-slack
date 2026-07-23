@@ -4,6 +4,7 @@ Prefer a Slack message URL whenever one is available:
 
 ```text
 https://<workspace>.slack.com/archives/<channel_id>/p<digits>[?thread_ts=...]
+https://<workspace>.slack-gov.com/archives/<channel_id>/p<digits>[?thread_ts=...]
 ```
 
 A URL supplies the workspace, channel, and message timestamp. With a URL target:
@@ -24,3 +25,5 @@ Among `message` subcommands, `message send` and `message draft create` accept a 
 Use `user dm-open <users...>` with one to eight other user IDs or handles to get a DM or group-DM channel ID, then use that channel ID for message operations. The authenticated caller is implicit.
 
 Non-URL targets do not carry workspace identity. When multiple workspaces are configured, use the intended configured default or pass `--workspace <url-or-unique-substring>`/`SLACK_WORKSPACE_URL`, including for channel, user, canvas, and workflow IDs.
+
+Full workspace selectors and `SLACK_WORKSPACE_URL` must be canonical HTTPS origins under `.slack.com` or `.slack-gov.com`; do not use HTTP, embedded credentials, custom ports, or resource paths.
