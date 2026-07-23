@@ -1,11 +1,26 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { getSlackProxyAgent } from "../src/lib/proxy.ts";
 
 const PROXY_ENV_VARS = ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"];
+const originalProxyEnv = Object.fromEntries(PROXY_ENV_VARS.map((key) => [key, process.env[key]]));
 
-afterEach(() => {
+// Start each test from a clean slate regardless of the ambient environment (e.g. a
+// corporate HTTPS_PROXY set for the whole CI run), then restore the original values
+// once this file is done so unrelated tests aren't affected.
+beforeEach(() => {
   for (const key of PROXY_ENV_VARS) {
     delete process.env[key];
+  }
+});
+
+afterAll(() => {
+  for (const key of PROXY_ENV_VARS) {
+    const original = originalProxyEnv[key];
+    if (original === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = original;
+    }
   }
 });
 

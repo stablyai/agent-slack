@@ -16,6 +16,11 @@ export function installProxyDispatcher(): void {
     return;
   }
   globalDispatcherInstalled = true;
+  if (process.versions.bun) {
+    // Bun's fetch already reads HTTPS_PROXY/HTTP_PROXY/NO_PROXY natively; overriding
+    // undici's global dispatcher here has no effect on it and risks masking that behavior.
+    return;
+  }
   setGlobalDispatcher(new EnvHttpProxyAgent());
 }
 
