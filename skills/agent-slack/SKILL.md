@@ -41,5 +41,6 @@ Slack-native drafts (`message draft list|create|update|delete`) manage drafts th
 
 ## Conditional references
 
+- Read [references/thread-investigation.md](references/thread-investigation.md) only when interpreting a Slack thread, verifying its claims, advising an action from it, or preparing a reply to that thread.
 - Read [references/targets.md](references/targets.md) only when choosing between a message URL, channel, or user target, or when resolving multiple workspaces.
 - Read [references/output.md](references/output.md) only when handling returned message or canvas metadata, resolved users, or downloaded and failed attachments.
