@@ -13,6 +13,8 @@ Immediate non-attachment sends return `ts` and usually a `permalink`. Attachment
 
 Message payloads keep canonical user IDs. Pass `--resolve-users` to add display metadata under `referenced_users`, or `--refresh-users` to refresh the 24-hour per-workspace cache before resolving.
 
+`user resolve` scans every returned workspace-directory page before finalizing exact active-human matches. Its output includes directory completeness and `safe_to_mention`. Live mention fields appear only when every requested identity resolves uniquely; otherwise the command exits nonzero and emits no live mention token. Incomplete evidence omits definitive per-input results.
+
 Use `--max-body-chars`, `--max-content-chars`, `--limit`, or a command's counts-only mode to keep results within the task's needs.
 
 ## Downloaded files

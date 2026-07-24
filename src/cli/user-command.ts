@@ -2,6 +2,12 @@ import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
 import { getDmChannelForUsers, getUser, listUsers } from "../slack/users.ts";
+import {
+  incompleteStrictUserResolution,
+  makeStrictUserOutputInert,
+  resolveStrictUserIdentities,
+  StrictUserDirectoryRequestError,
+} from "../slack/strict-user-resolution.ts";
 
 export function registerUserCommand(input: { program: Command; ctx: CliContext }): void {
   const userCmd = input.program.command("user").description("Workspace user directory");
@@ -37,6 +43,56 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  userCmd
+    .command("resolve")
+    .description(
+      "Resolve exact active humans across the complete directory with all-or-none mentions",
+    )
+    .argument(
+      "<identities...>",
+      "User IDs (U.../W...), emails, @handles/handles, or full names containing whitespace (quote in the shell)",
+    )
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
+    )
+    .action(async (...args) => {
+      const [identities, options] = args as [string[], { workspace?: string }];
+      const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
+      let resolvedWorkspaceUrl: string | undefined;
+      try {
+        const resolution = await input.ctx.withAutoRefresh({
+          workspaceUrl,
+          work: async () => {
+            const { client, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            resolvedWorkspaceUrl = normalizeWorkspaceUrl(input.ctx, workspace_url);
+            return await resolveStrictUserIdentities({
+              client,
+              identities,
+            });
+          },
+        });
+        const payload = { workspace: resolvedWorkspaceUrl, ...resolution };
+        console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+        if (!resolution.safe_to_mention) {
+          process.exitCode = 1;
+        }
+      } catch (err: unknown) {
+        if (err instanceof StrictUserDirectoryRequestError) {
+          const resolution = incompleteStrictUserResolution({
+            pages: err.pages,
+            reason: err.reason,
+          });
+          const payload = { workspace: resolvedWorkspaceUrl, ...resolution };
+          console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+          process.exitCode = 1;
+          return;
+        }
+        console.error(makeStrictUserOutputInert(input.ctx.errorMessage(err)));
         process.exitCode = 1;
       }
     });
@@ -89,4 +145,18 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
         process.exitCode = 1;
       }
     });
+}
+
+function normalizeWorkspaceUrl(
+  ctx: CliContext,
+  workspaceUrl: string | undefined,
+): string | undefined {
+  if (!workspaceUrl) {
+    return undefined;
+  }
+  try {
+    return ctx.normalizeUrl(workspaceUrl);
+  } catch {
+    return undefined;
+  }
 }

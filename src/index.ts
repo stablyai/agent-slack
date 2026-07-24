@@ -11,6 +11,7 @@ import { registerUpdateCommand } from "./cli/update-command.ts";
 import { registerUserCommand } from "./cli/user-command.ts";
 import { registerChannelCommand } from "./cli/channel-command.ts";
 import { registerWorkflowCommand } from "./cli/workflow-command.ts";
+import { shouldStartCommandWatchdog } from "./cli/command-watchdog.ts";
 import { backgroundUpdateCheck } from "./lib/update.ts";
 
 const program = new Command();
@@ -26,17 +27,6 @@ function getCommandTimeoutMs(): number {
     return DEFAULT_COMMAND_TIMEOUT_MS;
   }
   return Math.floor(parsed);
-}
-
-function shouldStartCommandWatchdog(args: string[]): boolean {
-  const [command, subcommand] = args;
-  if (!command || command === "update") {
-    return false;
-  }
-  if (command === "message" && subcommand === "draft") {
-    return false;
-  }
-  return true;
 }
 
 function startCommandWatchdog(args: string[]): void {

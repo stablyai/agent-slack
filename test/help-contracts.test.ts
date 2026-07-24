@@ -100,4 +100,20 @@ describe("agent-facing help contracts", () => {
     expect(dmOpen.registeredArguments[0]?.description).toContain("One to 8 other user");
     expect(dmOpen.registeredArguments[0]?.description).toContain("caller is implicit");
   });
+
+  test("strict user resolution documents its complete atomic contract", () => {
+    const resolve = findCommand(buildProgram(), "user", "resolve");
+
+    expect(resolve.description()).toContain("active humans");
+    expect(resolve.description()).toContain("complete directory");
+    expect(resolve.description()).toContain("all-or-none mentions");
+    expect(resolve.registeredArguments[0]?.variadic).toBe(true);
+    expect(resolve.registeredArguments[0]?.required).toBe(true);
+    expect(resolve.registeredArguments[0]?.description).toContain("emails");
+    expect(resolve.registeredArguments[0]?.description).toContain(
+      "full names containing whitespace",
+    );
+    expect(resolve.registeredArguments[0]?.description).toContain("quote in the shell");
+    expect(optionDescription(resolve, "--workspace")).toContain("unique substring");
+  });
 });
