@@ -97,7 +97,8 @@ agent-slack
 │   └── invite                      # invite users to channel
 ├── user
 │   ├── list
-│   └── get <user>
+│   ├── get <user>
+│   └── resolve <identities...>    # exact active-human resolution with atomic mentions
 ├── search
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
@@ -472,9 +473,19 @@ agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 
+# Resolve a complete batch before constructing human mentions
+agent-slack user resolve "@alice" "Bob Smith" bob@example.com \
+  --workspace "https://workspace.slack.com"
+
 # Open a DM or group DM with one to eight other users (the caller is implicit)
 agent-slack user dm-open "@alice" "@bob" --workspace "https://workspace.slack.com" | jq .
 ```
+
+`user resolve` verifies IDs and exact handle/email matches, plus full names containing
+whitespace, against every returned directory page. Only active humans qualify. Live
+`<@U…>`/`<@W…>` fields appear only when the entire batch resolves uniquely; otherwise
+`safe_to_mention` is false, the command exits nonzero, and no live mention token is emitted.
+Incomplete directory evidence contains no definitive per-input results.
 
 ### Unreads (inbox view)
 
