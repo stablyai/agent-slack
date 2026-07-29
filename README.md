@@ -220,6 +220,9 @@ agent-slack message compose "#general"
 # Open editor with initial text
 agent-slack message compose "#general" "Here's my update"
 
+# Open the editor and suppress link/media previews when sent
+agent-slack message compose "#general" "Release notes: https://example.com" --no-unfurl
+
 # Reply in a thread
 agent-slack message compose "https://workspace.slack.com/archives/C123/p1700000000000000"
 ```
@@ -297,6 +300,7 @@ Send options for `message send`:
 - `--attach <path>` upload a local file (repeatable; `<text>` is optional when attaching files)
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
 - `--reply-broadcast` when replying in a thread, also post the reply to the parent channel (Slack's "Also send to #channel" checkbox). For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
+- `--no-unfurl` suppress Slack link and media previews. Also available on `message compose`; cannot be combined with `--attach`.
 - `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (for example `YYYY-MM-DDTHH:mm:ss-07:00`) or a Unix timestamp. The timestamp must be in the future and within Slack's 120-day scheduled-send limit. Works with `--blocks`, `--thread-ts`, and `--reply-broadcast`; cannot be combined with `--attach`.
 - `--schedule-in <duration>` schedule delivery after a duration or simple future phrase (`30m`, `3h`, `2d`, `tomorrow 9am`, `monday 9am`; phrases use your local timezone). Mutually exclusive with `--schedule`; cannot be combined with `--attach`.
 

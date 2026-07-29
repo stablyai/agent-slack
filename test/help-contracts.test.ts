@@ -47,6 +47,7 @@ describe("agent-facing help contracts", () => {
     expect(optionDescription(send, "--schedule-in")).toContain("local timezone");
     expect(optionDescription(send, "--thread-ts")).toContain("channel targets");
     expect(optionDescription(send, "--reply-broadcast")).toContain("DM targets");
+    expect(optionDescription(send, "--no-unfurl")).toContain("link and media previews");
   });
 
   test("message compose identifies its CI send behavior", () => {
@@ -55,6 +56,7 @@ describe("agent-facing help contracts", () => {
     expect(compose.description()).toContain("CI skips the editor");
     expect(compose.registeredArguments[1]?.description).toContain("sent immediately");
     expect(optionDescription(compose, "--thread-ts")).toContain("overrides the URL-derived thread");
+    expect(optionDescription(compose, "--no-unfurl")).toContain("link and media previews");
   });
 
   test("Slack-native drafts document DM targeting and inherited-broadcast controls", () => {

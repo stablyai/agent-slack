@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import type { CliContext } from "../src/cli/context.ts";
 import {
   isSafeModeEnabled,
   redirectSendToDraft,
   safeModeBlockedError,
 } from "../src/cli/safe-mode.ts";
+import { withEnvironment } from "./helpers/environment.ts";
 
 const stubCtx = {} as CliContext;
 
@@ -35,16 +36,6 @@ describe("safeModeBlockedError", () => {
 });
 
 describe("redirectSendToDraft", () => {
-  const originalCi = process.env.CI;
-
-  afterEach(() => {
-    if (originalCi === undefined) {
-      delete process.env.CI;
-    } else {
-      process.env.CI = originalCi;
-    }
-  });
-
   test.each([
     [{ attach: ["./report.md"] }, "--attach"],
     [{ blocks: "/tmp/blocks.json" }, "--blocks"],
@@ -68,40 +59,42 @@ describe("redirectSendToDraft", () => {
   });
 
   test("rejects in CI where no interactive editor is available", async () => {
-    process.env.CI = "1";
-    await expect(
-      redirectSendToDraft({ ctx: stubCtx, targetInput: "#general", text: "hi", options: {} }),
-    ).rejects.toThrow("unavailable in CI");
+    await withEnvironment({ CI: "1" }, async () => {
+      await expect(
+        redirectSendToDraft({ ctx: stubCtx, targetInput: "#general", text: "hi", options: {} }),
+      ).rejects.toThrow("unavailable in CI");
+    });
   });
 
   test("opens a draft with the send text and thread context", async () => {
-    delete process.env.CI;
-    const draftCalls: unknown[] = [];
-    const payload = await redirectSendToDraft(
-      {
-        ctx: stubCtx,
-        targetInput: "#general",
-        text: "here's the report",
-        options: { workspace: "myteam", threadTs: "1770165109.628379" },
-      },
-      async (input) => {
-        draftCalls.push(input);
-        return { ok: true, sent: true };
-      },
-    );
-    expect(draftCalls).toEqual([
-      {
-        ctx: stubCtx,
-        targetInput: "#general",
-        initialText: "here's the report",
-        options: { workspace: "myteam", threadTs: "1770165109.628379" },
-      },
-    ]);
-    expect(payload).toEqual({
-      safe_mode: true,
-      redirected_from: "send",
-      ok: true,
-      sent: true,
+    await withEnvironment({ CI: undefined }, async () => {
+      const draftCalls: unknown[] = [];
+      const payload = await redirectSendToDraft(
+        {
+          ctx: stubCtx,
+          targetInput: "#general",
+          text: "here's the report",
+          options: { workspace: "myteam", threadTs: "1770165109.628379", unfurl: false },
+        },
+        async (input) => {
+          draftCalls.push(input);
+          return { ok: true, sent: true };
+        },
+      );
+      expect(draftCalls).toEqual([
+        {
+          ctx: stubCtx,
+          targetInput: "#general",
+          initialText: "here's the report",
+          options: { workspace: "myteam", threadTs: "1770165109.628379", unfurl: false },
+        },
+      ]);
+      expect(payload).toEqual({
+        safe_mode: true,
+        redirected_from: "send",
+        ok: true,
+        sent: true,
+      });
     });
   });
 });

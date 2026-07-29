@@ -203,6 +203,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "--schedule-in <duration>",
       "Schedule delivery within 120 days after a duration or future phrase, e.g. 3h or monday 9am. Named phrases use this process's local timezone. Cannot be combined with --attach.",
     )
+    .option("--no-unfurl", "Suppress link and media previews. Cannot be combined with --attach.")
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
@@ -215,6 +216,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
           replyBroadcast?: boolean;
           schedule?: string;
           scheduleIn?: string;
+          unfurl?: boolean;
         },
       ];
       const hasAttach = (options.attach ?? []).length > 0;
@@ -288,11 +290,12 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "--thread-ts <ts>",
       "Thread root ts to post into; overrides the URL-derived thread when supplied",
     )
+    .option("--no-unfurl", "Suppress link and media previews")
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
         string | undefined,
-        { workspace?: string; threadTs?: string },
+        { workspace?: string; threadTs?: string; unfurl?: boolean },
       ];
       try {
         const payload = await composeMessage({

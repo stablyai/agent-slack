@@ -35,6 +35,7 @@ export type SendOptionsForRedirect = {
   replyBroadcast?: boolean;
   schedule?: string;
   scheduleIn?: string;
+  unfurl?: boolean;
 };
 
 /**
@@ -87,7 +88,11 @@ export async function redirectSendToDraft(
     ctx: input.ctx,
     targetInput: input.targetInput,
     initialText: input.text,
-    options: { workspace: input.options.workspace, threadTs: input.options.threadTs },
+    options: {
+      workspace: input.options.workspace,
+      threadTs: input.options.threadTs,
+      unfurl: input.options.unfurl,
+    },
   });
   return { safe_mode: true, redirected_from: "send", ...payload };
 }

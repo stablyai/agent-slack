@@ -4,12 +4,13 @@ import { parseMsgTarget } from "./targets.ts";
 import { resolveChannelId, resolveChannelName, normalizeChannelInput } from "../slack/channels.ts";
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { openDraftEditor } from "./draft-server.ts";
+import { buildUnfurlApiParams } from "./unfurl-options.ts";
 
 export async function composeMessage(input: {
   ctx: CliContext;
   targetInput: string;
   initialText?: string;
-  options: { workspace?: string; threadTs?: string };
+  options: { workspace?: string; threadTs?: string; unfurl?: boolean };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
   if (target.kind === "user") {
@@ -41,6 +42,7 @@ export async function composeMessage(input: {
               channel: ref.channel_id,
               text,
               thread_ts: threadTs,
+              ...buildUnfurlApiParams(input.options.unfurl),
             });
             return { ts: resp.ts as string };
           },
@@ -76,6 +78,7 @@ export async function composeMessage(input: {
             channel: channelId,
             text,
             thread_ts: input.options.threadTs,
+            ...buildUnfurlApiParams(input.options.unfurl),
           });
           return { ts: resp.ts as string };
         },

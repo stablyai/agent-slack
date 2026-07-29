@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CliContext } from "../src/cli/context.ts";
+import { composeMessage } from "../src/cli/compose-actions.ts";
 import { editMessage, sendMessage } from "../src/cli/message-actions.ts";
 import {
   cancelScheduledMessage,
@@ -13,8 +14,12 @@ import {
   parseRelativeSchedule,
   resolveSchedulePostAt,
 } from "../src/slack/scheduled-messages.ts";
+import { withEnvironment } from "./helpers/environment.ts";
 
-function createContext(calls: { method: string; params: Record<string, unknown> }[]) {
+function createContext(
+  calls: { method: string; params: Record<string, unknown> }[],
+  fixtures: { historyMessages?: Record<string, unknown>[] } = {},
+) {
   const client = {
     api: async (method: string, params: Record<string, unknown>) => {
       calls.push({ method, params });
@@ -57,6 +62,9 @@ function createContext(calls: { method: string; params: Record<string, unknown> 
       }
       if (method === "conversations.open") {
         return { ok: true, channel: { id: "D12345678" } };
+      }
+      if (method === "conversations.history") {
+        return { ok: true, messages: fixtures.historyMessages ?? [] };
       }
       return { ok: true };
     },
@@ -127,6 +135,29 @@ describe("sendMessage", () => {
       ts: "1770165109.628379",
       thread_ts: undefined,
       permalink: "https://workspace.slack.com/archives/C12345678/p1770165109628379",
+    });
+  });
+
+  test("--no-unfurl disables link and media previews for immediate sends", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "https://example.com",
+      options: { unfurl: false },
+    });
+
+    expect(calls[0]).toEqual({
+      method: "chat.postMessage",
+      params: {
+        channel: "C12345678",
+        text: "https://example.com",
+        thread_ts: undefined,
+        unfurl_links: false,
+        unfurl_media: false,
+      },
     });
   });
 
@@ -258,30 +289,9 @@ describe("sendMessage", () => {
 
   test("--reply-broadcast on a URL target broadcasts using the message's derived thread_ts", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
-    const ctx: CliContext = {
-      ...createContext(calls),
-      getClientForWorkspace: async () => ({
-        client: {
-          api: async (method: string, params: Record<string, unknown>) => {
-            calls.push({ method, params });
-            if (method === "conversations.history") {
-              return {
-                ok: true,
-                messages: [
-                  { ts: "1770160500.000100", thread_ts: "1770160000.000001", text: "root" },
-                ],
-              };
-            }
-            if (method === "chat.postMessage") {
-              return { ok: true, channel: String(params.channel), ts: "1770165109.628379" };
-            }
-            return { ok: true };
-          },
-        } as never,
-        auth: { auth_type: "standard", token: "x" as const },
-        workspace_url: "https://workspace.slack.com",
-      }),
-    };
+    const ctx = createContext(calls, {
+      historyMessages: [{ ts: "1770160500.000100", thread_ts: "1770160000.000001", text: "root" }],
+    });
 
     await sendMessage({
       ctx,
@@ -373,6 +383,22 @@ describe("sendMessage", () => {
     expect(calls[1]?.params.initial_comment).toBe("here's the report");
     expect(calls.some((c) => c.method === "chat.postMessage")).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("--no-unfurl cannot be combined with file attachments", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await expect(
+      sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "https://example.com",
+        options: { attach: ["./report.md"], unfurl: false },
+      }),
+    ).rejects.toThrow(/--no-unfurl cannot be combined with --attach/);
+
+    expect(calls).toHaveLength(0);
   });
 
   test("sends initial comment only for the first attachment", async () => {
@@ -646,6 +672,24 @@ describe("sendMessage", () => {
     expect(calls[0]?.params.post_at as number).toBeLessThanOrEqual(before + 3 * 3600 + 1);
   });
 
+  test("--no-unfurl disables link and media previews for scheduled sends", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "https://example.com",
+      options: { scheduleIn: "3h", unfurl: false },
+    });
+
+    expect(calls[0]?.method).toBe("chat.scheduleMessage");
+    expect(calls[0]?.params).toMatchObject({
+      unfurl_links: false,
+      unfurl_media: false,
+    });
+  });
+
   test("--schedule composes with blocks, thread replies, and reply broadcast", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);
@@ -695,6 +739,83 @@ describe("sendMessage", () => {
     ).rejects.toThrow(/cannot be combined with --attach/);
 
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("composeMessage", () => {
+  test("--no-unfurl disables link and media previews when CI sends immediately", async () => {
+    await withEnvironment({ CI: "1" }, async () => {
+      const calls: { method: string; params: Record<string, unknown> }[] = [];
+      const ctx = createContext(calls);
+
+      await composeMessage({
+        ctx,
+        targetInput: "#general",
+        initialText: "https://example.com",
+        options: { unfurl: false },
+      });
+
+      expect(calls.at(-1)).toEqual({
+        method: "chat.postMessage",
+        params: {
+          channel: "C12345678",
+          text: "https://example.com",
+          thread_ts: undefined,
+          unfurl_links: false,
+          unfurl_media: false,
+        },
+      });
+    });
+  });
+
+  test("keeps Slack's default preview behavior for a standard CI send", async () => {
+    await withEnvironment({ CI: "1" }, async () => {
+      const calls: { method: string; params: Record<string, unknown> }[] = [];
+      const ctx = createContext(calls);
+
+      await composeMessage({
+        ctx,
+        targetInput: "#general",
+        initialText: "https://example.com",
+        options: {},
+      });
+
+      expect(calls.at(-1)).toEqual({
+        method: "chat.postMessage",
+        params: {
+          channel: "C12345678",
+          text: "https://example.com",
+          thread_ts: undefined,
+        },
+      });
+    });
+  });
+
+  test("--no-unfurl disables previews for a URL target when CI sends immediately", async () => {
+    await withEnvironment({ CI: "1" }, async () => {
+      const calls: { method: string; params: Record<string, unknown> }[] = [];
+      const ctx = createContext(calls, {
+        historyMessages: [{ ts: "1770160500.000100", text: "root" }],
+      });
+
+      await composeMessage({
+        ctx,
+        targetInput: "https://workspace.slack.com/archives/C12345678/p1770160500000100",
+        initialText: "https://example.com",
+        options: { unfurl: false },
+      });
+
+      expect(calls.at(-1)).toEqual({
+        method: "chat.postMessage",
+        params: {
+          channel: "C12345678",
+          text: "https://example.com",
+          thread_ts: "1770160500.000100",
+          unfurl_links: false,
+          unfurl_media: false,
+        },
+      });
+    });
   });
 });
 
