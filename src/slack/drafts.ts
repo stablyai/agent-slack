@@ -166,6 +166,7 @@ export async function createDraft(
     text: string;
     threadTs?: string;
     broadcast?: boolean;
+    fileIds?: string[];
   },
 ): Promise<SlackDraft | null> {
   const resp = await client.api("drafts.create", {

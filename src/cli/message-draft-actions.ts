@@ -14,6 +14,7 @@ import {
 import { fetchMessage } from "../slack/messages.ts";
 import { getString, isRecord } from "../lib/object-type-guards.ts";
 import { normalizeScheduleLimit } from "../slack/scheduled-messages.ts";
+import { uploadFileForDraft } from "../slack/upload.ts";
 
 export async function listDraftsAction(input: {
   ctx: CliContext;
@@ -38,7 +39,7 @@ export async function createDraftAction(input: {
   ctx: CliContext;
   targetInput: string;
   text: string;
-  options: { workspace?: string; threadTs?: string; broadcast?: boolean };
+  options: { workspace?: string; threadTs?: string; broadcast?: boolean; attach?: string[] };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
   const workspaceUrl =
@@ -72,11 +73,13 @@ export async function createDraftAction(input: {
       if (input.options.broadcast && !threadTs) {
         throw new Error("--broadcast requires a thread (use --thread-ts or a message URL target).");
       }
+      const fileIds = await uploadDraftAttachments(client, input.options.attach);
       const draft = await createDraft(client, {
         channelId,
         text: input.text,
         threadTs,
         broadcast: input.options.broadcast,
+        fileIds,
       });
       return { ok: true, draft };
     },
@@ -93,6 +96,7 @@ export async function updateDraftAction(input: {
     threadTs?: string;
     broadcast?: boolean;
     lastUpdatedTs?: string;
+    attach?: string[];
   };
 }): Promise<Record<string, unknown>> {
   const channelTarget = input.options.channel
@@ -172,6 +176,7 @@ export async function updateDraftAction(input: {
       if (broadcast && !resolved.threadTs) {
         throw new Error("--broadcast requires a thread (use --thread-ts).");
       }
+      const newFileIds = await uploadDraftAttachments(client, input.options.attach);
       const draft = await updateDraft(client, {
         draftId: input.draftId,
         clientLastUpdatedTs: lastUpdatedTs,
@@ -179,7 +184,7 @@ export async function updateDraftAction(input: {
         text: input.text,
         threadTs: resolved.threadTs,
         broadcast,
-        fileIds: existing.file_ids,
+        fileIds: mergeFileIds(existing.file_ids, newFileIds),
       });
       return { ok: true, draft };
     },
@@ -330,4 +335,53 @@ async function resolveChannelDisplayName(
     // best-effort — drafts still list without names
   }
   return undefined;
+}
+
+/** De-duplicate and trim repeatable --attach paths. */
+function normalizeAttachPaths(raw: string[] | undefined): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const p of raw.map((v) => String(v).trim()).filter(Boolean)) {
+    if (!out.includes(p)) {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+/**
+ * Upload local --attach files for a draft. Files are staged as standalone
+ * Slack files (not bound to a message) so their ids can populate the draft's
+ * `file_ids`. Returns undefined when nothing is attached, so callers can
+ * distinguish "no attachments" from "attachments present".
+ */
+async function uploadDraftAttachments(
+  client: SlackApiClient,
+  attachPaths: string[] | undefined,
+): Promise<string[] | undefined> {
+  const paths = normalizeAttachPaths(attachPaths);
+  if (paths.length === 0) {
+    return undefined;
+  }
+  const fileIds: string[] = [];
+  for (const filePath of paths) {
+    fileIds.push(await uploadFileForDraft({ client, filePath }));
+  }
+  return fileIds;
+}
+
+/** Merge preserved draft file ids with newly uploaded ones, de-duplicated, order preserved. */
+function mergeFileIds(
+  existing: string[] | undefined,
+  next: string[] | undefined,
+): string[] | undefined {
+  if (!next || next.length === 0) {
+    return existing;
+  }
+  if (!existing || existing.length === 0) {
+    return next;
+  }
+  return [...new Set([...existing, ...next])];
 }

@@ -154,6 +154,20 @@ describe("createDraft", () => {
 
     expect(calls[0]?.params.destinations).toEqual([{ channel_id: "C123" }]);
   });
+
+  test("includes file_ids on the wire when fileIds is supplied", async () => {
+    const { client, calls } = createClient({
+      "drafts.create": { ok: true, draft: rawDraft },
+    });
+
+    await createDraft(client, {
+      channelId: "C123",
+      text: "hello",
+      fileIds: ["F9"],
+    });
+
+    expect(calls[0]?.params.file_ids).toEqual(["F9"]);
+  });
 });
 
 describe("updateDraft", () => {

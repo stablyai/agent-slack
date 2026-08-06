@@ -1,4 +1,7 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Command } from "commander";
 import type { CliContext } from "../src/cli/context.ts";
 import {
@@ -43,6 +46,13 @@ function createContext(
         case "conversations.info": {
           const info = fixtures.channelInfo?.[String(params.channel)];
           return info ? { ok: true, channel: info } : { ok: true };
+        }
+        case "files.getUploadURLExternal":
+          // file_id derived from filename so multi-file uploads stay distinct.
+          return { ok: true, upload_url: "https://upload.example/f", file_id: `F-${params.filename}` };
+        case "files.completeUploadExternal": {
+          const completedFile = (params.files as Array<{ id?: unknown }> | undefined)?.[0];
+          return { ok: true, files: [{ id: String(completedFile?.id ?? "F?"), title: "t" }] };
         }
         default:
           return { ok: true };
@@ -193,6 +203,60 @@ describe("createDraftAction", () => {
       }),
     ).rejects.toThrow(/not supported for DM targets/);
     expect(calls.length).toBe(0);
+  });
+
+  test("uploads --attach files and wires their file ids into the draft", async () => {
+    const calls: Call[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-draft-create-attach-"));
+    const a = join(dir, "a.png");
+    const b = join(dir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+
+    try {
+      await createDraftAction({
+        ctx,
+        targetInput: "C11111111",
+        text: "see attached",
+        options: { workspace: "https://workspace.slack.com", attach: [a, b] },
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    const methods = calls.map((c) => c.method);
+    expect(methods).toEqual([
+      "files.getUploadURLExternal",
+      "files.completeUploadExternal",
+      "files.getUploadURLExternal",
+      "files.completeUploadExternal",
+      "drafts.create",
+    ]);
+    const create = calls.at(-1)!;
+    expect(create.params.file_ids).toEqual(["F-a.png", "F-b.pdf"]);
+  });
+
+  test("aborts before any upload or drafts.create when an --attach path is missing", async () => {
+    const calls: Call[] = [];
+    const ctx = createContext(calls);
+
+    await expect(
+      createDraftAction({
+        ctx,
+        targetInput: "C11111111",
+        text: "nope",
+        options: {
+          workspace: "https://workspace.slack.com",
+          attach: [join(tmpdir(), "agent-slack-nonexistent-attach.png")],
+        },
+      }),
+    ).rejects.toThrow();
+    expect(calls.some((c) => c.method === "drafts.create")).toBe(false);
+    expect(calls.some((c) => c.method === "files.getUploadURLExternal")).toBe(false);
   });
 });
 
@@ -447,6 +511,33 @@ describe("updateDraftAction", () => {
     // findDraft (drafts.list) runs, but no channel-name resolution round-trip.
     expect(calls.some((c) => c.method === "search.messages")).toBe(false);
   });
+
+  test("merges --attach file ids into the draft's existing file_ids", async () => {
+    const calls: Call[] = [];
+    const ctx = createContext(calls, { draftsList: [threadedBroadcastDraft] });
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-draft-update-attach-"));
+    const c = join(dir, "c.txt");
+    await writeFile(c, "z");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+
+    try {
+      await updateDraftAction({
+        ctx,
+        draftId: "Dr123",
+        text: "revised",
+        options: { workspace: "https://workspace.slack.com", attach: [c] },
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    const update = draftsUpdateCall(calls);
+    // threadedBroadcastDraft.file_ids is ["F1", "F2"]; the new file id is
+    // appended without dropping the preserved ones.
+    expect(update.params.file_ids).toEqual(["F1", "F2", "F-c.txt"]);
+  });
 });
 
 describe("deleteDraftAction", () => {
@@ -560,6 +651,51 @@ describe("message draft update (commander --broadcast wiring)", () => {
     expect(draftsUpdateCall(calls).params.destinations).toEqual([
       { channel_id: "C11111111", thread_ts: "1700000000.100000", broadcast: false },
     ]);
+  });
+});
+
+describe("message draft create (commander --attach wiring)", () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("collects repeatable --attach flags into an array", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-draft-cmd-attach-"));
+    const a = join(dir, "a.png");
+    const b = join(dir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
+    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+
+    const calls: Call[] = [];
+    const program = new Command();
+    program.exitOverride();
+    const messageCmd = program.command("message");
+    registerMessageDraftCommand({ ctx: createContext(calls), messageCmd });
+
+    try {
+      await program.parseAsync([
+        "node",
+        "agent-slack",
+        "message",
+        "draft",
+        "create",
+        "C11111111",
+        "hi",
+        "--workspace",
+        "https://workspace.slack.com",
+        "--attach",
+        a,
+        "--attach",
+        b,
+      ]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    const create = calls.find((c) => c.method === "drafts.create");
+    expect(create?.params.file_ids).toEqual(["F-a.png", "F-b.pdf"]);
   });
 });
 

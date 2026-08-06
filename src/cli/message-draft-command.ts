@@ -7,6 +7,11 @@ import {
   updateDraftAction,
 } from "./message-draft-actions.ts";
 
+/** Commander reducer for a repeatable --attach <path> option. */
+function collectAttachPaths(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
+
 export function registerMessageDraftCommand(input: { messageCmd: Command; ctx: CliContext }): void {
   const draftCmd = input.messageCmd
     .command("draft")
@@ -51,11 +56,12 @@ export function registerMessageDraftCommand(input: { messageCmd: Command; ctx: C
       "--broadcast",
       "Also send the thread reply to the channel when posted (requires thread context)",
     )
+    .option("--attach <path>", "Attach a local file to the draft (repeatable)", collectAttachPaths, [])
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
         string,
-        { workspace?: string; threadTs?: string; broadcast?: boolean },
+        { workspace?: string; threadTs?: string; broadcast?: boolean; attach?: string[] },
       ];
       try {
         const payload = await createDraftAction({ ctx: input.ctx, targetInput, text, options });
@@ -82,6 +88,7 @@ export function registerMessageDraftCommand(input: { messageCmd: Command; ctx: C
       "Also send the thread reply to the channel when posted (requires thread context)",
     )
     .option("--no-broadcast", "Clear an inherited broadcast flag (keeps the thread)")
+    .option("--attach <path>", "Attach a local file to the draft (repeatable)", collectAttachPaths, [])
     .option(
       "--last-updated-ts <ts>",
       "Draft last_updated_ts for conflict detection (auto-fetched when omitted)",
@@ -96,6 +103,7 @@ export function registerMessageDraftCommand(input: { messageCmd: Command; ctx: C
           threadTs?: string;
           broadcast?: boolean;
           lastUpdatedTs?: string;
+          attach?: string[];
         },
       ];
       try {
