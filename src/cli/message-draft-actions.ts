@@ -14,7 +14,8 @@ import {
 import { fetchMessage } from "../slack/messages.ts";
 import { getString, isRecord } from "../lib/object-type-guards.ts";
 import { normalizeScheduleLimit } from "../slack/scheduled-messages.ts";
-import { uploadFileForDraft } from "../slack/upload.ts";
+import { uploadFilesForDraft } from "../slack/upload.ts";
+import { normalizeAttachPaths } from "./options.ts";
 
 export async function listDraftsAction(input: {
   ctx: CliContext;
@@ -337,25 +338,12 @@ async function resolveChannelDisplayName(
   return undefined;
 }
 
-/** De-duplicate and trim repeatable --attach paths. */
-function normalizeAttachPaths(raw: string[] | undefined): string[] {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return [];
-  }
-  const out: string[] = [];
-  for (const p of raw.map((v) => String(v).trim()).filter(Boolean)) {
-    if (!out.includes(p)) {
-      out.push(p);
-    }
-  }
-  return out;
-}
-
 /**
- * Upload local --attach files for a draft. Files are staged as standalone
- * Slack files (not bound to a message) so their ids can populate the draft's
- * `file_ids`. Returns undefined when nothing is attached, so callers can
- * distinguish "no attachments" from "attachments present".
+ * Upload local --attach files for a draft. Files are staged first and only
+ * completed together once every file staged successfully, so a failed upload
+ * leaves no orphaned private files. Returns undefined when nothing is
+ * attached, so callers can distinguish "no attachments" from "attachments
+ * present".
  */
 async function uploadDraftAttachments(
   client: SlackApiClient,
@@ -365,11 +353,7 @@ async function uploadDraftAttachments(
   if (paths.length === 0) {
     return undefined;
   }
-  const fileIds: string[] = [];
-  for (const filePath of paths) {
-    fileIds.push(await uploadFileForDraft({ client, filePath }));
-  }
-  return fileIds;
+  return await uploadFilesForDraft({ client, filePaths: paths });
 }
 
 /** Merge preserved draft file ids with newly uploaded ones, de-duplicated, order preserved. */

@@ -13,10 +13,7 @@ import { composeMessage } from "./compose-actions.ts";
 import { registerScheduledMessageCommand } from "./message-scheduled-command.ts";
 import { registerMessageDraftCommand } from "./message-draft-command.ts";
 import { isSafeModeEnabled, redirectSendToDraft, safeModeBlockedError } from "./safe-mode.ts";
-
-function collectOptionValue(value: string, previous: string[] = []): string[] {
-  return [...previous, value];
-}
+import { collectOptionValue } from "./options.ts";
 
 export function registerMessageCommand(input: { program: Command; ctx: CliContext }): void {
   const safeModeActive = (): boolean =>

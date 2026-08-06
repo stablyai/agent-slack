@@ -8,9 +8,9 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB — Slack's upload limit
 /**
  * Stage a local file for Slack's two-step upload: validate the path/size,
  * reserve an upload URL, and POST the bytes. Returns the reserved file id
- * and filename. The caller decides how to finalize the upload — bound to a
- * message (`uploadLocalFileToSlack`) or left as a standalone file id for a
- * draft (`uploadFileForDraft`).
+ * and filename. The caller finalizes the upload via
+ * `files.completeUploadExternal` — until then Slack discards a staged but
+ * uncompleted upload, so a staging failure leaves nothing behind.
  */
 async function stageFileUpload(input: {
   client: SlackApiClient;
@@ -71,13 +71,16 @@ function ensureCompleteOk(resp: unknown): void {
   }
 }
 
-/** First file id from a `files.completeUploadExternal` response, if present. */
-function completedFileId(resp: unknown): string | undefined {
+/** File ids from a `files.completeUploadExternal` response, in order, if present. */
+function completedFileIds(resp: unknown): string[] | undefined {
   if (!isRecord(resp)) {
     return undefined;
   }
   const files = asArray(resp.files).filter(isRecord);
-  return getString(files[0]?.id) ?? undefined;
+  if (files.length === 0) {
+    return undefined;
+  }
+  return files.map((f) => getString(f.id)).filter((id): id is string => Boolean(id));
 }
 
 /**
@@ -108,26 +111,30 @@ export async function uploadLocalFileToSlack(input: {
 }
 
 /**
- * Upload a local file for a draft without binding it to a message. The
- * completion call omits `channel_id` (the file stays private), and the
- * returned file id is wired into the draft's `file_ids` by the caller.
+ * Upload local files for a draft without binding them to a message. Files are
+ * staged one at a time; only after every file stages successfully are they
+ * completed together in a single `files.completeUploadExternal` call (no
+ * `channel_id`, so they stay private). Because completion runs only after all
+ * staging succeeded, a failed stage leaves nothing completed and Slack
+ * discards the staged-but-uncompleted uploads — no orphaned private files.
  */
-export async function uploadFileForDraft(input: {
+export async function uploadFilesForDraft(input: {
   client: SlackApiClient;
-  filePath: string;
-}): Promise<string> {
-  const { fileId, filename } = await stageFileUpload({
-    client: input.client,
-    filePath: input.filePath,
-  });
+  filePaths: string[];
+}): Promise<string[]> {
+  const staged: { fileId: string; filename: string }[] = [];
+  for (const filePath of input.filePaths) {
+    staged.push(await stageFileUpload({ client: input.client, filePath }));
+  }
 
   const completeResp = await input.client.api("files.completeUploadExternal", {
-    files: [{ id: fileId, title: filename }],
+    files: staged.map((s) => ({ id: s.fileId, title: s.filename })),
   });
 
   ensureCompleteOk(completeResp);
 
-  // The completion response is authoritative for the finalized file id; fall
-  // back to the id reserved during staging if Slack omits it.
-  return completedFileId(completeResp) ?? fileId;
+  // The completion response is authoritative for the finalized ids; fall back
+  // to the ids reserved during staging if Slack omits any.
+  const ids = completedFileIds(completeResp);
+  return staged.map((s, i) => ids?.[i] ?? s.fileId);
 }

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { SlackApiClient } from "../src/slack/client.ts";
-import { uploadFileForDraft, uploadLocalFileToSlack } from "../src/slack/upload.ts";
+import { uploadFilesForDraft, uploadLocalFileToSlack } from "../src/slack/upload.ts";
 
 type Call = { method: string; params: Record<string, unknown> };
 
@@ -12,24 +12,35 @@ type Call = { method: string; params: Record<string, unknown> };
  * responses by method name. Mirrors the createClient helpers used in the
  * drafts/message-send test suites.
  */
-function createClient(fixtures: Record<string, unknown>) {
+type ApiFixture =
+  | ((params: Record<string, unknown>) => unknown)
+  | Record<string, unknown>
+  | undefined;
+
+function createClient(fixtures: Record<string, ApiFixture>) {
   const calls: Call[] = [];
   const client = {
     api: async (method: string, params: Record<string, unknown> = {}) => {
       calls.push({ method, params });
-      return fixtures[method] ?? { ok: true };
+      const fixture = fixtures[method];
+      return typeof fixture === "function" ? fixture(params) : (fixture ?? { ok: true });
     },
   } as unknown as SlackApiClient;
   return { client, calls };
 }
 
+/** Mock the byte-upload POST as HTTP 200. */
 function mockFetchOk() {
   const fetchMock = mock(async () => new Response("", { status: 200 }));
   globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
   return fetchMock;
 }
 
-describe("uploadFileForDraft", () => {
+function completeCalls(calls: Call[]): Call[] {
+  return calls.filter((c) => c.method === "files.completeUploadExternal");
+}
+
+describe("uploadFilesForDraft", () => {
   let tempDir: string;
   const originalFetch = globalThis.fetch;
 
@@ -41,73 +52,77 @@ describe("uploadFileForDraft", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  test("uploads bytes and returns the file id without binding to a channel", async () => {
+  test("stages every file, then completes them in one call with no channel binding", async () => {
     const { client, calls } = createClient({
-      "files.getUploadURLExternal": {
+      "files.getUploadURLExternal": (p) => ({
         ok: true,
         upload_url: "https://upload.example/f",
-        file_id: "F123",
-      },
-      "files.completeUploadExternal": {
+        file_id: `F-${p.filename}`,
+      }),
+      "files.completeUploadExternal": (p) => ({
         ok: true,
-        files: [{ id: "F123", title: "img.png" }],
-      },
+        files: (p.files as { id?: string }[]).map((f) => ({ id: f.id, title: "t" })),
+      }),
     });
-    const filePath = join(tempDir, "img.png");
-    await writeFile(filePath, "png-bytes");
+    const a = join(tempDir, "a.png");
+    const b = join(tempDir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
     const fetchMock = mockFetchOk();
 
-    const fileId = await uploadFileForDraft({ client, filePath });
+    const ids = await uploadFilesForDraft({ client, filePaths: [a, b] });
 
-    expect(fileId).toBe("F123");
-    expect(calls.map((c) => c.method)).toEqual([
-      "files.getUploadURLExternal",
-      "files.completeUploadExternal",
+    expect(ids).toEqual(["F-a.png", "F-b.pdf"]);
+    // Two byte POSTs, then exactly one completion carrying both files.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(completeCalls(calls)).toHaveLength(1);
+    const complete = completeCalls(calls)[0]!;
+    expect((complete.params.files as { id: string }[]).map((f) => f.id)).toEqual([
+      "F-a.png",
+      "F-b.pdf",
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const complete = calls[1]!;
-    expect(complete.params.files).toEqual([{ id: "F123", title: "img.png" }]);
-    // A draft has no message yet — the completion call must not bind the file
-    // to a channel, thread, or comment.
     expect(complete.params).not.toHaveProperty("channel_id");
     expect(complete.params).not.toHaveProperty("thread_ts");
     expect(complete.params).not.toHaveProperty("initial_comment");
   });
 
-  test("throws and skips the upload when the path does not exist", async () => {
-    const { client, calls } = createClient({});
-    const fetchMock = mockFetchOk();
-
-    await expect(
-      uploadFileForDraft({ client, filePath: join(tempDir, "missing.png") }),
-    ).rejects.toThrow();
-    expect(calls.some((c) => c.method === "files.getUploadURLExternal")).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  test("throws when the path is a directory", async () => {
-    const { client } = createClient({});
-    await mkdir(join(tempDir, "adir"));
-    await expect(uploadFileForDraft({ client, filePath: join(tempDir, "adir") })).rejects.toThrow(
-      /not a file/,
-    );
-  });
-
-  test("throws when files.getUploadURLExternal fails", async () => {
-    const { client } = createClient({
-      "files.getUploadURLExternal": { ok: false, error: "ratelimited" },
+  test("a later staging failure leaves nothing completed (no orphaned files)", async () => {
+    let n = 0;
+    const { client, calls } = createClient({
+      // First file stages fine; the second getUploadURLExternal fails.
+      "files.getUploadURLExternal": () => {
+        n += 1;
+        return n === 1
+          ? { ok: true, upload_url: "https://upload.example/f", file_id: "F1" }
+          : { ok: false, error: "ratelimited" };
+      },
     });
-    const filePath = join(tempDir, "x.txt");
-    await writeFile(filePath, "hi");
+    const a = join(tempDir, "a.png");
+    const b = join(tempDir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
     mockFetchOk();
 
-    await expect(uploadFileForDraft({ client, filePath })).rejects.toThrow(
+    await expect(uploadFilesForDraft({ client, filePaths: [a, b] })).rejects.toThrow(
       /getUploadURLExternal failed/,
     );
+    // Nothing completed => Slack discards the staged-but-uncompleted upload.
+    expect(completeCalls(calls)).toHaveLength(0);
   });
 
-  test("throws when the byte POST fails", async () => {
-    const { client } = createClient({
+  test("throws and completes nothing when a path does not exist", async () => {
+    const { client, calls } = createClient({});
+    mockFetchOk();
+
+    await expect(
+      uploadFilesForDraft({ client, filePaths: [join(tempDir, "missing.png")] }),
+    ).rejects.toThrow();
+    expect(calls.some((c) => c.method === "files.getUploadURLExternal")).toBe(false);
+    expect(completeCalls(calls)).toHaveLength(0);
+  });
+
+  test("throws and completes nothing when a byte POST fails", async () => {
+    const { client, calls } = createClient({
       "files.getUploadURLExternal": {
         ok: true,
         upload_url: "https://upload.example/f",
@@ -118,9 +133,10 @@ describe("uploadFileForDraft", () => {
     await writeFile(filePath, "hi");
     globalThis.fetch = mock(async () => new Response("err", { status: 500 })) as unknown as typeof fetch;
 
-    await expect(uploadFileForDraft({ client, filePath })).rejects.toThrow(
+    await expect(uploadFilesForDraft({ client, filePaths: [filePath] })).rejects.toThrow(
       /Failed to upload attachment bytes/,
     );
+    expect(completeCalls(calls)).toHaveLength(0);
   });
 
   test("throws when files.completeUploadExternal fails", async () => {
@@ -136,8 +152,16 @@ describe("uploadFileForDraft", () => {
     await writeFile(filePath, "hi");
     mockFetchOk();
 
-    await expect(uploadFileForDraft({ client, filePath })).rejects.toThrow(
+    await expect(uploadFilesForDraft({ client, filePaths: [filePath] })).rejects.toThrow(
       /completeUploadExternal failed/,
+    );
+  });
+
+  test("throws when the path is a directory", async () => {
+    const { client } = createClient({});
+    await mkdir(join(tempDir, "adir"));
+    await expect(uploadFilesForDraft({ client, filePaths: [join(tempDir, "adir")] })).rejects.toThrow(
+      /not a file/,
     );
   });
 });

@@ -51,8 +51,8 @@ function createContext(
           // file_id derived from filename so multi-file uploads stay distinct.
           return { ok: true, upload_url: "https://upload.example/f", file_id: `F-${params.filename}` };
         case "files.completeUploadExternal": {
-          const completedFile = (params.files as Array<{ id?: unknown }> | undefined)?.[0];
-          return { ok: true, files: [{ id: String(completedFile?.id ?? "F?"), title: "t" }] };
+          const files = (params.files as { id?: unknown }[] | undefined) ?? [];
+          return { ok: true, files: files.map((f) => ({ id: String(f?.id ?? "F?"), title: "t" })) };
         }
         default:
           return { ok: true };
@@ -229,13 +229,14 @@ describe("createDraftAction", () => {
     }
 
     const methods = calls.map((c) => c.method);
+    // Batch upload: stage every file first, then one completion call, then the draft.
     expect(methods).toEqual([
       "files.getUploadURLExternal",
-      "files.completeUploadExternal",
       "files.getUploadURLExternal",
       "files.completeUploadExternal",
       "drafts.create",
     ]);
+    expect(calls.filter((c) => c.method === "files.completeUploadExternal")).toHaveLength(1);
     const create = calls.at(-1)!;
     expect(create.params.file_ids).toEqual(["F-a.png", "F-b.pdf"]);
   });
@@ -537,6 +538,33 @@ describe("updateDraftAction", () => {
     // threadedBroadcastDraft.file_ids is ["F1", "F2"]; the new file id is
     // appended without dropping the preserved ones.
     expect(update.params.file_ids).toEqual(["F1", "F2", "F-c.txt"]);
+  });
+
+  test("merges --attach while de-duplicating ids already on the draft", async () => {
+    const calls: Call[] = [];
+    const draftWithDupFile = { ...threadedBroadcastDraft, file_ids: ["F-c.txt"] };
+    const ctx = createContext(calls, { draftsList: [draftWithDupFile] });
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-draft-update-dedup-"));
+    const c = join(dir, "c.txt");
+    await writeFile(c, "z");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+
+    try {
+      await updateDraftAction({
+        ctx,
+        draftId: "Dr123",
+        text: "revised",
+        options: { workspace: "https://workspace.slack.com", attach: [c] },
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    // The newly uploaded id (F-c.txt) collides with the draft's existing id;
+    // the merge must keep only one copy.
+    expect(draftsUpdateCall(calls).params.file_ids).toEqual(["F-c.txt"]);
   });
 });
 

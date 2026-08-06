@@ -10,6 +10,7 @@ import { formatOutboundSlackText } from "../slack/format-outbound.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { uploadLocalFileToSlack } from "../slack/upload.ts";
 import { buildSlackMessageUrl } from "../slack/url.ts";
+import { normalizeAttachPaths } from "./options.ts";
 import { resolveSchedulePostAt } from "../slack/scheduled-messages.ts";
 
 function loadBlocksFromPath(path: string): unknown[] {
@@ -207,19 +208,6 @@ export async function sendMessage(input: {
       });
     },
   });
-}
-
-function normalizeAttachPaths(raw: string[] | undefined): string[] {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return [];
-  }
-  const out: string[] = [];
-  for (const p of raw.map((v) => String(v).trim()).filter(Boolean)) {
-    if (!out.includes(p)) {
-      out.push(p);
-    }
-  }
-  return out;
 }
 
 async function sendMessageToChannel(input: {
