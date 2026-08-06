@@ -138,3 +138,19 @@ export async function uploadFilesForDraft(input: {
   const ids = completedFileIds(completeResp);
   return staged.map((s, i) => ids?.[i] ?? s.fileId);
 }
+
+/**
+ * Best-effort delete of files uploaded for a draft that never got bound to a
+ * draft (the drafts.create/update call failed after the upload). Each delete
+ * is independent and failures are swallowed — this is cleanup, not a path the
+ * caller relies on, so one Slack error must not mask the original failure.
+ */
+export async function cleanupUploadedDraftFiles(
+  client: SlackApiClient,
+  fileIds: string[],
+): Promise<void> {
+  if (fileIds.length === 0) {
+    return;
+  }
+  await Promise.allSettled(fileIds.map((file) => client.api("files.delete", { file })));
+}

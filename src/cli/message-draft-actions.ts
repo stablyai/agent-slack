@@ -14,7 +14,7 @@ import {
 import { fetchMessage } from "../slack/messages.ts";
 import { getString, isRecord } from "../lib/object-type-guards.ts";
 import { normalizeScheduleLimit } from "../slack/scheduled-messages.ts";
-import { uploadFilesForDraft } from "../slack/upload.ts";
+import { cleanupUploadedDraftFiles, uploadFilesForDraft } from "../slack/upload.ts";
 import { normalizeAttachPaths } from "./options.ts";
 
 export async function listDraftsAction(input: {
@@ -59,32 +59,45 @@ export async function createDraftAction(input: {
     assertBroadcastAllowedStatically(target, input.options.threadTs);
   }
 
-  return await input.ctx.withAutoRefresh({
-    workspaceUrl,
-    work: async () => {
-      const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
-      const { channelId, threadTs } = await resolveDraftDestination(client, {
-        target,
-        threadTs: input.options.threadTs,
-      });
-      // Backstop for URL targets, whose channel/thread are only known here.
-      if (input.options.broadcast && isDmChannelId(channelId)) {
-        throw new Error("--broadcast is not supported for DM targets.");
-      }
-      if (input.options.broadcast && !threadTs) {
-        throw new Error("--broadcast requires a thread (use --thread-ts or a message URL target).");
-      }
-      const fileIds = await uploadDraftAttachments(client, input.options.attach);
-      const draft = await createDraft(client, {
-        channelId,
-        text: input.text,
-        threadTs,
-        broadcast: input.options.broadcast,
-        fileIds,
-      });
-      return { ok: true, draft };
-    },
-  });
+  // Memoize uploaded file ids outside work() so that, if withAutoRefresh
+  // re-runs work() after an auth refresh, the files are reused instead of
+  // re-uploaded — a re-upload would orphan the first (unbound, private) copies.
+  let uploadedFileIds: string[] | undefined;
+  try {
+    return await input.ctx.withAutoRefresh({
+      workspaceUrl,
+      work: async () => {
+        const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+        const { channelId, threadTs } = await resolveDraftDestination(client, {
+          target,
+          threadTs: input.options.threadTs,
+        });
+        // Backstop for URL targets, whose channel/thread are only known here.
+        if (input.options.broadcast && isDmChannelId(channelId)) {
+          throw new Error("--broadcast is not supported for DM targets.");
+        }
+        if (input.options.broadcast && !threadTs) {
+          throw new Error("--broadcast requires a thread (use --thread-ts or a message URL target).");
+        }
+        if (input.options.attach && !uploadedFileIds) {
+          uploadedFileIds = await uploadDraftAttachments(client, input.options.attach);
+        }
+        const draft = await createDraft(client, {
+          channelId,
+          text: input.text,
+          threadTs,
+          broadcast: input.options.broadcast,
+          fileIds: uploadedFileIds,
+        });
+        return { ok: true, draft };
+      },
+    });
+  } catch (err) {
+    // The draft call failed after a successful upload, so the uploaded files
+    // never got bound to a draft. Clean them up so they don't sit orphaned.
+    await cleanupOrphanedDraftFiles(input.ctx, workspaceUrl, uploadedFileIds);
+    throw err;
+  }
 }
 
 export async function updateDraftAction(input: {
@@ -120,76 +133,89 @@ export async function updateDraftAction(input: {
     assertBroadcastAllowedStatically(channelTarget, input.options.threadTs);
   }
 
-  return await input.ctx.withAutoRefresh({
-    workspaceUrl,
-    work: async () => {
-      const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
-      // drafts.update replaces the whole draft, so start from the existing
-      // one and override only what the caller passed.
-      const existing = await findDraft(client, input.draftId);
-      // The CLI rebuilds the draft from a single destination and no schedule, so
-      // refuse drafts it can't faithfully round-trip rather than silently drop a
-      // scheduled-send time or extra recipients (both are creatable in the Slack
-      // client). Deleting + recreating, or editing in Slack, is the safe path.
-      if (existing.date_scheduled) {
-        throw new Error(
-          `Draft ${input.draftId} has a scheduled send time; updating it here could clear the schedule. Edit it in the Slack client, or delete and recreate it.`,
-        );
-      }
-      if (!channelTarget && existing.destinations.length > 1) {
-        throw new Error(
-          `Draft ${input.draftId} targets multiple destinations; updating its text here would drop all but the first. Edit it in the Slack client, or re-address it with --channel.`,
-        );
-      }
-      const lastUpdatedTs = input.options.lastUpdatedTs ?? existing.last_updated_ts;
-      if (!lastUpdatedTs) {
-        throw new Error(`Draft ${input.draftId} has no last_updated_ts; pass --last-updated-ts.`);
-      }
-      const [destination] = existing.destinations;
-      const resolved = channelTarget
-        ? await resolveDraftDestination(client, {
-            target: channelTarget,
-            threadTs: input.options.threadTs,
-          })
-        : {
-            channelId: destination?.channel_id,
-            threadTs: input.options.threadTs ?? destination?.thread_ts,
-          };
-      if (!resolved.channelId) {
-        throw new Error(`Draft ${input.draftId} has no destination; pass --channel.`);
-      }
-      // Inherit the existing broadcast flag only when the destination is truly
-      // unchanged: same channel (no --channel) AND same thread. Changing the
-      // thread (via --thread-ts) or re-addressing resets broadcast to what was
-      // explicitly requested, so an inherited flag can never ratchet a reply
-      // into a different thread's channel. `??` preserves an explicit
-      // --no-broadcast.
-      const broadcast =
-        input.options.broadcast ??
-        (!channelTarget && resolved.threadTs === destination?.thread_ts
-          ? destination?.broadcast
-          : undefined);
-      // A DM (`D...`) destination — targeted directly, via URL, or an existing
-      // DM draft — has no channel to broadcast to.
-      if (broadcast && isDmChannelId(resolved.channelId)) {
-        throw new Error("--broadcast is not supported for DM targets.");
-      }
-      if (broadcast && !resolved.threadTs) {
-        throw new Error("--broadcast requires a thread (use --thread-ts).");
-      }
-      const newFileIds = await uploadDraftAttachments(client, input.options.attach);
-      const draft = await updateDraft(client, {
-        draftId: input.draftId,
-        clientLastUpdatedTs: lastUpdatedTs,
-        channelId: resolved.channelId,
-        text: input.text,
-        threadTs: resolved.threadTs,
-        broadcast,
-        fileIds: mergeFileIds(existing.file_ids, newFileIds),
-      });
-      return { ok: true, draft };
-    },
-  });
+  // Memoize newly uploaded ids outside work(): on an auth-retry re-run of
+  // work(), reuse them instead of re-uploading (which would orphan the first
+  // upload). On a final failure these new ids are cleaned up below.
+  let uploadedFileIds: string[] | undefined;
+  try {
+    return await input.ctx.withAutoRefresh({
+      workspaceUrl,
+      work: async () => {
+        const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+        // drafts.update replaces the whole draft, so start from the existing
+        // one and override only what the caller passed.
+        const existing = await findDraft(client, input.draftId);
+        // The CLI rebuilds the draft from a single destination and no schedule, so
+        // refuse drafts it can't faithfully round-trip rather than silently drop a
+        // scheduled-send time or extra recipients (both are creatable in the Slack
+        // client). Deleting + recreating, or editing in Slack, is the safe path.
+        if (existing.date_scheduled) {
+          throw new Error(
+            `Draft ${input.draftId} has a scheduled send time; updating it here could clear the schedule. Edit it in the Slack client, or delete and recreate it.`,
+          );
+        }
+        if (!channelTarget && existing.destinations.length > 1) {
+          throw new Error(
+            `Draft ${input.draftId} targets multiple destinations; updating its text here would drop all but the first. Edit it in the Slack client, or re-address it with --channel.`,
+          );
+        }
+        const lastUpdatedTs = input.options.lastUpdatedTs ?? existing.last_updated_ts;
+        if (!lastUpdatedTs) {
+          throw new Error(`Draft ${input.draftId} has no last_updated_ts; pass --last-updated-ts.`);
+        }
+        const [destination] = existing.destinations;
+        const resolved = channelTarget
+          ? await resolveDraftDestination(client, {
+              target: channelTarget,
+              threadTs: input.options.threadTs,
+            })
+          : {
+              channelId: destination?.channel_id,
+              threadTs: input.options.threadTs ?? destination?.thread_ts,
+            };
+        if (!resolved.channelId) {
+          throw new Error(`Draft ${input.draftId} has no destination; pass --channel.`);
+        }
+        // Inherit the existing broadcast flag only when the destination is truly
+        // unchanged: same channel (no --channel) AND same thread. Changing the
+        // thread (via --thread-ts) or re-addressing resets broadcast to what was
+        // explicitly requested, so an inherited flag can never ratchet a reply
+        // into a different thread's channel. `??` preserves an explicit
+        // --no-broadcast.
+        const broadcast =
+          input.options.broadcast ??
+          (!channelTarget && resolved.threadTs === destination?.thread_ts
+            ? destination?.broadcast
+            : undefined);
+        // A DM (`D...`) destination — targeted directly, via URL, or an existing
+        // DM draft — has no channel to broadcast to.
+        if (broadcast && isDmChannelId(resolved.channelId)) {
+          throw new Error("--broadcast is not supported for DM targets.");
+        }
+        if (broadcast && !resolved.threadTs) {
+          throw new Error("--broadcast requires a thread (use --thread-ts).");
+        }
+        if (input.options.attach && !uploadedFileIds) {
+          uploadedFileIds = await uploadDraftAttachments(client, input.options.attach);
+        }
+        const draft = await updateDraft(client, {
+          draftId: input.draftId,
+          clientLastUpdatedTs: lastUpdatedTs,
+          channelId: resolved.channelId,
+          text: input.text,
+          threadTs: resolved.threadTs,
+          broadcast,
+          fileIds: mergeFileIds(existing.file_ids, uploadedFileIds),
+        });
+        return { ok: true, draft };
+      },
+    });
+  } catch (err) {
+    // Only the newly uploaded files are at risk; existing.file_ids still
+    // belong to the draft (whose update failed) and are left untouched.
+    await cleanupOrphanedDraftFiles(input.ctx, workspaceUrl, uploadedFileIds);
+    throw err;
+  }
 }
 
 export async function deleteDraftAction(input: {
@@ -368,4 +394,26 @@ function mergeFileIds(
     return next;
   }
   return [...new Set([...existing, ...next])];
+}
+
+/**
+ * Best-effort cleanup of files uploaded for a draft whose create/update then
+ * failed. The draft never got bound to these files, so deleting them prevents
+ * orphaned private files. Swallows all errors so it never masks the original
+ * failure that triggered the cleanup.
+ */
+async function cleanupOrphanedDraftFiles(
+  ctx: CliContext,
+  workspaceUrl: string | undefined,
+  fileIds: string[] | undefined,
+): Promise<void> {
+  if (!fileIds || fileIds.length === 0) {
+    return;
+  }
+  try {
+    const { client } = await ctx.getClientForWorkspace(workspaceUrl);
+    await cleanupUploadedDraftFiles(client, fileIds);
+  } catch {
+    // best-effort: never mask the original failure.
+  }
 }
