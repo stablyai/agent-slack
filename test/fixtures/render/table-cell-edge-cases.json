@@ -1,0 +1,37 @@
+{
+  "blocks": [
+    {
+      "type": "table",
+      "block_id": "tbl-edge",
+      "rows": [
+        [
+          { "type": "raw_text", "text": "Item" },
+          { "type": "raw_text", "text": "Status" },
+          { "type": "raw_text", "text": "Notes" },
+          { "type": "raw_text", "text": "Link" }
+        ],
+        [
+          { "type": "raw_text", "text": "Widget A|B" },
+          { "type": "raw_text", "text": "ok" },
+          { "type": "raw_text", "text": "line one\nline two" },
+          {
+            "type": "rich_text",
+            "block_id": "cell-link",
+            "elements": [
+              {
+                "type": "rich_text_section",
+                "elements": [{ "type": "link", "url": "https://example.com/docs", "text": "Docs" }]
+              }
+            ]
+          }
+        ],
+        "bogus-row",
+        [
+          { "type": "raw_text", "text": "Widget C" },
+          { "type": "raw_text", "text": "pending" },
+          { "type": "raw_text", "text": "Q1 &amp; Q2" }
+        ]
+      ]
+    }
+  ]
+}

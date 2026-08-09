@@ -1,0 +1,19 @@
+{
+  "blocks": [
+    {
+      "type": "rich_text",
+      "block_id": "prose",
+      "elements": [
+        {
+          "type": "rich_text_section",
+          "elements": [{ "type": "text", "text": "Quarterly roundup" }]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "block_id": "tbl-empty",
+      "rows": []
+    }
+  ]
+}

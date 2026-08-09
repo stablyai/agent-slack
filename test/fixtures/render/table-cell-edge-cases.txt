@@ -1,0 +1,4 @@
+| Item | Status | Notes | Link |
+| --- | --- | --- | --- |
+| Widget A\|B | ok | line one line two | [Docs](https://example.com/docs) |
+| Widget C | pending | Q1 & Q2 |  |
