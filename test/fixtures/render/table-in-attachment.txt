@@ -1,0 +1,10 @@
+Atlas Signups
+===
+
+Median = +40% WoW
+Driver = beta invite rollout
+
+| *Metric* | *Wk 1* | *Wk 2* | *Wk 3* |
+| --- | --- | --- | --- |
+| Signups | 120 | 240 | 480 |
+| WoW | – | +100% | +100% |
