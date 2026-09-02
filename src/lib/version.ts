@@ -52,7 +52,7 @@ export function getPackageVersion(): string {
   return cachedVersion;
 }
 
-const DEFAULT_USER_AGENT =
+export const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
 // Used only for Slack browser-session (xoxc/xoxd) API calls in slack/client.ts,
