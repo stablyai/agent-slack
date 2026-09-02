@@ -60,7 +60,24 @@ program
   .option(
     "--safe-mode",
     'Human-in-the-loop enforcement: redirect "message send" to the draft editor and block "message edit"/"message delete" (also: AGENT_SLACK_SAFE_MODE=1)',
+  )
+  .option(
+    "--user-agent <string>",
+    "Override the User-Agent header sent for Slack browser-session API calls (also: AGENT_SLACK_USER_AGENT)",
   );
+
+// getUserAgent() (src/lib/version.ts) reads AGENT_SLACK_USER_AGENT directly,
+// since it's called from deep inside slack/client.ts, slack/files.ts, and
+// slack/canvas.ts, which don't have access to the commander Command instance.
+// This hook is what lets the --user-agent flag reach it: it runs before any
+// subcommand's action, once options are parsed, and copies the flag into the
+// env var the getter already checks.
+program.hook("preAction", (thisCommand) => {
+  const { userAgent } = thisCommand.opts();
+  if (typeof userAgent === "string" && userAgent.trim()) {
+    process.env.AGENT_SLACK_USER_AGENT = userAgent;
+  }
+});
 
 startCommandWatchdog(process.argv.slice(2));
 

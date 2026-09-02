@@ -153,6 +153,15 @@ export SLACK_TOKEN="xoxb-..."
 agent-slack auth test
 ```
 
+> [!NOTE]
+> Browser-session (xoxc/xoxd) requests send a browser-shaped `User-Agent` by default, since they replay your real browser's session cookie and a non-browser UA can get flagged by Slack's Enterprise Grid session-security policy as `unexpected_user_agent`, which kills the session and logs out the browser tab it came from, not just the failing request. Override it if you need to, via `AGENT_SLACK_USER_AGENT` or the global `--user-agent <string>` flag:
+>
+> ```bash
+> export AGENT_SLACK_USER_AGENT="Mozilla/5.0 ..."
+> # or
+> agent-slack --user-agent "Mozilla/5.0 ..." auth test
+> ```
+
 ## Targets: URL or channel
 
 `message get` / `message list` accept either a Slack message URL or a channel reference:
@@ -233,7 +242,7 @@ After sending, the editor shows a "View in Slack" link to the posted message.
 Manage drafts through Slack's own drafts API, so they show up natively in the user's Slack client (mobile and desktop) ready to review and send. Requires browser-style auth (xoxc/xoxd).
 
 > [!NOTE]
-> These commands use Slack's **undocumented** internal `drafts.*` client endpoints (the same ones the Slack app uses), authenticated with your own browser session. They act only as you, on your own drafts — nothing is exposed that you can't already see, and `create` posts nothing. But because the endpoints are unsupported: their behavior may change without notice, and on **Enterprise Grid** this style of session-token API use can be flagged by Slack's security/anomaly detection. This is the same auth model the rest of agent-slack already uses (`later`, `unreads`, `search`); use it where that's acceptable.
+> These commands use Slack's **undocumented** internal `drafts.*` client endpoints (the same ones the Slack app uses), authenticated with your own browser session. They act only as you, on your own drafts; nothing is exposed that you can't already see, and `create` posts nothing. But because the endpoints are unsupported: their behavior may change without notice, and on **Enterprise Grid** this style of session-token API use can be flagged by Slack's security/anomaly detection (see the User-Agent note under [Authentication](#authentication-no-fancy-setup) for the specific `unexpected_user_agent` case and its mitigation). This is the same auth model the rest of agent-slack already uses (`later`, `unreads`, `search`); use it where that's acceptable.
 
 ```bash
 # List unsent drafts
