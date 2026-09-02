@@ -68,7 +68,11 @@ function createContext(
         }
         case "files.getUploadURLExternal":
           // file_id derived from filename so multi-file uploads stay distinct.
-          return { ok: true, upload_url: "https://upload.example/f", file_id: `F-${params.filename}` };
+          return {
+            ok: true,
+            upload_url: "https://upload.example/f",
+            file_id: `F-${params.filename}`,
+          };
         case "files.completeUploadExternal": {
           const files = (params.files as { id?: unknown }[] | undefined) ?? [];
           return { ok: true, files: files.map((f) => ({ id: String(f?.id ?? "F?"), title: "t" })) };
@@ -247,7 +251,9 @@ describe("createDraftAction", () => {
     await writeFile(a, "x");
     await writeFile(b, "y");
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response("", { status: 200 }),
+    ) as unknown as typeof fetch;
 
     try {
       await createDraftAction({
@@ -553,7 +559,9 @@ describe("updateDraftAction", () => {
     const c = join(dir, "c.txt");
     await writeFile(c, "z");
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response("", { status: 200 }),
+    ) as unknown as typeof fetch;
 
     try {
       await updateDraftAction({
@@ -581,7 +589,9 @@ describe("updateDraftAction", () => {
     const c = join(dir, "c.txt");
     await writeFile(c, "z");
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response("", { status: 200 }),
+    ) as unknown as typeof fetch;
 
     try {
       await updateDraftAction({
@@ -727,7 +737,9 @@ describe("message draft create (commander --attach wiring)", () => {
     const b = join(dir, "b.pdf");
     await writeFile(a, "x");
     await writeFile(b, "y");
-    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response("", { status: 200 }),
+    ) as unknown as typeof fetch;
 
     const calls: Call[] = [];
     const program = new Command();
@@ -788,7 +800,9 @@ describe("message draft unknown subcommand", () => {
 describe("draft attachments: orphan prevention across auth-retry and failed drafts", () => {
   const originalFetch = globalThis.fetch;
   beforeEach(() => {
-    globalThis.fetch = mock(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response("", { status: 200 }),
+    ) as unknown as typeof fetch;
   });
   afterEach(() => {
     globalThis.fetch = originalFetch;
@@ -819,7 +833,9 @@ describe("draft attachments: orphan prevention across auth-retry and failed draf
     // carrying the same single file id.
     const creates = calls.filter((c) => c.method === "drafts.create");
     expect(creates).toHaveLength(2);
-    expect(creates.every((c) => (c.params.file_ids as string[]).join(",") === "F-a.png")).toBe(true);
+    expect(creates.every((c) => (c.params.file_ids as string[]).join(",") === "F-a.png")).toBe(
+      true,
+    );
     // No cleanup needed: the retry succeeded and bound the file.
     expect(calls.some((c) => c.method === "files.delete")).toBe(false);
   });
@@ -833,7 +849,11 @@ describe("draft attachments: orphan prevention across auth-retry and failed draf
       last_updated_ts: "1700000000.5",
       file_ids: ["F1"],
     };
-    const ctx = createContext(calls, { draftsList: [existing], failOnce: "drafts.update", retryOnAuth: true });
+    const ctx = createContext(calls, {
+      draftsList: [existing],
+      failOnce: "drafts.update",
+      retryOnAuth: true,
+    });
     const dir = await mkdtemp(join(tmpdir(), "agent-slack-draft-retry-update-"));
     const c = join(dir, "c.txt");
     await writeFile(c, "z");
@@ -854,7 +874,9 @@ describe("draft attachments: orphan prevention across auth-retry and failed draf
     // drafts.update ran twice, both merging the preserved id with the reused new id.
     const updates = calls.filter((c) => c.method === "drafts.update");
     expect(updates).toHaveLength(2);
-    expect(updates.every((c) => (c.params.file_ids as string[]).join(",") === "F1,F-c.txt")).toBe(true);
+    expect(updates.every((c) => (c.params.file_ids as string[]).join(",") === "F1,F-c.txt")).toBe(
+      true,
+    );
     expect(calls.some((c) => c.method === "files.delete")).toBe(false);
   });
 

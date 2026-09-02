@@ -48,4 +48,28 @@ describe("errorMessage", () => {
     a.cause = b;
     expect(errorMessage(a)).toBe("a: b");
   });
+  test("does not crash on a cause that cannot be stringified", () => {
+    const err = new Error("boom");
+    err.cause = Object.create(null);
+    expect(errorMessage(err)).toBe("boom: [unprintable]");
+  });
+
+  test("does not crash on a non-Error thrown value that cannot be stringified", () => {
+    expect(errorMessage(Object.create(null))).toBe("[unprintable]");
+  });
+
+  test("caps how far a long cause chain is walked", () => {
+    let err = new Error("leaf");
+    for (let i = 0; i < 200; i++) {
+      err = new Error(`level-${i}`, { cause: err });
+    }
+    const parts = errorMessage(err).split(": ");
+    expect(parts).toHaveLength(9);
+    expect(parts[0]).toBe("level-199");
+  });
+
+  test("collapses a cause that merely restates its parent", () => {
+    const err = new Error("fetch failed", { cause: new Error("fetch failed") });
+    expect(errorMessage(err)).toBe("fetch failed");
+  });
 });

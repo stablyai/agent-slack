@@ -160,12 +160,14 @@ function buildDraftBody(input: {
 }
 
 /**
- * Guard a drafts.create / drafts.update response: Slack returns ok:false (with
- * `error`, e.g. invalid_auth or a stale client_last_updated_ts conflict) when
- * the call fails. Without this the caller would silently treat a failure as
- * "no draft", and any files uploaded just before the call would be left
- * orphaned. The thrown message preserves the Slack error verbatim so the auth
- * retry wrapper can still match `invalid_auth` / `token_expired`.
+ * Defence-in-depth guard on a drafts.create / drafts.update response. Both
+ * transports already throw on `ok:false` (the browser path in
+ * `SlackApiClient.api`, the standard path inside `@slack/web-api`), so this
+ * should never fire today — it exists so a future transport that returns a
+ * failure instead of throwing cannot be silently read as "no draft", which
+ * would strand any files uploaded just before the call. The thrown message
+ * preserves the Slack error verbatim so the auth retry wrapper can still match
+ * `invalid_auth` / `token_expired`.
  */
 function ensureDraftOk(method: string, resp: unknown): void {
   if (!isRecord(resp) || resp.ok === false) {

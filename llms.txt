@@ -12,13 +12,13 @@
 
 - Read Slack messages, threads, and channel history from any URL or channel name
 - Search Slack messages and files with filters for channel, user, date, and content type
-- Send, schedule, edit, delete Slack messages, upload local files with `message send --attach`, and add/remove emoji reactions programmatically
+- Send, schedule, edit, delete Slack messages, upload local files with `message send --attach` (also on `message draft create/update`), and add/remove emoji reactions programmatically
 - Auto-download Slack file attachments (snippets, images, files) to local paths for AI agent consumption
 - Token-efficient compact JSON output so LLMs can consume Slack data cheaply
 - Zero-config auth: auto-detects Slack Desktop credentials on macOS, Windows, and Linux — with Chrome, Brave, and Firefox fallbacks
 - Multi-workspace Slack management with automatic workspace resolution
 - Human-in-the-loop message composing via browser-based WYSIWYG rich text editor (`message compose`)
-- Slack-native drafts that appear in the user's Slack client via `message draft` (list/create/update/delete)
+- Slack-native drafts that appear in the user's Slack client via `message draft` (list/create/update/delete), with file attachments
 - Slack canvas creation from Markdown files or inline content, plus export to Markdown
 - Slack channel creation, user invites, and Slack Connect external invites
 

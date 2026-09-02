@@ -17,6 +17,9 @@ release
 .tmp-downloads
 tmp_pyenv
 
+# claude code agent worktrees + local session state
+.claude/
+
 # orca/git worktrees checked out alongside the repo
 feat-*
 fix-*

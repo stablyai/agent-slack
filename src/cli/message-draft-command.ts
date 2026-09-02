@@ -52,7 +52,12 @@ export function registerMessageDraftCommand(input: { messageCmd: Command; ctx: C
       "--broadcast",
       "Also send the thread reply to the channel when posted (requires thread context)",
     )
-    .option("--attach <path>", "Attach a local file to the draft (repeatable)", collectOptionValue, [])
+    .option(
+      "--attach <path>",
+      "Attach a local file to the draft (repeatable)",
+      collectOptionValue,
+      [],
+    )
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
@@ -84,7 +89,12 @@ export function registerMessageDraftCommand(input: { messageCmd: Command; ctx: C
       "Also send the thread reply to the channel when posted (requires thread context)",
     )
     .option("--no-broadcast", "Clear an inherited broadcast flag (keeps the thread)")
-    .option("--attach <path>", "Attach a local file to the draft (repeatable)", collectOptionValue, [])
+    .option(
+      "--attach <path>",
+      "Attach a local file to the draft (repeatable)",
+      collectOptionValue,
+      [],
+    )
     .option(
       "--last-updated-ts <ts>",
       "Draft last_updated_ts for conflict detection (auto-fetched when omitted)",

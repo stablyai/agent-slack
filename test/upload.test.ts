@@ -52,6 +52,51 @@ describe("uploadFilesForDraft", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
+  test("never shifts ids between files when the completion response omits one", async () => {
+    // Slack returns a null id for the FIRST file. A compacting map would slide
+    // b's id into a's slot and attach the wrong file to the draft.
+    const { client } = createClient({
+      "files.getUploadURLExternal": (p) => ({
+        ok: true,
+        upload_url: "https://upload.example/f",
+        file_id: `F-${p.filename}`,
+      }),
+      "files.completeUploadExternal": () => ({
+        ok: true,
+        files: [{ id: null }, { id: "F-b.pdf" }],
+      }),
+    });
+    const a = join(tempDir, "a.png");
+    const b = join(tempDir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
+    mockFetchOk();
+
+    const ids = await uploadFilesForDraft({ client, filePaths: [a, b] });
+
+    expect(ids).toEqual(["F-a.png", "F-b.pdf"]);
+  });
+
+  test("falls back to staged ids when the completion response length disagrees", async () => {
+    const { client } = createClient({
+      "files.getUploadURLExternal": (p) => ({
+        ok: true,
+        upload_url: "https://upload.example/f",
+        file_id: `F-${p.filename}`,
+      }),
+      "files.completeUploadExternal": () => ({ ok: true, files: [{ id: "F-only-one" }] }),
+    });
+    const a = join(tempDir, "a.png");
+    const b = join(tempDir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
+    mockFetchOk();
+
+    const ids = await uploadFilesForDraft({ client, filePaths: [a, b] });
+
+    expect(ids).toEqual(["F-a.png", "F-b.pdf"]);
+  });
+
   test("stages every file, then completes them in one call with no channel binding", async () => {
     const { client, calls } = createClient({
       "files.getUploadURLExternal": (p) => ({
@@ -131,7 +176,9 @@ describe("uploadFilesForDraft", () => {
     });
     const filePath = join(tempDir, "x.txt");
     await writeFile(filePath, "hi");
-    globalThis.fetch = mock(async () => new Response("err", { status: 500 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response("err", { status: 500 }),
+    ) as unknown as typeof fetch;
 
     await expect(uploadFilesForDraft({ client, filePaths: [filePath] })).rejects.toThrow(
       /Failed to upload attachment bytes/,
@@ -160,9 +207,9 @@ describe("uploadFilesForDraft", () => {
   test("throws when the path is a directory", async () => {
     const { client } = createClient({});
     await mkdir(join(tempDir, "adir"));
-    await expect(uploadFilesForDraft({ client, filePaths: [join(tempDir, "adir")] })).rejects.toThrow(
-      /not a file/,
-    );
+    await expect(
+      uploadFilesForDraft({ client, filePaths: [join(tempDir, "adir")] }),
+    ).rejects.toThrow(/not a file/);
   });
 });
 

@@ -77,7 +77,9 @@ export async function createDraftAction(input: {
           throw new Error("--broadcast is not supported for DM targets.");
         }
         if (input.options.broadcast && !threadTs) {
-          throw new Error("--broadcast requires a thread (use --thread-ts or a message URL target).");
+          throw new Error(
+            "--broadcast requires a thread (use --thread-ts or a message URL target).",
+          );
         }
         if (input.options.attach && !uploadedFileIds) {
           uploadedFileIds = await uploadDraftAttachments(client, input.options.attach);
@@ -95,7 +97,7 @@ export async function createDraftAction(input: {
   } catch (err) {
     // The draft call failed after a successful upload, so the uploaded files
     // never got bound to a draft. Clean them up so they don't sit orphaned.
-    await cleanupOrphanedDraftFiles(input.ctx, workspaceUrl, uploadedFileIds);
+    await cleanupOrphanedDraftFiles({ ctx: input.ctx, workspaceUrl, fileIds: uploadedFileIds });
     throw err;
   }
 }
@@ -213,7 +215,7 @@ export async function updateDraftAction(input: {
   } catch (err) {
     // Only the newly uploaded files are at risk; existing.file_ids still
     // belong to the draft (whose update failed) and are left untouched.
-    await cleanupOrphanedDraftFiles(input.ctx, workspaceUrl, uploadedFileIds);
+    await cleanupOrphanedDraftFiles({ ctx: input.ctx, workspaceUrl, fileIds: uploadedFileIds });
     throw err;
   }
 }
@@ -402,11 +404,12 @@ function mergeFileIds(
  * orphaned private files. Swallows all errors so it never masks the original
  * failure that triggered the cleanup.
  */
-async function cleanupOrphanedDraftFiles(
-  ctx: CliContext,
-  workspaceUrl: string | undefined,
-  fileIds: string[] | undefined,
-): Promise<void> {
+async function cleanupOrphanedDraftFiles(input: {
+  ctx: CliContext;
+  workspaceUrl: string | undefined;
+  fileIds: string[] | undefined;
+}): Promise<void> {
+  const { ctx, workspaceUrl, fileIds } = input;
   if (!fileIds || fileIds.length === 0) {
     return;
   }

@@ -42,30 +42,49 @@ function effectiveWorkspaceUrl(flag?: string): string | undefined {
   return flag?.trim() || process.env.SLACK_WORKSPACE_URL?.trim() || undefined;
 }
 
+/**
+ * `String(value)` that cannot itself throw. A null-prototype object, or one
+ * whose `toString` throws, would otherwise turn a printable error into an
+ * unhandled crash inside the CLI's own catch handlers.
+ */
+function safeString(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return "[unprintable]";
+  }
+}
+
+/** Hard cap on how far a `cause` chain is walked, so output stays bounded. */
+const MAX_CAUSE_DEPTH = 8;
+
 export function errorMessage(err: unknown): string {
   if (!(err instanceof Error)) {
-    return String(err);
+    return safeString(err);
   }
   const { message: rootMessage, cause: rootCause } = err;
   let message = rootMessage;
   let cause: unknown = rootCause;
   const seenCauses = new Set<unknown>([err]);
-  while (cause !== undefined && cause !== null) {
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH && cause !== undefined && cause !== null; depth++) {
     if (seenCauses.has(cause)) {
       break;
     }
     seenCauses.add(cause);
     if (cause instanceof AggregateError && cause.errors.length > 0) {
-      message += `: ${cause.errors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ")}`;
+      message += `: ${cause.errors.map((e) => (e instanceof Error ? e.message : safeString(e))).join("; ")}`;
       break;
     }
     if (cause instanceof Error) {
       const { message: causeMessage, cause: nextCause } = cause;
-      message += `: ${causeMessage}`;
+      // Skip a cause that just restates its parent (e.g. "fetch failed: fetch failed").
+      if (causeMessage && causeMessage !== message && !message.endsWith(`: ${causeMessage}`)) {
+        message += `: ${causeMessage}`;
+      }
       cause = nextCause;
       continue;
     }
-    message += `: ${String(cause)}`;
+    message += `: ${safeString(cause)}`;
     break;
   }
   return message;

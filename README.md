@@ -83,8 +83,8 @@ agent-slack
 │   ├── compose <target> [text]    # open Slack-like editor in browser
 │   ├── draft                      # Slack-native drafts (appear in your Slack client)
 │   │   ├── list                   # list Slack-native drafts
-│   │   ├── create <target> <text> # create a Slack-native draft
-│   │   ├── update <id> <text>     # replace a draft's text
+│   │   ├── create <target> <text> # create a Slack-native draft (supports --attach)
+│   │   ├── update <id> <text>     # replace a draft's text (supports --attach)
 │   │   └── delete <id>            # delete a draft
 │   ├── edit  <target> <text>      # edit a message
 │   ├── delete <target>            # delete a message
@@ -251,6 +251,11 @@ agent-slack message draft create "https://workspace.slack.com/archives/C123/p170
 # Replace a draft's text, or delete it
 agent-slack message draft update "DR_ID" "Here's my revised update"
 agent-slack message draft delete "DR_ID"
+
+# Attach local files to a draft (repeatable). On update, new files are
+# added to the draft's existing attachments rather than replacing them.
+agent-slack message draft create "#general" "Latest numbers" --attach ./q3.png --attach ./q3.csv
+agent-slack message draft update "DR_ID" "Latest numbers" --attach ./appendix.pdf
 ```
 
 ### Safe mode (enforced human-in-the-loop)
@@ -301,7 +306,7 @@ Send options for `message send`:
 - `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
 - `--reply-broadcast` when replying in a thread, also post the reply to the parent channel (Slack's "Also send to #channel" checkbox). For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
 - `--no-unfurl` suppress Slack link and media previews. Also available on `message compose`; cannot be combined with `--attach`.
-- `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (for example `YYYY-MM-DDTHH:mm:ss-07:00`) or a Unix timestamp. The timestamp must be in the future and within Slack's 120-day scheduled-send limit. Works with `--blocks`, `--thread-ts`, and `--reply-broadcast`; cannot be combined with `--attach`.
+- `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (for example `YYYY-MM-DDTHH:mm:ss-07:00`) or a Unix timestamp. The timestamp must be in the future and within Slack's 120-day scheduled-send limit. Works with `--blocks`, `--thread-ts`, `--reply-broadcast`, and `--no-unfurl`; cannot be combined with `--attach`.
 - `--schedule-in <duration>` schedule delivery after a duration or simple future phrase (`30m`, `3h`, `2d`, `tomorrow 9am`, `monday 9am`; phrases use your local timezone). Mutually exclusive with `--schedule`; cannot be combined with `--attach`.
 
 Upload files through `message send`:

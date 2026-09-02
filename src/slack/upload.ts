@@ -71,16 +71,21 @@ function ensureCompleteOk(resp: unknown): void {
   }
 }
 
-/** File ids from a `files.completeUploadExternal` response, in order, if present. */
-function completedFileIds(resp: unknown): string[] | undefined {
+/**
+ * File ids from a `files.completeUploadExternal` response, positionally aligned
+ * with the `files` array that was sent. Entries Slack omits an id for stay
+ * `undefined` in place — never compacted — so callers can index straight into
+ * this against their own staged list without shifting ids between files.
+ */
+function completedFileIds(resp: unknown): (string | undefined)[] | undefined {
   if (!isRecord(resp)) {
     return undefined;
   }
-  const files = asArray(resp.files).filter(isRecord);
+  const files = asArray(resp.files);
   if (files.length === 0) {
     return undefined;
   }
-  return files.map((f) => getString(f.id)).filter((id): id is string => Boolean(id));
+  return files.map((f) => (isRecord(f) ? getString(f.id) || undefined : undefined));
 }
 
 /**
@@ -133,10 +138,13 @@ export async function uploadFilesForDraft(input: {
 
   ensureCompleteOk(completeResp);
 
-  // The completion response is authoritative for the finalized ids; fall back
-  // to the ids reserved during staging if Slack omits any.
+  // The completion response is authoritative for the finalized ids, but only
+  // trust it positionally when it lines up 1:1 with what we sent. A response
+  // of a different length tells us nothing about which id belongs to which
+  // file, and guessing there would attach the wrong file to the draft.
   const ids = completedFileIds(completeResp);
-  return staged.map((s, i) => ids?.[i] ?? s.fileId);
+  const aligned = ids?.length === staged.length ? ids : undefined;
+  return staged.map((s, i) => aligned?.[i] ?? s.fileId);
 }
 
 /**
