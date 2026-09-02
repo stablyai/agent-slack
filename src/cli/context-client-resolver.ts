@@ -140,7 +140,7 @@ export async function getClientForWorkspace(workspaceUrl?: string): Promise<{
     cookie_d: string;
     teams: { url: string; name?: string; token: string }[];
   }[] = [];
-  const chromeResult = extractFromChrome();
+  const chromeResult = await extractFromChrome();
   if (chromeResult && chromeResult.teams.length > 0) {
     browserSources.push(chromeResult);
   }
