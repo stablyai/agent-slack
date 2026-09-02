@@ -52,6 +52,21 @@ export function getPackageVersion(): string {
   return cachedVersion;
 }
 
+const DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+
+// Used only for Slack browser-session (xoxc/xoxd) API calls in slack/client.ts,
+// slack/files.ts, and slack/canvas.ts. Those requests replay a real browser's
+// session cookie, so the UA must look like a browser too, or Slack's
+// enterprise session-security policy flags the mismatch as a fingerprint
+// anomaly (`unexpected_user_agent`) and kills the session, logging the real
+// browser out. Defaults to a static Chrome/macOS UA; bump DEFAULT_USER_AGENT
+// periodically to a current Chrome release (Slack's check appears to be
+// "is this browser-shaped", not an exact version match).
+//
+// Override via the AGENT_SLACK_USER_AGENT env var, or the global
+// `--user-agent <string>` CLI flag (index.ts copies the flag into the env
+// var via a commander preAction hook before any command runs).
 export function getUserAgent(): string {
-  return `agent-slack/${getPackageVersion()}`;
+  return process.env.AGENT_SLACK_USER_AGENT?.trim() || DEFAULT_USER_AGENT;
 }
