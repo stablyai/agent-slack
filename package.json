@@ -40,10 +40,12 @@
   "dependencies": {
     "@slack/web-api": "^7.13.0",
     "commander": "^14.0.3",
+    "https-proxy-agent": "^9.1.0",
     "hysnappy": "^1.1.0",
     "node-emoji": "^2.2.0",
     "turndown": "^7.2.2",
     "turndown-plugin-gfm": "^1.0.2",
+    "undici": "^8.8.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
