@@ -1,0 +1,88 @@
+{
+  "text": "Atlas Signups\n===\n\nMedian = +40% WoW\nDriver = beta invite rollout",
+  "blocks": [
+    {
+      "type": "rich_text",
+      "block_id": "prose",
+      "elements": [
+        {
+          "type": "rich_text_section",
+          "elements": [
+            {
+              "type": "text",
+              "text": "Atlas Signups\n===\n\nMedian = +40% WoW\nDriver = beta invite rollout"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "attachments": [
+    {
+      "id": 1,
+      "fallback": "[no preview available]",
+      "blocks": [
+        {
+          "type": "table",
+          "block_id": "tbl1",
+          "rows": [
+            [
+              {
+                "type": "rich_text",
+                "block_id": "h1",
+                "elements": [
+                  {
+                    "type": "rich_text_section",
+                    "elements": [{ "type": "text", "text": "Metric", "style": { "bold": true } }]
+                  }
+                ]
+              },
+              {
+                "type": "rich_text",
+                "block_id": "h2",
+                "elements": [
+                  {
+                    "type": "rich_text_section",
+                    "elements": [{ "type": "text", "text": "Wk 1", "style": { "bold": true } }]
+                  }
+                ]
+              },
+              {
+                "type": "rich_text",
+                "block_id": "h3",
+                "elements": [
+                  {
+                    "type": "rich_text_section",
+                    "elements": [{ "type": "text", "text": "Wk 2", "style": { "bold": true } }]
+                  }
+                ]
+              },
+              {
+                "type": "rich_text",
+                "block_id": "h4",
+                "elements": [
+                  {
+                    "type": "rich_text_section",
+                    "elements": [{ "type": "text", "text": "Wk 3", "style": { "bold": true } }]
+                  }
+                ]
+              }
+            ],
+            [
+              { "type": "raw_text", "text": "Signups" },
+              { "type": "raw_text", "text": "120" },
+              { "type": "raw_text", "text": "240" },
+              { "type": "raw_text", "text": "480" }
+            ],
+            [
+              { "type": "raw_text", "text": "WoW" },
+              { "type": "raw_text", "text": "–" },
+              { "type": "raw_text", "text": "+100%" },
+              { "type": "raw_text", "text": "+100%" }
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

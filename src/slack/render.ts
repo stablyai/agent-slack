@@ -109,9 +109,75 @@ function extractMrkdwnFromBlocks(blocks: unknown): string {
       }
       continue;
     }
+    if (type === "table" && Array.isArray(b.rows)) {
+      const table = renderTableBlock(b.rows);
+      if (table) {
+        out.push(table);
+      }
+      continue;
+    }
   }
 
   return out.join("\n\n");
+}
+
+/**
+ * Render a Slack `table` block (composer-pasted tables; also delivered inside
+ * attachment blocks with a "[no preview available]" fallback) as a GFM table.
+ * Rows are arrays of cells; each cell is a rich_text block or `{type: "raw_text", text}`.
+ */
+function renderTableBlock(rows: unknown[]): string {
+  const rendered: string[][] = [];
+  for (const row of rows) {
+    if (!Array.isArray(row)) {
+      continue;
+    }
+    const cells: string[] = [];
+    for (const cell of row) {
+      cells.push(renderTableCell(cell));
+    }
+    rendered.push(cells);
+  }
+  if (rendered.length === 0) {
+    return "";
+  }
+
+  let width = 0;
+  for (const cells of rendered) {
+    width = Math.max(width, cells.length);
+  }
+
+  const lines: string[] = [];
+  lines.push(formatTableRow(rendered[0]!, width));
+  lines.push(formatTableRow(Array(width).fill("---"), width));
+  for (const cells of rendered.slice(1)) {
+    lines.push(formatTableRow(cells, width));
+  }
+  return lines.join("\n");
+}
+
+function formatTableRow(cells: string[], width: number): string {
+  const padded = [...cells];
+  while (padded.length < width) {
+    padded.push("");
+  }
+  return `| ${padded.join(" | ")} |`;
+}
+
+function renderTableCell(cell: unknown): string {
+  if (!isRecord(cell)) {
+    return "";
+  }
+  const text =
+    getString(cell.type) === "rich_text"
+      ? extractMrkdwnFromRichTextBlock(cell)
+      : getString(cell.text);
+  // Flatten to one line and escape pipes, but keep <url|label> link tokens
+  // intact so slackMrkdwnToMarkdown can still convert them.
+  return text
+    .replace(/\s*\n\s*/g, " ")
+    .replace(/(<[^>]*>)|\|/g, (match, token) => (token ? match : "\\|"))
+    .trim();
 }
 
 function extractMrkdwnFromAttachments(attachments: unknown, state: RenderState): string {
