@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+cd "$(dirname "$0")/.."
+
+if command -v bun >/dev/null 2>&1; then
+  exec bun scripts/update-nix-sources.ts "$@"
+fi
+
 repo="stablyai/agent-slack"
 latest_api="https://api.github.com/repos/${repo}/releases/latest"
 
