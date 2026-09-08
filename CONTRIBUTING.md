@@ -64,6 +64,7 @@ Pushing the tag triggers the GitHub Actions `Release` workflow, which:
 - Builds native binaries for all platforms (macOS, Linux, Windows × x64, arm64)
 - Generates checksums
 - Uploads everything to the GitHub Release
+- After the GitHub Release is published, `Update Nix Sources` refreshes `nix/sources.json` so `nix run github:stablyai/agent-slack` tracks that release. You can also run `bun scripts/update-nix-sources.ts` locally.
 
 ### Manual release (alternative)
 
