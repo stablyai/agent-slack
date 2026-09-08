@@ -4,15 +4,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 9 * * 1"
-  release:
-    types: [published]
-
-concurrency:
-  group: update-nix-sources
-  cancel-in-progress: false
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update:
@@ -21,34 +16,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: main
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+      - name: Install Nix
+        uses: cachix/install-nix-action@2126ae7fc54c9df00dd18f7f18754393182c73cd # v31
 
       - name: Update nix sources
-        run: bun scripts/update-nix-sources.ts
+        run: ./scripts/update-nix-sources.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit updated hashes
-        run: |
-          set -euo pipefail
-          if git diff --quiet nix/sources.json; then
-            echo "nix/sources.json already matches the latest GitHub release"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add nix/sources.json
-          version="$(node -e "console.log(JSON.parse(require('fs').readFileSync('nix/sources.json','utf8')).version)")"
-          git commit -m "chore(nix): update release hashes to ${version}"
-          git push
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          commit-message: "chore(nix): update release hashes"
+          title: "chore(nix): update release hashes"
+          body: |
+            Automated update of `nix/sources.json` from the latest GitHub release checksums.
+          branch: chore/update-nix-sources
+          delete-branch: true
