@@ -174,19 +174,22 @@ export async function searchMessagesInChannelsFallback(
 
   const results: SearchCompactMessage[] = [];
 
-  for (const channelId of channelIds) {
-    let cursorLatest: string | undefined;
+  channelLoop: for (const channelId of channelIds) {
+    let cursor: string | undefined;
+    const seenCursors = new Set<string>();
     for (;;) {
       const resp = await client.api("conversations.history", {
         channel: channelId,
         limit: 200,
-        latest: cursorLatest,
+        cursor,
       });
       const messages = isRecord(resp) ? asArray(resp.messages).filter(isRecord) : [];
-      if (messages.length === 0) {
-        break;
-      }
+      const responseMetadata = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+      const nextCursor = responseMetadata
+        ? getString(responseMetadata.next_cursor)?.trim() || undefined
+        : undefined;
 
+      let reachedAfterBoundary = false;
       for (const m of messages) {
         const summary = messageSummaryFromApiMessage(channelId, m);
 
@@ -196,7 +199,7 @@ export async function searchMessagesInChannelsFallback(
             continue;
           }
           if (afterSec !== null && tsNum < afterSec) {
-            cursorLatest = undefined;
+            reachedAfterBoundary = true;
             break;
           }
         }
@@ -230,31 +233,15 @@ export async function searchMessagesInChannelsFallback(
         matchedSummaries.push(summary);
         results.push(toSearchCompactMessage(compact));
         if (results.length >= input.limit) {
-          const referencedUserIds = collectReferencedUserIds(matchedSummaries, {
-            includeReactions: false,
-          });
-          const usersById = await resolveUsersById({
-            client,
-            workspaceUrl: input.workspace_url ?? "",
-            userIds: referencedUserIds,
-            forceRefresh: Boolean(input.refreshUsers),
-          });
-          return {
-            messages: results,
-            referenced_users: toReferencedUsers(referencedUserIds, usersById),
-          };
+          break channelLoop;
         }
       }
 
-      if (!cursorLatest) {
+      if (reachedAfterBoundary || !nextCursor || seenCursors.has(nextCursor)) {
         break;
       }
-
-      const last = messages.at(-1);
-      cursorLatest = last ? getString(last.ts) : undefined;
-      if (!cursorLatest) {
-        break;
-      }
+      seenCursors.add(nextCursor);
+      cursor = nextCursor;
     }
   }
 

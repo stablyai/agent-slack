@@ -49,6 +49,7 @@ function createClient(calls: ApiCall[]) {
 
       if (method === "conversations.history") {
         return {
+          response_metadata: { next_cursor: "" },
           messages: [
             {
               ts: "1.000001",
@@ -152,6 +153,173 @@ describe("search referenced users", () => {
       U22222222: { id: "U22222222", name: "bob", display_name: "Bob" },
     });
     expect(result.referenced_users).not.toHaveProperty("U44444444");
+  });
+
+  test("searchSlack scans older channel history pages using Slack cursors", async () => {
+    const calls: ApiCall[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method !== "conversations.history") {
+          throw new Error(`Unexpected API method: ${method}`);
+        }
+        if (params.cursor === undefined) {
+          return {
+            response_metadata: { next_cursor: "page-2" },
+            messages: [{ ts: "2.000002", text: "not a match", user: "U11111111" }],
+          };
+        }
+        if (params.cursor === "page-2") {
+          return {
+            response_metadata: { next_cursor: "" },
+            messages: [{ ts: "1.000001", text: "needle", user: "U22222222" }],
+          };
+        }
+        throw new Error(`Unexpected cursor: ${String(params.cursor)}`);
+      },
+    };
+
+    const result = await searchSlack({
+      client: client as never,
+      auth: { auth_type: "standard", token: "x" },
+      options: {
+        workspace_url: "https://workspace.slack.com",
+        query: "needle",
+        kind: "messages",
+        channels: ["C12345678"],
+        limit: 20,
+        max_content_chars: 4000,
+        content_type: "any",
+        download: false,
+      },
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages?.[0]?.content).toBe("needle");
+    expect(
+      calls
+        .filter((call) => call.method === "conversations.history")
+        .map((call) => call.params.cursor),
+    ).toEqual([undefined, "page-2"]);
+  });
+
+  test("searchSlack follows a valid cursor from an empty history page", async () => {
+    const calls: ApiCall[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method !== "conversations.history") {
+          throw new Error(`Unexpected API method: ${method}`);
+        }
+        if (params.cursor === undefined) {
+          return {
+            response_metadata: { next_cursor: "page-2" },
+            messages: [],
+          };
+        }
+        if (params.cursor === "page-2") {
+          return {
+            response_metadata: { next_cursor: "" },
+            messages: [{ ts: "1.000001", text: "needle", user: "U22222222" }],
+          };
+        }
+        throw new Error(`Unexpected cursor: ${String(params.cursor)}`);
+      },
+    };
+
+    const result = await searchSlack({
+      client: client as never,
+      auth: { auth_type: "standard", token: "x" },
+      options: {
+        workspace_url: "https://workspace.slack.com",
+        query: "needle",
+        kind: "messages",
+        channels: ["C12345678"],
+        limit: 20,
+        max_content_chars: 4000,
+        content_type: "any",
+        download: false,
+      },
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages?.[0]?.content).toBe("needle");
+    expect(
+      calls
+        .filter((call) => call.method === "conversations.history")
+        .map((call) => call.params.cursor),
+    ).toEqual([undefined, "page-2"]);
+  });
+
+  test("searchSlack stops when a pagination cursor cycles", async () => {
+    const calls: ApiCall[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method !== "conversations.history") {
+          throw new Error(`Unexpected API method: ${method}`);
+        }
+        if (calls.filter((call) => call.method === "conversations.history").length > 3) {
+          throw new Error("Repeated pagination cursor was requested");
+        }
+        if (params.cursor === undefined) {
+          return { response_metadata: { next_cursor: "page-2" }, messages: [] };
+        }
+        if (params.cursor === "page-2") {
+          return { response_metadata: { next_cursor: "page-3" }, messages: [] };
+        }
+        if (params.cursor === "page-3") {
+          return { response_metadata: { next_cursor: "page-2" }, messages: [] };
+        }
+        throw new Error(`Unexpected cursor: ${String(params.cursor)}`);
+      },
+    };
+
+    const result = await searchSlack({
+      client: client as never,
+      auth: { auth_type: "standard", token: "x" },
+      options: {
+        workspace_url: "https://workspace.slack.com",
+        query: "needle",
+        kind: "messages",
+        channels: ["C12345678"],
+        limit: 20,
+        max_content_chars: 4000,
+        content_type: "any",
+        download: false,
+      },
+    });
+
+    expect(result.messages).toHaveLength(0);
+    expect(
+      calls
+        .filter((call) => call.method === "conversations.history")
+        .map((call) => call.params.cursor),
+    ).toEqual([undefined, "page-2", "page-3"]);
+  });
+
+  test("searchSlack does not resolve users at the result limit without opt-in", async () => {
+    const calls: ApiCall[] = [];
+    const client = createClient(calls) as never;
+
+    const result = await searchSlack({
+      client,
+      auth: { auth_type: "standard", token: "x" },
+      options: {
+        workspace_url: "https://workspace.slack.com",
+        query: "hello",
+        kind: "messages",
+        channels: ["C12345678"],
+        limit: 1,
+        max_content_chars: 4000,
+        content_type: "any",
+        download: false,
+      },
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.referenced_users).toBeUndefined();
+    expect(calls.filter((call) => call.method === "users.info")).toHaveLength(0);
   });
 
   test("search command forwards --refresh-users and bypasses cached user lookups", async () => {
