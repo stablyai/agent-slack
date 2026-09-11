@@ -18,9 +18,10 @@ Use `--max-body-chars`, `--max-content-chars`, `--limit`, or a command's counts-
 
 ## Downloaded files
 
-Message reads and searches download Slack files locally. Each successful file includes an absolute `path` plus available metadata such as `name`, `mimetype`, and `mode`.
+Message reads and searches download Slack files locally by default. Each successful file includes an absolute `path` plus available metadata such as `name`, `mimetype`, and `mode`.
 
 - Successful downloads are returned as absolute paths in output.
+- `message list --no-download` never downloads attachment bodies. Channel-history and full-thread results retain available file `name`, `mimetype`, and `mode` metadata without `path` or `error`.
 - `message get` preserves failed downloads in `message.files[]`; `message list` uses `messages[].files[]`. Each failed entry has `error` and a `path` to a local `.download-error.txt` file.
 - Message results from `search messages|all` preserve failed attachment downloads with `messages[].files[].error` and keep `messages[].files[].path` pointing to a local `.download-error.txt` file.
 - `search files` warns and skips files whose download fails. Do not treat a skip warning as proof that no matching file exists; retry through the source message with `message get/list` when possible.

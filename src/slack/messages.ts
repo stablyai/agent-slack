@@ -38,7 +38,7 @@ export type SlackMessageSummary = {
 
 export async function fetchMessage(
   client: SlackApiClient,
-  input: { ref: SlackMessageRef; includeReactions?: boolean },
+  input: { ref: SlackMessageRef; includeReactions?: boolean; fetchFileInfo?: boolean },
 ): Promise<SlackMessageSummary> {
   const history = await client.api("conversations.history", {
     channel: input.ref.channel_id,
@@ -89,7 +89,12 @@ export async function fetchMessage(
   const files = asArray(msg.files)
     .map((f) => toSlackFileSummary(f))
     .filter((f): f is SlackFileSummary => f !== null);
-  const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
+  const enrichedFiles =
+    files.length > 0
+      ? input.fetchFileInfo === false
+        ? files
+        : await enrichFiles(client, files)
+      : undefined;
 
   const text = getString(msg.text) ?? "";
   const ts = getString(msg.ts) ?? input.ref.message_ts;
@@ -157,6 +162,7 @@ export async function fetchChannelHistory(
     includeReactions?: boolean;
     withReactions?: string[];
     withoutReactions?: string[];
+    fetchFileInfo?: boolean;
   },
 ): Promise<SlackMessageSummary[]> {
   const raw = input.limit ?? 25;
@@ -196,7 +202,12 @@ export async function fetchChannelHistory(
       const files = asArray(m.files)
         .map((f) => toSlackFileSummary(f))
         .filter((f): f is SlackFileSummary => f !== null);
-      const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
+      const enrichedFiles =
+        files.length > 0
+          ? input.fetchFileInfo === false
+            ? files
+            : await enrichFiles(client, files)
+          : undefined;
 
       const text = getString(m.text) ?? "";
       out.push({
@@ -266,7 +277,12 @@ export function passesReactionNameFilters(
 
 export async function fetchThread(
   client: SlackApiClient,
-  input: { channelId: string; threadTs: string; includeReactions?: boolean },
+  input: {
+    channelId: string;
+    threadTs: string;
+    includeReactions?: boolean;
+    fetchFileInfo?: boolean;
+  },
 ): Promise<SlackMessageSummary[]> {
   const out: SlackMessageSummary[] = [];
   let cursor: string | undefined;
@@ -287,7 +303,12 @@ export async function fetchThread(
       const files = asArray(m.files)
         .map((f) => toSlackFileSummary(f))
         .filter((f): f is SlackFileSummary => f !== null);
-      const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
+      const enrichedFiles =
+        files.length > 0
+          ? input.fetchFileInfo === false
+            ? files
+            : await enrichFiles(client, files)
+          : undefined;
 
       const text = getString(m.text) ?? "";
       out.push({

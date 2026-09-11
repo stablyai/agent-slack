@@ -71,6 +71,31 @@ describe("toCompactMessage", () => {
     expect(compact.files).toBeUndefined();
   });
 
+  test("includes file metadata without a path when explicitly requested", () => {
+    const msg = makeMessage([
+      {
+        id: "F1",
+        name: "diagram.png",
+        mimetype: "image/png",
+        mode: "hosted",
+        url_private: "https://example.com/f1",
+      },
+    ]);
+    const compact = toCompactMessage(msg, {
+      downloadedPaths: {},
+      includeUndownloadedFileMetadata: true,
+    });
+    expect(compact.files).toEqual([
+      {
+        name: "diagram.png",
+        mimetype: "image/png",
+        mode: "hosted",
+      },
+    ]);
+    expect(compact.files![0]).not.toHaveProperty("path");
+    expect(compact.files![0]).not.toHaveProperty("error");
+  });
+
   test("mixes successful and failed downloads", () => {
     const msg = makeMessage([
       {

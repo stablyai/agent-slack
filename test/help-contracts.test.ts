@@ -39,6 +39,16 @@ function buildProgram(): Command {
 }
 
 describe("agent-facing help contracts", () => {
+  test("message list documents metadata-only attachment scans", () => {
+    const list = findCommand(buildProgram(), "message", "list");
+
+    expect(optionDescription(list, "--no-download")).toContain("file metadata");
+    expect(optionDescription(list, "--no-download")).toContain("without local paths");
+    expect(list.getOptionValue("download")).toBe(true);
+    list.parseOptions(["--no-download"]);
+    expect(list.getOptionValue("download")).toBe(false);
+  });
+
   test("message send documents non-obvious formatting and scheduling behavior", () => {
     const send = findCommand(buildProgram(), "message", "send");
 

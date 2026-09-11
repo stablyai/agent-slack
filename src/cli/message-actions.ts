@@ -43,6 +43,7 @@ export type MessageCommandOptions = {
   workspace?: string;
   ts?: string;
   threadTs?: string;
+  download?: boolean;
   limit?: string;
   oldest?: string;
   latest?: string;

@@ -240,6 +240,33 @@ describe("downloadMessageFiles", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
+  test("does not fetch file bodies when downloads are disabled", async () => {
+    const fetchMock = mockFetchReject(new Error("attachment body should not be fetched"));
+
+    const result = await downloadMessageFiles({
+      auth: AUTH,
+      download: false,
+      messages: [
+        {
+          channel_id: "C123",
+          ts: "1234567890.000001",
+          text: "hello",
+          markdown: "hello",
+          files: [
+            {
+              id: "F0",
+              name: "oversized.bin",
+              url_private_download: "https://files.slack.com/files/oversized.bin",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toEqual({});
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test("records canvas auth failures as structured errors", async () => {
     mockFetchOk(
       "<html><head><title>Sign in</title></head><body>Sign in</body></html>",

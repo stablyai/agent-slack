@@ -37,6 +37,7 @@ export function toCompactMessage(
     maxBodyChars?: number;
     includeReactions?: boolean;
     downloadedPaths?: Record<string, DownloadResult>;
+    includeUndownloadedFileMetadata?: boolean;
   },
 ): CompactSlackMessage {
   const maxBodyChars = input?.maxBodyChars ?? 8000;
@@ -52,7 +53,9 @@ export function toCompactMessage(
     ?.map((f) => {
       const entry = input?.downloadedPaths?.[f.id];
       if (!entry) {
-        return null;
+        return input?.includeUndownloadedFileMetadata
+          ? { name: f.name, mimetype: f.mimetype, mode: f.mode }
+          : null;
       }
       return entry.ok
         ? { name: f.name, mimetype: f.mimetype, mode: f.mode, path: entry.path }

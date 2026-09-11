@@ -68,6 +68,10 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     )
     .option("--ts <ts>", "Message ts (resolve message to its thread)")
     .option("--limit <n>", "Max messages to return for channel history (default 25, max 200)")
+    .option(
+      "--no-download",
+      "Do not download attached file bodies; retain file metadata without local paths",
+    )
     .option("--oldest <ts>", "Only messages after this ts (channel history mode)")
     .option("--latest <ts>", "Only messages before this ts (channel history mode)")
     .option(

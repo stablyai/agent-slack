@@ -85,8 +85,12 @@ async function downloadCanvasAsMarkdown(input: {
 export async function downloadMessageFiles(input: {
   auth: SlackAuth;
   messages: SlackMessageSummary[];
+  download?: boolean;
 }): Promise<Record<string, DownloadResult>> {
   const downloadedPaths: Record<string, DownloadResult> = {};
+  if (input.download === false) {
+    return downloadedPaths;
+  }
   const downloadsDir = await ensureDownloadsDir();
 
   for (const message of input.messages) {
