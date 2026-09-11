@@ -1,5 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
+import { Command } from "commander";
 import type { CliContext } from "../src/cli/context.ts";
+import { registerMessageCommand } from "../src/cli/message-command.ts";
 import {
   isSafeModeEnabled,
   redirectSendToDraft,
@@ -33,6 +35,35 @@ describe("safeModeBlockedError", () => {
     expect(safeModeBlockedError("edit").message).toContain('"message edit" is blocked');
     expect(safeModeBlockedError("delete").message).toContain('"message delete" is blocked');
   });
+});
+
+test("safe mode blocks CI compose before workspace or API work", async () => {
+  const originalExitCode = process.exitCode;
+  const error = spyOn(console, "error").mockImplementation(() => {});
+  const noWorkCtx = {
+    errorMessage: (err: unknown) => (err instanceof Error ? err.message : String(err)),
+  } as CliContext;
+
+  try {
+    await withEnvironment({ CI: "1" }, async () => {
+      process.exitCode = 0;
+
+      const program = new Command().option("--safe-mode");
+      registerMessageCommand({ program, ctx: noWorkCtx });
+      await program.parseAsync(
+        ["--safe-mode", "message", "compose", "C12345678", "review this first"],
+        { from: "user" },
+      );
+
+      expect(error).toHaveBeenCalledWith(
+        'Safe mode is active: "message compose" cannot skip the editor in CI because that would post without human review.',
+      );
+      expect(process.exitCode).toBe(1);
+    });
+  } finally {
+    process.exitCode = originalExitCode ?? 0;
+    error.mockRestore();
+  }
 });
 
 describe("redirectSendToDraft", () => {
