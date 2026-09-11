@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CliContext } from "../src/cli/context.ts";
+import type { SlackAuth } from "../src/slack/client.ts";
 import { composeMessage } from "../src/cli/compose-actions.ts";
 import { editMessage, sendMessage } from "../src/cli/message-actions.ts";
 import {
@@ -18,8 +19,13 @@ import { withEnvironment } from "./helpers/environment.ts";
 
 function createContext(
   calls: { method: string; params: Record<string, unknown> }[],
-  fixtures: { historyMessages?: Record<string, unknown>[] } = {},
+  fixtures: {
+    historyMessages?: Record<string, unknown>[];
+    auth?: SlackAuth;
+    draftsHasMore?: boolean;
+  } = {},
 ) {
+  const auth = fixtures.auth ?? ({ auth_type: "standard", token: "x" } as const);
   const client = {
     api: async (method: string, params: Record<string, unknown>) => {
       calls.push({ method, params });
@@ -54,6 +60,57 @@ function createContext(
       if (method === "chat.deleteScheduledMessage") {
         return { ok: true };
       }
+      if (method === "auth.test") {
+        return {
+          ok: true,
+          url: "https://workspace.slack.com/",
+          team_id: "T12345678",
+          user_id: "U12345678",
+        };
+      }
+      if (method === "team.info") {
+        return { ok: true, team: { id: "T12345678" } };
+      }
+      if (method === "drafts.create") {
+        return {
+          ok: true,
+          draft: {
+            id: "Dr1234ABCD",
+            destinations: params.destinations,
+            blocks: params.blocks,
+            last_updated_ts: "1770165109.123456",
+            date_scheduled: params.date_scheduled,
+          },
+        };
+      }
+      if (method === "drafts.list") {
+        return {
+          ok: true,
+          drafts: [
+            {
+              id: "Dr1234ABCD",
+              destinations: [{ channel_id: "C12345678" }],
+              blocks: [
+                {
+                  type: "rich_text",
+                  elements: [
+                    {
+                      type: "rich_text_section",
+                      elements: [{ type: "text", text: "scheduled" }],
+                    },
+                  ],
+                },
+              ],
+              last_updated_ts: "1770165109.123456",
+              date_scheduled: 1770168709,
+            },
+          ],
+          has_more: fixtures.draftsHasMore === true,
+        };
+      }
+      if (method === "drafts.delete") {
+        return { ok: true };
+      }
       if (method === "search.messages") {
         return {
           ok: true,
@@ -79,7 +136,7 @@ function createContext(
     }) => input.work(),
     getClientForWorkspace: async () => ({
       client: client as never,
-      auth: { auth_type: "standard", token: "x" as const },
+      auth,
       workspace_url: "https://workspace.slack.com",
     }),
     normalizeUrl: (u: string) => u,
@@ -725,6 +782,83 @@ describe("sendMessage", () => {
     });
   });
 
+  test("browser auth schedules through a Slack-native draft", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls, {
+      auth: { auth_type: "browser", xoxc_token: "xoxc-test", xoxd_cookie: "xoxd-test" },
+    });
+    const when = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const postAt = Math.floor(Date.parse(when) / 1000);
+
+    const result = await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "later",
+      options: { schedule: when },
+    });
+
+    const create = calls.find((call) => call.method === "drafts.create");
+    expect(create?.params).toMatchObject({
+      destinations: [{ channel_id: "C12345678" }],
+      date_scheduled: postAt,
+      is_from_composer: true,
+    });
+    expect(calls.some((call) => call.method === "chat.scheduleMessage")).toBe(false);
+    expect(result).toEqual({
+      ok: true,
+      channel_id: "C12345678",
+      scheduled_message_id: "Dr1234ABCD",
+      post_at: postAt,
+      thread_ts: undefined,
+    });
+  });
+
+  test("browser auth refuses Block Kit that Slack Desktop would strip", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls, {
+      auth: { auth_type: "browser", xoxc_token: "xoxc-test", xoxd_cookie: "xoxd-test" },
+    });
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const blocksPath = join(dir, "blocks.json");
+    await writeFile(
+      blocksPath,
+      JSON.stringify([{ type: "section", text: { type: "mrkdwn", text: "unsafe" } }]),
+    );
+
+    try {
+      await expect(
+        sendMessage({
+          ctx,
+          targetInput: "C12345678",
+          text: "fallback",
+          options: { blocks: blocksPath, scheduleIn: "30m" },
+        }),
+      ).rejects.toThrow(/non-empty rich_text blocks/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    expect(calls.some((call) => call.method === "drafts.create")).toBe(false);
+  });
+
+  test("browser auth refuses --no-unfurl because native scheduled drafts cannot preserve it", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls, {
+      auth: { auth_type: "browser", xoxc_token: "xoxc-test", xoxd_cookie: "xoxd-test" },
+    });
+
+    await expect(
+      sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "https://example.com",
+        options: { scheduleIn: "30m", unfurl: false },
+      }),
+    ).rejects.toThrow(/--no-unfurl is not supported with browser-auth scheduled messages/);
+
+    expect(calls.some((call) => call.method === "drafts.create")).toBe(false);
+  });
+
   test("--schedule cannot be combined with file attachments", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);
@@ -877,6 +1011,61 @@ describe("scheduled message management", () => {
       ok: true,
       channel_id: "C12345678",
       scheduled_message_id: "Q1234ABCD",
+    });
+  });
+
+  test("browser auth lists native scheduled drafts and reports a truncated response", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls, {
+      auth: { auth_type: "browser", xoxc_token: "xoxc-test", xoxd_cookie: "xoxd-test" },
+      draftsHasMore: true,
+    });
+
+    const result = await listScheduledMessages({
+      ctx,
+      options: { channel: "C12345678", limit: "25" },
+    });
+
+    const list = calls.find((call) => call.method === "drafts.list");
+    expect(list?.params).toEqual({ is_active: true, limit: 100 });
+    expect(result).toEqual({
+      ok: true,
+      scheduled_messages: [
+        {
+          id: "Dr1234ABCD",
+          channel_id: "C12345678",
+          post_at: 1770168709,
+          text: "scheduled",
+        },
+      ],
+      has_more: true,
+    });
+  });
+
+  test("browser auth cancels a native scheduled draft", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls, {
+      auth: { auth_type: "browser", xoxc_token: "xoxc-test", xoxd_cookie: "xoxd-test" },
+    });
+
+    const result = await cancelScheduledMessage({
+      ctx,
+      scheduledMessageId: "Dr1234ABCD",
+      options: { channel: "C12345678" },
+    });
+
+    const list = calls.find((call) => call.method === "drafts.list");
+    const deletion = calls.find((call) => call.method === "drafts.delete");
+    expect(list?.params).toEqual({ is_active: undefined, limit: 100 });
+    expect(deletion?.params).toEqual({
+      draft_id: "Dr1234ABCD",
+      client_last_updated_ts: "1770165109.1234560",
+    });
+    expect(calls.some((call) => call.method === "chat.deleteScheduledMessage")).toBe(false);
+    expect(result).toEqual({
+      ok: true,
+      channel_id: "C12345678",
+      scheduled_message_id: "Dr1234ABCD",
     });
   });
 });

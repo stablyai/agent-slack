@@ -31,7 +31,7 @@ If a capability named here is absent from installed help, report version skew in
 4. Use output limits such as `--limit`, `--max-body-chars`, and `--max-content-chars` to avoid unnecessary context.
 5. For a requested write, execute only the requested mutation and verify the resulting JSON metadata.
 
-For scheduled writes, prefer `--schedule` with an ISO 8601 timestamp and explicit offset when timezone matters. Named `--schedule-in` phrases use the executing environment's local timezone; confirm that it matches the user's intent.
+For scheduled writes, prefer `--schedule` with an ISO 8601 timestamp and explicit offset when timezone matters. Named `--schedule-in` phrases use the executing environment's local timezone; confirm that it matches the user's intent. Standard tokens use `chat.scheduleMessage`; browser auth uses a Slack-native scheduled draft and returns a `Dr...` ID. Browser-auth schedules accept only non-empty `rich_text` blocks and do not support `--no-unfurl`.
 
 Named `later remind --in` values such as `tomorrow` or `monday` also use the executing environment's local timezone at 9:00. Confirm that timezone or pass an explicit Unix timestamp.
 
@@ -39,7 +39,7 @@ Use `--no-unfurl` with `message send` or `message compose` when the user wants S
 
 Ordinary `message send` and `message edit` calls auto-convert lists. `message send --blocks` and `message edit --blocks` use supplied Block Kit blocks, while `message send --attach` sends its initial comment without automatic list conversion. Inside auto-converted lists, use Slack's `<URL|label>` syntax because CommonMark `[label](URL)` links are not converted into labeled link elements.
 
-Slack-native drafts (`message draft list|create|update|delete`) manage drafts that appear in the user's Slack client; `create` posts nothing. `create` and `update` accept repeatable `--attach <path>`; on `update` the files are added to the draft's existing attachments rather than replacing them. They use undocumented session endpoints and require browser-style auth (xoxc/xoxd).
+Slack-native drafts (`message draft list|create|update|delete`) manage drafts that appear in the user's Slack client; `create` posts nothing. `create` and `update` accept repeatable `--attach <path>`; on `update` the files are added to the draft's existing attachments rather than replacing them. They use undocumented session endpoints and require browser-style auth (xoxc/xoxd). Listings may include `has_more: true`; Slack exposes no cursor for the remaining native drafts.
 
 `canvas edit` uses Slack's public `canvases.edit` API and applies exactly one operation per call. The
 default `replace` operation replaces the whole canvas; section-targeted inserts/replacements and

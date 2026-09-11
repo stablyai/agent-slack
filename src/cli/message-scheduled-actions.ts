@@ -7,6 +7,7 @@ import {
   listScheduledMessages as listScheduledMessagesApi,
   normalizeScheduleLimit,
 } from "../slack/scheduled-messages.ts";
+import { resolveSlackNativeDraftEndpoint } from "./slack-native-draft-endpoint.ts";
 
 export async function listScheduledMessages(input: {
   ctx: CliContext;
@@ -36,16 +37,23 @@ export async function listScheduledMessages(input: {
   return await input.ctx.withAutoRefresh({
     workspaceUrl,
     work: async () => {
-      const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+      const { client, auth, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = channelTarget
         ? await resolveScheduledChannelTarget(client, channelTarget)
         : undefined;
-      return await listScheduledMessagesApi(client, {
+      const endpoint = await resolveSlackNativeDraftEndpoint({
+        ctx: input.ctx,
+        client,
+        auth,
+        workspaceUrl: workspace_url ?? workspaceUrl,
+      });
+      return await listScheduledMessagesApi(endpoint.client, {
         channelId,
         cursor: input.options.cursor,
         oldest: input.options.oldest,
         latest: input.options.latest,
         limit: normalizeScheduleLimit(input.options.limit),
+        authType: endpoint.auth.auth_type,
       });
     },
   });
@@ -71,11 +79,18 @@ export async function cancelScheduledMessage(input: {
   return await input.ctx.withAutoRefresh({
     workspaceUrl,
     work: async () => {
-      const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+      const { client, auth, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveScheduledChannelTarget(client, channelTarget);
-      await cancelScheduledMessageApi(client, {
+      const endpoint = await resolveSlackNativeDraftEndpoint({
+        ctx: input.ctx,
+        client,
+        auth,
+        workspaceUrl: workspace_url ?? workspaceUrl,
+      });
+      await cancelScheduledMessageApi(endpoint.client, {
         channelId,
         scheduledMessageId: input.scheduledMessageId,
+        authType: endpoint.auth.auth_type,
       });
       return {
         ok: true,

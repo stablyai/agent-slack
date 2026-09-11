@@ -44,6 +44,7 @@ describe("agent-facing help contracts", () => {
 
     expect(optionDescription(send, "--attach")).toContain("without automatic list conversion");
     expect(optionDescription(send, "--schedule")).toContain("within 120 days");
+    expect(optionDescription(send, "--schedule")).toContain("Browser auth");
     expect(optionDescription(send, "--schedule-in")).toContain("local timezone");
     expect(optionDescription(send, "--thread-ts")).toContain("channel targets");
     expect(optionDescription(send, "--reply-broadcast")).toContain("DM targets");
@@ -68,8 +69,11 @@ describe("agent-facing help contracts", () => {
   });
 
   test("scheduled cancellation identifies its required channel", () => {
+    const list = findCommand(buildProgram(), "message", "scheduled", "list");
     const cancel = findCommand(buildProgram(), "message", "scheduled", "cancel");
 
+    expect(optionDescription(list, "--cursor")).toContain("standard-token");
+    expect(cancel.registeredArguments[0]?.description).toContain("Dr...");
     expect(optionDescription(cancel, "--channel")).toContain("Required");
   });
 

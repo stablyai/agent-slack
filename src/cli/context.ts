@@ -7,7 +7,11 @@ import { loadCredentials, upsertWorkspaces } from "../auth/store.ts";
 import { normalizeChannelInput } from "../slack/channels.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import { type SlackAuth } from "../slack/client.ts";
-import { getClientForWorkspace, normalizeUrl } from "./context-client-resolver.ts";
+import {
+  getClientForWorkspace,
+  normalizeUrl,
+  type ClientResolutionOptions,
+} from "./context-client-resolver.ts";
 
 export type CliContext = {
   effectiveWorkspaceUrl: (flag?: string) => string | undefined;
@@ -19,7 +23,10 @@ export type CliContext = {
     workspaceUrl: string | undefined;
     work: () => Promise<T>;
   }) => Promise<T>;
-  getClientForWorkspace: (workspaceUrl?: string) => Promise<{
+  getClientForWorkspace: (
+    workspaceUrl?: string,
+    options?: ClientResolutionOptions,
+  ) => Promise<{
     client: SlackApiClient;
     auth: SlackAuth;
     workspace_url?: string;

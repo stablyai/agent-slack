@@ -95,7 +95,7 @@ describe("parseDraftRecord", () => {
 describe("listDrafts", () => {
   test("requests active drafts and parses the result", async () => {
     const { client, calls } = createClient({
-      "drafts.list": { ok: true, drafts: [rawDraft, { not: "a draft" }] },
+      "drafts.list": { ok: true, drafts: [rawDraft, { not: "a draft" }], has_more: true },
     });
 
     const result = await listDrafts(client, { limit: 10 });
@@ -105,6 +105,7 @@ describe("listDrafts", () => {
     expect(calls[0]?.params).toEqual({ is_active: true, limit: 10 });
     expect(result.drafts).toHaveLength(1);
     expect(result.drafts[0]?.id).toBe("Dr123");
+    expect(result.has_more).toBe(true);
   });
 
   test("omits is_active when activeOnly is false", async () => {
@@ -167,6 +168,46 @@ describe("createDraft", () => {
     });
 
     expect(calls[0]?.params.file_ids).toEqual(["F9"]);
+  });
+
+  test("creates a scheduled draft with caller-supplied rich_text blocks", async () => {
+    const { client, calls } = createClient({
+      "drafts.create": { ok: true, draft: { ...rawDraft, date_scheduled: 1770168709 } },
+    });
+    const blocks = [
+      {
+        type: "rich_text",
+        elements: [{ type: "rich_text_section", elements: [{ type: "text", text: "scheduled" }] }],
+      },
+    ];
+
+    const draft = await createDraft(client, {
+      channelId: "C123",
+      text: "fallback",
+      blocks,
+      dateScheduled: 1770168709,
+    });
+
+    expect(calls[0]?.params.blocks).toEqual(blocks);
+    expect(calls[0]?.params.date_scheduled).toBe(1770168709);
+    expect(draft?.date_scheduled).toBe(1770168709);
+  });
+
+  test("rejects draft blocks Slack Desktop would strip or tombstone", async () => {
+    const { client, calls } = createClient({ "drafts.create": { ok: true } });
+
+    await expect(
+      createDraft(client, {
+        channelId: "C123",
+        text: "fallback",
+        blocks: [{ type: "section", text: { type: "mrkdwn", text: "unsafe" } }],
+      }),
+    ).rejects.toThrow(/non-empty rich_text blocks/);
+    await expect(createDraft(client, { channelId: "C123", text: "   " })).rejects.toThrow(
+      /non-empty rich_text blocks/,
+    );
+
+    expect(calls).toHaveLength(0);
   });
 });
 

@@ -26,12 +26,13 @@ export async function listDraftsAction(input: {
     workspaceUrl,
     work: async () => {
       const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
-      const { drafts } = await listDrafts(client, {
-        limit: normalizeScheduleLimit(input.options.limit),
+      const { drafts, has_more: hasMore } = await listDrafts(client, {
+        limit: normalizeScheduleLimit(input.options.limit) ?? 100,
         activeOnly: !input.options.all,
       });
       const hydrated = await hydrateChannelNames(client, drafts);
-      return { ok: true, drafts: hydrated, count: hydrated.length };
+      const pagination = hasMore ? { has_more: true } : {};
+      return { ok: true, drafts: hydrated, count: hydrated.length, ...pagination };
     },
   });
 }

@@ -7,7 +7,7 @@ Slack data commands print JSON to stdout. Help, update, and some authentication 
 
 `message get` returns one message and an optional thread summary. `message list` returns chronological messages; in thread mode this includes the root and all replies.
 
-Immediate non-attachment sends return `ts` and usually a `permalink`. Attachment sends return neither; scheduled sends return `scheduled_message_id` and `post_at` instead.
+Immediate non-attachment sends return `ts` and usually a `permalink`. Attachment sends return neither; scheduled sends return `scheduled_message_id` (`Q...` with standard tokens or `Dr...` with browser auth) and `post_at` instead. Native draft and browser-auth scheduled listings may return `has_more: true`; Slack's native drafts API does not expose a cursor for the remaining results.
 
 `canvas create` returns `canvas: { id, title?, channel_id? }`. `canvas get` returns `canvas: { id, title?, markdown }`.
 `canvas edit` returns `ok: true` and `canvas: { id, operation }` after Slack accepts the change.

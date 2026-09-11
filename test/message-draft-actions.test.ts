@@ -23,6 +23,7 @@ function createContext(
   calls: Call[],
   fixtures: {
     draftsList?: Record<string, unknown>[];
+    draftsHasMore?: boolean;
     channelInfo?: Record<string, Record<string, unknown>>;
     /** First call to this method returns ok:false invalid_auth (for retry tests). */
     failOnce?: "drafts.create" | "drafts.update";
@@ -38,7 +39,11 @@ function createContext(
       calls.push({ method, params });
       switch (method) {
         case "drafts.list":
-          return { ok: true, drafts: fixtures.draftsList ?? [] };
+          return {
+            ok: true,
+            drafts: fixtures.draftsList ?? [],
+            has_more: fixtures.draftsHasMore === true,
+          };
         case "drafts.create":
         case "drafts.update": {
           // Simulate a transient auth failure on the first call to this method,
@@ -652,17 +657,25 @@ describe("listDraftsAction", () => {
           last_updated_ts: "1700000000.1",
         },
       ],
+      draftsHasMore: true,
       channelInfo: { C11111111: { id: "C11111111", name: "general" } },
     });
 
     const result = (await listDraftsAction({
       ctx,
       options: { workspace: "https://workspace.slack.com" },
-    })) as { ok: boolean; count: number; drafts: { destinations: { channel_name?: string }[] }[] };
+    })) as {
+      ok: boolean;
+      count: number;
+      drafts: { destinations: { channel_name?: string }[] }[];
+      has_more?: boolean;
+    };
 
     expect(result.ok).toBe(true);
     expect(result.count).toBe(1);
+    expect(result.has_more).toBe(true);
     expect(result.drafts[0]?.destinations[0]?.channel_name).toBe("general");
+    expect(calls.find((call) => call.method === "drafts.list")?.params.limit).toBe(100);
   });
 });
 

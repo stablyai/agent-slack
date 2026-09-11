@@ -259,6 +259,8 @@ agent-slack message draft create "#general" "Latest numbers" --attach ./q3.png -
 agent-slack message draft update "DR_ID" "Latest numbers" --attach ./appendix.pdf
 ```
 
+Native draft listings read at most 100 records. Their JSON includes `"has_more": true` when Slack reports additional drafts; the internal API does not expose a cursor for retrieving them.
+
 ### Safe mode (enforced human-in-the-loop)
 
 Skill instructions like "always use `draft`, never `send`" are guidance an agent can ignore. Safe mode enforces it at the tool level — useful when an AI agent has access to `agent-slack` and you want a guarantee that nothing posts without human review.
@@ -304,10 +306,10 @@ agent-slack message delete "#general" --workspace "myteam" --ts "1770165109.6283
 Send options for `message send`:
 
 - `--attach <path>` upload a local file (repeatable; `<text>` is optional when attaching files)
-- `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Cannot be combined with `--attach`.
+- `--blocks <path>` send raw [Block Kit](https://docs.slack.dev/block-kit/) blocks from a JSON file (or `-` for stdin). Bypasses the automatic markdown-to-rich-text conversion, unlocking header/divider/section/table blocks and other structured layouts. Browser-auth scheduled sends accept only non-empty top-level `rich_text` blocks because Slack Desktop strips or tombstones other native-draft content. Cannot be combined with `--attach`.
 - `--reply-broadcast` when replying in a thread, also post the reply to the parent channel (Slack's "Also send to #channel" checkbox). For channel targets, pair with `--thread-ts`; for URL targets, the thread context is derived from the message. Not supported for DM targets; cannot be combined with `--attach`.
-- `--no-unfurl` suppress Slack link and media previews. Also available on `message compose`; cannot be combined with `--attach`.
-- `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (for example `YYYY-MM-DDTHH:mm:ss-07:00`) or a Unix timestamp. The timestamp must be in the future and within Slack's 120-day scheduled-send limit. Works with `--blocks`, `--thread-ts`, `--reply-broadcast`, and `--no-unfurl`; cannot be combined with `--attach`.
+- `--no-unfurl` suppress Slack link and media previews. Also available on `message compose`; unavailable for browser-auth scheduled sends and cannot be combined with `--attach`.
+- `--schedule <time>` schedule delivery at an ISO 8601 timestamp with explicit timezone (for example `YYYY-MM-DDTHH:mm:ss-07:00`) or a Unix timestamp. The timestamp must be in the future and within Slack's 120-day scheduled-send limit. Works with `--blocks`, `--thread-ts`, and `--reply-broadcast`, subject to the browser-auth restrictions above; cannot be combined with `--attach`.
 - `--schedule-in <duration>` schedule delivery after a duration or simple future phrase (`30m`, `3h`, `2d`, `tomorrow 9am`, `monday 9am`; phrases use your local timezone). Mutually exclusive with `--schedule`; cannot be combined with `--attach`.
 
 Upload files through `message send`:
@@ -323,7 +325,7 @@ agent-slack message send "#general" "Decision: shipping v2 today" \
   --thread-ts "1770160000.000001" --reply-broadcast
 ```
 
-Scheduled sends use Slack's server-side scheduled message queue:
+Scheduled sends use Slack's own server-side scheduling. Standard tokens call the public `chat.scheduleMessage` API and return a `Q...` ID. Browser credentials use Slack's native `drafts.create` scheduling field and return a `Dr...` ID because the public method rejects browser-session tokens. On Enterprise Grid, agent-slack resolves channel names in the selected workspace, then verifies and routes the native-draft call through that workspace's organization credential.
 
 ```bash
 # Absolute time with explicit timezone; replace with a future value within 120 days
@@ -333,7 +335,7 @@ agent-slack message send "#general" "Reminder: deploy starts soon." \
 # Relative / natural future time
 agent-slack message send "#general" "Monday launch checklist" --schedule-in "monday 9am"
 
-# Scheduled thread reply with a Block Kit payload
+# Scheduled thread reply with a Block Kit payload (standard tokens; browser auth requires rich_text-only blocks)
 agent-slack message send "#general" "fallback text" \
   --thread-ts "1770160000.000001" --blocks /tmp/blocks.json --schedule-in "3h"
 ```
@@ -345,6 +347,8 @@ agent-slack message scheduled list
 agent-slack message scheduled list --channel "#general" --limit 25
 agent-slack message scheduled cancel "Q1234ABCD" --channel "C12345678"
 ```
+
+With browser auth, `message scheduled list` reads at most 100 native drafts because Slack's internal `drafts.list` response exposes `has_more` but no pagination cursor. The JSON output includes `"has_more": true` when the result may be incomplete. `--cursor` applies only to standard-token scheduling. Cancel browser-auth schedules with the returned `Dr...` ID and the same required channel argument.
 
 Example — post a message with a native Slack table block:
 
@@ -375,7 +379,7 @@ agent-slack message send "#alerts-staging" --blocks /tmp/blocks.json
 
 When `--blocks` is used, the positional `<text>` argument (if provided) is still sent as the message's `text` fallback (for notifications and unfurls).
 
-`message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread. Scheduled sends return `scheduled_message_id` and `post_at` instead of `ts`/`permalink`.
+`message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread. Scheduled sends return `scheduled_message_id` (`Q...` for standard tokens or `Dr...` for browser auth) and `post_at` instead of `ts`/`permalink`.
 
 ### List, create, and invite channels
 

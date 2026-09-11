@@ -7,12 +7,16 @@ import { normalizeSlackReactionName } from "../slack/emoji.ts";
 import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { textToRichTextBlocks } from "../slack/rich-text.ts";
 import { formatOutboundSlackText } from "../slack/format-outbound.ts";
-import type { SlackApiClient } from "../slack/client.ts";
+import type { SlackApiClient, SlackAuth } from "../slack/client.ts";
 import { uploadLocalFileToSlack } from "../slack/upload.ts";
 import { buildSlackMessageUrl } from "../slack/url.ts";
 import { normalizeAttachPaths } from "./options.ts";
-import { resolveSchedulePostAt } from "../slack/scheduled-messages.ts";
+import {
+  resolveSchedulePostAt,
+  scheduleMessage as scheduleMessageApi,
+} from "../slack/scheduled-messages.ts";
 import { buildUnfurlApiParams } from "./unfurl-options.ts";
+import { resolveSlackNativeDraftEndpoint } from "./slack-native-draft-endpoint.ts";
 
 function loadBlocksFromPath(path: string): unknown[] {
   const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
@@ -148,7 +152,9 @@ export async function sendMessage(input: {
     return await input.ctx.withAutoRefresh({
       workspaceUrl: ref.workspace_url,
       work: async () => {
-        const { client, workspace_url } = await input.ctx.getClientForWorkspace(ref.workspace_url);
+        const { client, auth, workspace_url } = await input.ctx.getClientForWorkspace(
+          ref.workspace_url,
+        );
         const msg = await fetchMessage(client, { ref });
         const threadTs = msg.thread_ts ?? msg.ts;
         return await sendMessageToChannel({
@@ -156,12 +162,15 @@ export async function sendMessage(input: {
           workspaceUrl: workspace_url ?? ref.workspace_url,
           channelId: ref.channel_id,
           text: formattedText,
+          draftText: input.text,
           blocks,
           threadTs,
           replyBroadcast: input.options.replyBroadcast,
           attachPaths,
           postAt,
           unfurl: input.options.unfurl,
+          auth,
+          ctx: input.ctx,
         });
       },
     });
@@ -175,17 +184,20 @@ export async function sendMessage(input: {
     return await input.ctx.withAutoRefresh({
       workspaceUrl,
       work: async () => {
-        const { client, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
+        const { client, auth, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
         const dmChannelId = await openDmChannel(client, target.userId);
         return await sendMessageToChannel({
           client,
           workspaceUrl: workspace_url ?? workspaceUrl,
           channelId: dmChannelId,
           text: formattedText,
+          draftText: input.text,
           blocks,
           attachPaths,
           postAt,
           unfurl: input.options.unfurl,
+          auth,
+          ctx: input.ctx,
         });
       },
     });
@@ -202,19 +214,22 @@ export async function sendMessage(input: {
   return await input.ctx.withAutoRefresh({
     workspaceUrl,
     work: async () => {
-      const { client, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
+      const { client, auth, workspace_url } = await input.ctx.getClientForWorkspace(workspaceUrl);
       const channelId = await resolveChannelId(client, String(target.channel));
       return await sendMessageToChannel({
         client,
         workspaceUrl: workspace_url ?? workspaceUrl,
         channelId,
         text: formattedText,
+        draftText: input.text,
         blocks,
         threadTs: input.options.threadTs ? String(input.options.threadTs) : undefined,
         replyBroadcast: input.options.replyBroadcast,
         attachPaths,
         postAt,
         unfurl: input.options.unfurl,
+        auth,
+        ctx: input.ctx,
       });
     },
   });
@@ -225,22 +240,33 @@ async function sendMessageToChannel(input: {
   workspaceUrl?: string;
   channelId: string;
   text: string;
+  draftText: string;
   blocks?: unknown[] | null;
   threadTs?: string;
   replyBroadcast?: boolean;
   attachPaths: string[];
   postAt?: number;
   unfurl?: boolean;
+  auth: SlackAuth;
+  ctx: CliContext;
 }): Promise<Record<string, unknown>> {
   if (input.postAt !== undefined) {
-    const resp = await input.client.api("chat.scheduleMessage", {
-      channel: input.channelId,
+    const endpoint = await resolveSlackNativeDraftEndpoint({
+      ctx: input.ctx,
+      client: input.client,
+      auth: input.auth,
+      workspaceUrl: input.workspaceUrl,
+    });
+    const resp = await scheduleMessageApi(endpoint.client, {
+      authType: endpoint.auth.auth_type,
+      channelId: input.channelId,
       text: input.text,
-      post_at: input.postAt,
-      thread_ts: input.threadTs,
-      ...(input.blocks ? { blocks: input.blocks } : {}),
-      ...(input.replyBroadcast && input.threadTs ? { reply_broadcast: true } : {}),
-      ...buildUnfurlApiParams(input.unfurl),
+      draftText: input.draftText,
+      postAt: input.postAt,
+      threadTs: input.threadTs,
+      replyBroadcast: input.replyBroadcast,
+      blocks: input.blocks,
+      unfurl: input.unfurl,
     });
     const channelId = typeof resp.channel === "string" ? resp.channel : input.channelId;
     const scheduledMessageId =

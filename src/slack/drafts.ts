@@ -109,7 +109,7 @@ export function parseDraftRecord(raw: unknown): SlackDraft | null {
 export async function listDrafts(
   client: SlackApiClient,
   options?: { limit?: number; activeOnly?: boolean },
-): Promise<{ drafts: SlackDraft[] }> {
+): Promise<{ drafts: SlackDraft[]; has_more: boolean }> {
   const resp = await client.api("drafts.list", {
     is_active: options?.activeOnly === false ? undefined : true,
     limit: options?.limit,
@@ -117,17 +117,25 @@ export async function listDrafts(
   const drafts = asArray(resp.drafts)
     .map(parseDraftRecord)
     .filter((draft): draft is SlackDraft => draft !== null);
-  return { drafts };
+  return { drafts, has_more: resp.has_more === true };
 }
 
 export async function findDraft(client: SlackApiClient, draftId: string): Promise<SlackDraft> {
-  const { drafts } = await listDrafts(client, { activeOnly: false });
+  const { drafts, has_more: hasMore } = await listDrafts(client, {
+    activeOnly: false,
+    limit: 100,
+  });
   const matches = drafts.filter((d) => d.id === draftId);
   // update/delete need last_updated_ts for conflict detection, so prefer a
   // usable record if the response happens to include a malformed duplicate
   // (e.g. a first entry missing last_updated_ts).
   const draft = matches.find((d) => d.last_updated_ts) ?? matches[0];
   if (!draft) {
+    if (hasMore) {
+      throw new Error(
+        `Draft ${draftId} was not found in the first 100 results, and Slack drafts.list does not expose a pagination cursor.`,
+      );
+    }
     throw new Error(`Draft not found: ${draftId}. Run "message draft list" to see draft ids.`);
   }
   return draft;
@@ -142,6 +150,7 @@ export async function findDraft(client: SlackApiClient, draftId: string): Promis
 function buildDraftBody(input: {
   channelId: string;
   text: string;
+  blocks?: unknown[];
   threadTs?: string;
   broadcast?: boolean;
   fileIds?: string[];
@@ -151,12 +160,97 @@ function buildDraftBody(input: {
     destination.thread_ts = input.threadTs;
     destination.broadcast = input.broadcast === true;
   }
+  const blocks = input.blocks ?? draftTextToBlocks(input.text);
+  assertNativeDraftBlocks(blocks);
   return {
-    blocks: draftTextToBlocks(input.text),
+    blocks,
     destinations: [destination],
     client_msg_id: crypto.randomUUID(),
     file_ids: input.fileIds ?? [],
   };
+}
+
+/**
+ * Slack Desktop only preserves top-level rich_text blocks in native drafts,
+ * and tombstones drafts that have no renderable rich_text content.
+ */
+function assertNativeDraftBlocks(blocks: unknown[]): void {
+  const allRichText =
+    blocks.length > 0 && blocks.every((block) => isRecord(block) && block.type === "rich_text");
+  const hasContent = blocks.some(hasRichTextContent);
+  if (!allRichText || !hasContent) {
+    throw new Error(
+      "Slack-native drafts require non-empty rich_text blocks; other top-level Block Kit blocks can be stripped or tombstoned by Slack Desktop.",
+    );
+  }
+  for (const block of blocks) {
+    assertRichTextAdjacency(block);
+  }
+}
+
+function hasRichTextContent(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (value.type === "text") {
+    return Boolean(getString(value.text)?.trim());
+  }
+  const children = asArray(value.elements);
+  if (children.some(hasRichTextContent)) {
+    return true;
+  }
+  return (
+    typeof value.type === "string" && value.type.length > 0 && !isRichTextContainer(value.type)
+  );
+}
+
+function assertRichTextAdjacency(block: unknown): void {
+  if (!isRecord(block)) {
+    return;
+  }
+  const elements = asArray(block.elements);
+  for (let index = 0; index < elements.length - 1; index++) {
+    const current = elements[index];
+    const next = elements[index + 1];
+    if (
+      isRecord(current) &&
+      current.type === "rich_text_section" &&
+      isRecord(next) &&
+      isRichTextAdjacentContainer(next.type) &&
+      !sectionEndsWithNewline(current)
+    ) {
+      throw new Error(
+        `A rich_text_section immediately before ${next.type} must end its final text content with a newline.`,
+      );
+    }
+  }
+}
+
+function isRichTextContainer(type: unknown): boolean {
+  return (
+    type === "rich_text" ||
+    type === "rich_text_section" ||
+    type === "rich_text_list" ||
+    type === "rich_text_quote" ||
+    type === "rich_text_preformatted"
+  );
+}
+
+function isRichTextAdjacentContainer(type: unknown): boolean {
+  return (
+    type === "rich_text_list" || type === "rich_text_quote" || type === "rich_text_preformatted"
+  );
+}
+
+function sectionEndsWithNewline(section: Record<string, unknown>): boolean {
+  const elements = asArray(section.elements);
+  for (let index = elements.length - 1; index >= 0; index--) {
+    const element = elements[index];
+    if (isRecord(element) && typeof element.text === "string") {
+      return element.text.endsWith("\n");
+    }
+  }
+  return false;
 }
 
 /**
@@ -181,15 +275,18 @@ export async function createDraft(
   input: {
     channelId: string;
     text: string;
+    blocks?: unknown[];
     threadTs?: string;
     broadcast?: boolean;
     fileIds?: string[];
+    dateScheduled?: number;
   },
 ): Promise<SlackDraft | null> {
   const resp = await client.api("drafts.create", {
     ...buildDraftBody(input),
     // Sent on create only, matching the official client's behavior.
     is_from_composer: true,
+    ...(input.dateScheduled !== undefined ? { date_scheduled: input.dateScheduled } : {}),
   });
   ensureDraftOk("drafts.create", resp);
   return parseDraftRecord(resp.draft);

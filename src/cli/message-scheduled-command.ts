@@ -17,7 +17,10 @@ export function registerScheduledMessageCommand(input: {
     .option("--channel <channel>", "Limit to a channel/DM id or channel name")
     .option("--oldest <ts>", "Only messages scheduled after this Unix timestamp")
     .option("--latest <ts>", "Only messages scheduled before this Unix timestamp")
-    .option("--cursor <cursor>", "Fetch the next page from chat.scheduledMessages.list")
+    .option(
+      "--cursor <cursor>",
+      "Fetch the next page from chat.scheduledMessages.list (standard-token scheduling only)",
+    )
     .option("--limit <n>", "Max scheduled messages to return")
     .action(
       async (options: {
@@ -41,7 +44,10 @@ export function registerScheduledMessageCommand(input: {
   scheduledCmd
     .command("cancel")
     .description("Cancel a pending scheduled message")
-    .argument("<id>", "scheduled_message_id returned by message send --schedule")
+    .argument(
+      "<id>",
+      "scheduled_message_id returned by message send --schedule (Q... for standard tokens, Dr... for browser auth)",
+    )
     .requiredOption(
       "--channel <channel>",
       "Required channel/DM id or channel name for the scheduled message",

@@ -1,5 +1,10 @@
-import type { SlackApiClient } from "./client.ts";
+import type { SlackApiClient, SlackAuth } from "./client.ts";
 import { asArray, getNumber, getString, isRecord } from "../lib/object-type-guards.ts";
+import {
+  cancelNativeScheduledMessage,
+  listNativeScheduledMessages,
+  scheduleNativeMessage,
+} from "./native-scheduled-messages.ts";
 
 const MAX_SCHEDULE_SECONDS = 120 * 24 * 60 * 60;
 const DEFAULT_NAMED_TIME = { hour: 9, minute: 0 };
@@ -10,6 +15,45 @@ type Clock = {
 
 export type ScheduledMessage = Record<string, unknown>;
 
+type SlackAuthType = SlackAuth["auth_type"];
+
+export async function scheduleMessage(
+  client: SlackApiClient,
+  input: {
+    authType: SlackAuthType;
+    channelId: string;
+    text: string;
+    draftText?: string;
+    postAt: number;
+    threadTs?: string;
+    replyBroadcast?: boolean;
+    blocks?: unknown[] | null;
+    unfurl?: boolean;
+  },
+): Promise<Record<string, unknown>> {
+  if (input.authType === "browser") {
+    return await scheduleNativeMessage(client, {
+      channelId: input.channelId,
+      text: input.draftText ?? input.text,
+      postAt: input.postAt,
+      threadTs: input.threadTs,
+      replyBroadcast: input.replyBroadcast,
+      blocks: input.blocks,
+      unfurl: input.unfurl,
+    });
+  }
+
+  return await client.api("chat.scheduleMessage", {
+    channel: input.channelId,
+    text: input.text,
+    post_at: input.postAt,
+    thread_ts: input.threadTs,
+    ...(input.blocks ? { blocks: input.blocks } : {}),
+    ...(input.replyBroadcast && input.threadTs ? { reply_broadcast: true } : {}),
+    ...(input.unfurl === false ? { unfurl_links: false, unfurl_media: false } : {}),
+  });
+}
+
 export async function listScheduledMessages(
   client: SlackApiClient,
   options?: {
@@ -18,12 +62,18 @@ export async function listScheduledMessages(
     oldest?: string;
     latest?: string;
     limit?: number;
+    authType?: SlackAuthType;
   },
 ): Promise<{
   ok: true;
   scheduled_messages: ScheduledMessage[];
   next_cursor?: string;
+  has_more?: boolean;
 }> {
+  if (options?.authType === "browser") {
+    return await listNativeScheduledMessages(client, options);
+  }
+
   const resp = await client.api("chat.scheduledMessages.list", {
     channel: options?.channelId,
     cursor: options?.cursor,
@@ -42,8 +92,12 @@ export async function listScheduledMessages(
 
 export async function cancelScheduledMessage(
   client: SlackApiClient,
-  input: { channelId: string; scheduledMessageId: string },
+  input: { channelId: string; scheduledMessageId: string; authType?: SlackAuthType },
 ): Promise<void> {
+  if (input.authType === "browser") {
+    return await cancelNativeScheduledMessage(client, input);
+  }
+
   await client.api("chat.deleteScheduledMessage", {
     channel: input.channelId,
     scheduled_message_id: input.scheduledMessageId,

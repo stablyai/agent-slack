@@ -190,17 +190,20 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     )
     .option(
       "--blocks <path>",
-      "Path to a JSON file containing a Block Kit blocks array. Bypasses automatic markdown-to-rich-text conversion. Use '-' to read from stdin. Cannot be combined with --attach.",
+      "Path to a JSON file containing a Block Kit blocks array. Bypasses automatic markdown-to-rich-text conversion. Browser-auth scheduled sends accept only non-empty rich_text blocks. Use '-' to read from stdin. Cannot be combined with --attach.",
     )
     .option(
       "--schedule <time>",
-      "Schedule delivery at an ISO 8601 timestamp with explicit timezone (or Unix timestamp), within 120 days. Cannot be combined with --attach.",
+      "Schedule delivery at an ISO 8601 timestamp with explicit timezone (or Unix timestamp), within 120 days. Browser auth uses a Slack-native scheduled draft; --no-unfurl is unavailable. Cannot be combined with --attach.",
     )
     .option(
       "--schedule-in <duration>",
-      "Schedule delivery within 120 days after a duration or future phrase, e.g. 3h or monday 9am. Named phrases use this process's local timezone. Cannot be combined with --attach.",
+      "Schedule delivery within 120 days after a duration or future phrase, e.g. 3h or monday 9am. Named phrases use this process's local timezone. Browser auth has the same constraints as --schedule. Cannot be combined with --attach.",
     )
-    .option("--no-unfurl", "Suppress link and media previews. Cannot be combined with --attach.")
+    .option(
+      "--no-unfurl",
+      "Suppress link and media previews. Not supported for browser-auth scheduled sends; cannot be combined with --attach.",
+    )
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
