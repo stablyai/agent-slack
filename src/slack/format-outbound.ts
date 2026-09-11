@@ -1,3 +1,5 @@
+import { markdownLinksToSlackMrkdwn } from "./markdown-inline.ts";
+
 /**
  * Prepare user-authored text for Slack's `chat.postMessage` / `chat.update`.
  *
@@ -8,18 +10,23 @@
  *    `<!here>` / `<!channel>` / `<!everyone>`
  *
  * Humans (and LLMs piping text into the CLI) commonly write `@U123` and
- * raw `&`/`<`/`>` — this helper normalizes that to what Slack expects,
- * while leaving already-well-formed Slack tokens intact.
+ * `[label](https://example.com)` links as well as raw `&`/`<`/`>` — this
+ * helper normalizes those to what Slack expects, while leaving
+ * already-well-formed Slack tokens intact.
  */
 export function formatOutboundSlackText(text: string): string {
   if (!text) {
     return "";
   }
 
+  // Slack does not understand CommonMark links in message text. Normalize the
+  // common inline form while leaving images, escaped links, and code alone.
+  let out = markdownLinksToSlackMrkdwn(text);
+
   // Protect already-formatted Slack tokens so `<`/`>` inside them aren't escaped.
   const stash: string[] = [];
-  let out = text.replace(
-    /<(?:@[UWB][A-Z0-9]+(?:\|[^>]*)?|#[CG][A-Z0-9]+(?:\|[^>]*)?|!subteam\^[A-Z0-9]+(?:\|[^>]*)?|![a-zA-Z]+(?:\|[^>]*)?|(?:https?:\/\/|mailto:)[^>]+)>/g,
+  out = out.replace(
+    /<(?:@[UWB][A-Z0-9]+(?:\|[^>]*)?|#[CG][A-Z0-9]+(?:\|[^>]*)?|!subteam\^[A-Z0-9]+(?:\|[^>]*)?|![a-zA-Z]+(?:\|[^>]*)?|(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/|[Mm][Aa][Ii][Ll][Tt][Oo]:)[^>]+)>/g,
     (m) => {
       stash.push(m);
       return `\u0000${stash.length - 1}\u0000`;

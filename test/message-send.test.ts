@@ -600,6 +600,64 @@ describe("sendMessage", () => {
     ]);
   });
 
+  test("converts Markdown links in ordinary message text", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "Review [PR #42](https://example.com/pull/42)",
+      options: {},
+    });
+
+    expect(calls[0]?.method).toBe("chat.postMessage");
+    expect(calls[0]?.params.text).toBe("Review <https://example.com/pull/42|PR #42>");
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("keeps links inside backslash-terminated code spans and escapes lowercase entity IDs", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "`[link](https://e.test)\\` <@u123456a> <#c12345678> <!subteam^s12345678>",
+      options: {},
+    });
+
+    expect(calls[0]?.params.text).toBe(
+      "`[link](https://e.test)\\` &lt;@u123456a&gt; &lt;#c12345678&gt; &lt;!subteam^s12345678&gt;",
+    );
+    expect(calls[0]?.params.blocks).toBeUndefined();
+  });
+
+  test("converts Markdown links in lists to rich-text link blocks", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "- Review [PR #42](https://example.com/pull/42)",
+      options: {},
+    });
+
+    const blocks = calls[0]!.params.blocks as { elements: { elements?: unknown[] }[] }[];
+    const [block] = blocks;
+    const [list] = block!.elements;
+    expect(list?.elements).toEqual([
+      {
+        type: "rich_text_section",
+        elements: [
+          { type: "text", text: "Review " },
+          { type: "link", url: "https://example.com/pull/42", text: "PR #42" },
+        ],
+      },
+    ]);
+  });
+
   test("--blocks: errors when an array element is not an object", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);

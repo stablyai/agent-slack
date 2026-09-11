@@ -74,6 +74,50 @@ describe("parseInlineElements", () => {
     ]);
   });
 
+  test("Markdown links are parsed as links with text", () => {
+    expect(parseInlineElements("Review [PR #42](https://example.com/pull/42)")).toEqual([
+      { type: "text", text: "Review " },
+      { type: "link", url: "https://example.com/pull/42", text: "PR #42" },
+    ]);
+  });
+
+  test("Markdown links inside emphasis retain the emphasis", () => {
+    expect(parseInlineElements("*Review [PR](https://e.test)*")).toEqual([
+      { type: "text", text: "Review ", style: { bold: true } },
+      { type: "link", url: "https://e.test", text: "PR", style: { bold: true } },
+    ]);
+  });
+
+  test("multi-backtick code spans keep Markdown links as code", () => {
+    expect(parseInlineElements("``foo ` [link](https://e.test)``")).toEqual([
+      { type: "text", text: "foo ` [link](https://e.test)", style: { code: true } },
+    ]);
+  });
+
+  test("backslashes before closing backtick runs stay inside code spans", () => {
+    expect(parseInlineElements("`[link](https://e.test)\\`")).toEqual([
+      { type: "text", text: "[link](https://e.test)\\", style: { code: true } },
+    ]);
+  });
+
+  test("Markdown links support uppercase schemes and nested labels", () => {
+    expect(parseInlineElements("[A \\] [nested]](HTTPS://E.TEST)")).toEqual([
+      { type: "link", url: "https://E.TEST", text: "A ] [nested]" },
+    ]);
+  });
+
+  test("Markdown links support escaped punctuation in schemes", () => {
+    expect(parseInlineElements("[Email](mailto\\:x@e.test)")).toEqual([
+      { type: "link", url: "mailto:x@e.test", text: "Email" },
+    ]);
+  });
+
+  test("Slack link labels do not expose protected inline markers", () => {
+    expect(parseInlineElements("<https://e.test|`code`>")).toEqual([
+      { type: "link", url: "https://e.test", text: "`code`" },
+    ]);
+  });
+
   test("non-url angle bracket text is preserved as text", () => {
     expect(parseInlineElements("Use <fix>")).toEqual([
       { type: "text", text: "Use " },
@@ -106,6 +150,16 @@ describe("parseInlineElements", () => {
     expect(parseInlineElements("Ping <!subteam^S12345678|@team>")).toEqual([
       { type: "text", text: "Ping " },
       { type: "usergroup", usergroup_id: "S12345678" },
+    ]);
+  });
+
+  test("lowercase Slack entity IDs remain literal text", () => {
+    expect(parseInlineElements("<@u123456a> <#c12345678> <!subteam^s12345678|@team>")).toEqual([
+      { type: "text", text: "<@u123456a>" },
+      { type: "text", text: " " },
+      { type: "text", text: "<#c12345678>" },
+      { type: "text", text: " " },
+      { type: "text", text: "<!subteam^s12345678|@team>" },
     ]);
   });
 });
@@ -269,7 +323,7 @@ describe("textToRichTextBlocks", () => {
     ]);
   });
 
-  test("Slack manual links and CommonMark links remain distinct in list items", () => {
+  test("Slack manual and Markdown links become link elements in list items", () => {
     const result = textToRichTextBlocks(
       "- Review <https://example.com/pull/42|PR #42>\n- Review [PR #43](https://example.com/pull/43)",
     )!;
@@ -281,7 +335,49 @@ describe("textToRichTextBlocks", () => {
       { type: "link", url: "https://example.com/pull/42", text: "PR #42" },
     ]);
     expect(list.elements[1]!.elements).toEqual([
-      { type: "text", text: "Review [PR #43](https://example.com/pull/43)" },
+      { type: "text", text: "Review " },
+      { type: "link", url: "https://example.com/pull/43", text: "PR #43" },
+    ]);
+  });
+
+  test("links inside emphasized list items retain the emphasis", () => {
+    const result = textToRichTextBlocks("- *Review [PR](https://e.test)*")!;
+    const list = result[0]!.elements.find((e) => e.type === "rich_text_list") as {
+      elements: { elements: unknown[] }[];
+    };
+    expect(list.elements[0]!.elements).toEqual([
+      { type: "text", text: "Review ", style: { bold: true } },
+      { type: "link", url: "https://e.test", text: "PR", style: { bold: true } },
+    ]);
+  });
+
+  test("multi-backtick code spans in list items do not activate links", () => {
+    const result = textToRichTextBlocks("- ``foo ` [link](https://e.test)``")!;
+    const list = result[0]!.elements.find((e) => e.type === "rich_text_list") as {
+      elements: { elements: unknown[] }[];
+    };
+    expect(list.elements[0]!.elements).toEqual([
+      { type: "text", text: "foo ` [link](https://e.test)", style: { code: true } },
+    ]);
+  });
+
+  test("backslashes before code-span closers do not activate links in list items", () => {
+    const result = textToRichTextBlocks("- `[link](https://e.test)\\`")!;
+    const list = result[0]!.elements.find((e) => e.type === "rich_text_list") as {
+      elements: { elements: unknown[] }[];
+    };
+    expect(list.elements[0]!.elements).toEqual([
+      { type: "text", text: "[link](https://e.test)\\", style: { code: true } },
+    ]);
+  });
+
+  test("Slack link labels in list items do not expose protected inline markers", () => {
+    const result = textToRichTextBlocks("- <https://e.test|`code`>")!;
+    const list = result[0]!.elements.find((e) => e.type === "rich_text_list") as {
+      elements: { elements: unknown[] }[];
+    };
+    expect(list.elements[0]!.elements).toEqual([
+      { type: "link", url: "https://e.test", text: "`code`" },
     ]);
   });
 

@@ -1,3 +1,9 @@
+import {
+  protectMarkdownInline,
+  restoreProtectedMarkdownLiterals,
+  type ProtectedMarkdownInline,
+} from "./markdown-inline.ts";
+
 type InlineStyle = { bold?: true; italic?: true; strike?: true; code?: true };
 
 type InlineElement =
@@ -42,12 +48,38 @@ const BLOCKQUOTE_RE = /^> (.*)$/;
 /**
  * Parse mrkdwn inline formatting into Slack rich_text inline elements.
  *
- * Handles: *bold*, _italic_, ~strike~, `code`, :emoji:, <url|label>, <url>
+ * Handles: *bold*, _italic_, ~strike~, `code`, :emoji:, <url|label>, <url>,
+ * and [label](url).
  */
 export function parseInlineElements(text: string): InlineElement[] {
+  const protectedInline = protectMarkdownInline(text);
+  return parseProtectedInlineElements(protectedInline.text, protectedInline);
+}
+
+function parseProtectedInlineElements(
+  text: string,
+  context: ProtectedMarkdownInline,
+): InlineElement[] {
+  const { tokens, marker, suffix } = context;
   const elements: InlineElement[] = [];
-  const re =
-    /`([^`]+)`|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
+  const re = new RegExp(
+    [
+      `${escapeRegExp(marker)}(?<protectedTokenIndex>\\d+)${escapeRegExp(suffix)}`,
+      "(?:^|(?<=[^A-Za-z0-9_])):(?<emojiName>[a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])",
+      "\\*(?<bold>[^*]+)\\*",
+      "_(?<italic>[^_]+)_",
+      "~(?<strike>[^~]+)~",
+      "<@(?<userToken>[UWB][A-Z0-9]+)(?:\\|[^>]*)?>",
+      "<#(?<channelToken>[CG][A-Z0-9]+)(?:\\|[^>]*)?>",
+      "<!subteam\\^(?<usergroupToken>[A-Z0-9]+)(?:\\|[^>]*)?>",
+      "<!(?<broadcastToken>here|channel|everyone)(?:\\|[^>]*)?>",
+      "<(?<linkUrl>[^>|]+)\\|(?<linkText>[^>]+)>",
+      "<(?<bareUrl>[^>|]+)>",
+      "(?:^|(?<=[^A-Za-z0-9_]))@(?<bareUserId>[UWB][A-Z0-9]{6,})\\b",
+      "(?:^|(?<=[^A-Za-z0-9_]))@(?<bareBroadcast>here|channel|everyone)\\b",
+    ].join("|"),
+    "g",
+  );
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -62,9 +94,9 @@ export function parseInlineElements(text: string): InlineElement[] {
       pushText(text.slice(lastIndex, match.index));
     }
 
-    const [
-      ,
-      code,
+    const groups = match.groups ?? {};
+    const {
+      protectedTokenIndex,
       emojiName,
       bold,
       italic,
@@ -78,17 +110,28 @@ export function parseInlineElements(text: string): InlineElement[] {
       bareUrl,
       bareUserId,
       bareBroadcast,
-    ] = match;
-    if (code != null) {
-      elements.push({ type: "text", text: code, style: { code: true } });
+    } = groups;
+    if (protectedTokenIndex != null) {
+      const token = tokens[Number(protectedTokenIndex)]!;
+      if (token.type === "code") {
+        elements.push({ type: "text", text: token.content, style: { code: true } });
+      } else {
+        elements.push({ type: "link", url: token.url, text: token.label });
+      }
     } else if (emojiName != null) {
       elements.push({ type: "emoji", name: emojiName });
     } else if (bold != null) {
-      elements.push({ type: "text", text: bold, style: { bold: true } });
+      elements.push(
+        ...applyInlineStyle(parseProtectedInlineElements(bold, context), { bold: true }),
+      );
     } else if (italic != null) {
-      elements.push({ type: "text", text: italic, style: { italic: true } });
+      elements.push(
+        ...applyInlineStyle(parseProtectedInlineElements(italic, context), { italic: true }),
+      );
     } else if (strike != null) {
-      elements.push({ type: "text", text: strike, style: { strike: true } });
+      elements.push(
+        ...applyInlineStyle(parseProtectedInlineElements(strike, context), { strike: true }),
+      );
     } else if (userToken != null) {
       elements.push({ type: "user", user_id: userToken });
     } else if (channelToken != null) {
@@ -101,13 +144,26 @@ export function parseInlineElements(text: string): InlineElement[] {
         range: broadcastToken as "here" | "channel" | "everyone",
       });
     } else if (linkUrl != null && linkText != null && isSlackManualLinkUrl(linkUrl)) {
-      elements.push({ type: "link", url: linkUrl, text: linkText });
+      elements.push({
+        type: "link",
+        url: restoreProtectedMarkdownLiterals(linkUrl, context),
+        text: restoreProtectedMarkdownLiterals(linkText, context),
+      });
     } else if (linkUrl != null && linkText != null) {
-      elements.push({ type: "text", text: `<${linkUrl}|${linkText}>` });
+      elements.push({
+        type: "text",
+        text: `<${restoreProtectedMarkdownLiterals(linkUrl, context)}|${restoreProtectedMarkdownLiterals(linkText, context)}>`,
+      });
     } else if (bareUrl != null && isSlackManualLinkUrl(bareUrl)) {
-      elements.push({ type: "link", url: bareUrl });
+      elements.push({
+        type: "link",
+        url: restoreProtectedMarkdownLiterals(bareUrl, context),
+      });
     } else if (bareUrl != null) {
-      elements.push({ type: "text", text: `<${bareUrl}>` });
+      elements.push({
+        type: "text",
+        text: `<${restoreProtectedMarkdownLiterals(bareUrl, context)}>`,
+      });
     } else if (bareUserId != null) {
       elements.push({ type: "user", user_id: bareUserId });
     } else if (bareBroadcast != null) {
@@ -125,6 +181,19 @@ export function parseInlineElements(text: string): InlineElement[] {
   }
 
   return elements.length > 0 ? elements : [{ type: "text", text }];
+}
+
+function applyInlineStyle(elements: InlineElement[], style: InlineStyle): InlineElement[] {
+  return elements.map((element) => {
+    if (element.type !== "text" && element.type !== "link") {
+      return element;
+    }
+    return { ...element, style: { ...element.style, ...style } };
+  });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function isSlackManualLinkUrl(value: string): boolean {
