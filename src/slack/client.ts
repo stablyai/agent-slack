@@ -7,6 +7,7 @@ export type SlackAuth =
 
 const DEFAULT_SLACK_API_TIMEOUT_MS = 20_000;
 const DEFAULT_SLACK_RATE_LIMIT_MAX_WAIT_MS = 0;
+const SLACK_EDGE_CACHE_ID = /^[ET][A-Z0-9]{8,}$/;
 
 function getSlackApiTimeoutMs(): number {
   const raw =
@@ -84,6 +85,27 @@ export class SlackApiClient {
         rejectRateLimitedCalls: true,
       });
     }
+  }
+
+  async lookupUserByEmail(email: string, edgeCacheId?: string): Promise<Record<string, unknown>> {
+    if (this.auth.auth_type === "standard") {
+      return this.api("users.lookupByEmail", { email });
+    }
+    if (!this.workspaceUrl) {
+      throw new Error("Browser email lookup requires a Slack workspace URL");
+    }
+    if (!edgeCacheId || !SLACK_EDGE_CACHE_ID.test(edgeCacheId)) {
+      throw new Error("Browser email lookup requires an authenticated Slack team or enterprise ID");
+    }
+    const atIndex = email.lastIndexOf("@");
+    if (atIndex <= 0) {
+      throw new Error("Browser email lookup requires a valid email address");
+    }
+    return this.browserEdgeUserSearch({
+      edgeCacheId,
+      auth: this.auth,
+      searchQuery: email.slice(0, atIndex),
+    });
   }
 
   /**
@@ -258,6 +280,68 @@ export class SlackApiClient {
     if (!isRecord(data) || data.ok !== true) {
       const error = isRecord(data) && typeof data.error === "string" ? data.error : null;
       throw new Error(error || `Slack API error calling ${input.method}`);
+    }
+    return data;
+  }
+
+  private async browserEdgeUserSearch(input: {
+    edgeCacheId: string;
+    auth: Extract<SlackAuth, { auth_type: "browser" }>;
+    searchQuery: string;
+    attempt?: number;
+  }): Promise<Record<string, unknown>> {
+    const attempt = input.attempt ?? 0;
+    const method = "users/search";
+    const govSlack = new URL(this.workspaceUrl!).hostname.endsWith(".slack-gov.com");
+    const url = `https://edgeapi.${govSlack ? "slack-gov.com" : "slack.com"}/cache/${input.edgeCacheId}/${method}`;
+    const timeoutMs = getSlackApiTimeoutMs();
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        redirect: "error",
+        headers: {
+          Authorization: `Bearer ${input.auth.xoxc_token}`,
+          Cookie: `d=${encodeURIComponent(input.auth.xoxd_cookie)}`,
+          "Content-Type": "application/json",
+          Origin: `https://app.${govSlack ? "slack-gov.com" : "slack.com"}`,
+          "User-Agent": getUserAgent(),
+        },
+        body: JSON.stringify({
+          query: input.searchQuery,
+          count: 25,
+          include_profile_only_users: false,
+          fuzz: 0,
+          uax29_tokenizer: false,
+          filter: "NOT deactivated",
+        }),
+        signal: timeoutSignal(timeoutMs),
+      });
+    } catch (error) {
+      if (isAbortOrTimeoutError(error)) {
+        throw slackApiTimeoutError(method, timeoutMs);
+      }
+      throw error;
+    }
+
+    if (response.status === 429 && attempt < 3) {
+      const retryAfter = Number(response.headers.get("Retry-After") ?? "5");
+      const delayMs = Math.min(Math.max(retryAfter, 1) * 1000, 30000);
+      const maxWaitMs = getSlackRateLimitMaxWaitMs();
+      if (delayMs > maxWaitMs) {
+        throw slackRateLimitError({ method, retryAfterSec: retryAfter, maxWaitMs });
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return this.browserEdgeUserSearch({ ...input, attempt: attempt + 1 });
+    }
+
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(`Slack HTTP ${response.status} calling ${method}`);
+    }
+    if (!isRecord(data) || data.ok !== true) {
+      const error = isRecord(data) && typeof data.error === "string" ? data.error : null;
+      throw new Error(error || `Slack API error calling ${method}`);
     }
     return data;
   }

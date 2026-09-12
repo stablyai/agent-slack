@@ -482,9 +482,15 @@ agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
 
+# Verify active humans before constructing Slack mentions
+agent-slack user resolve U12345678 bob@example.com \
+  --workspace "https://workspace.slack.com"
+
 # Open a DM or group DM with one to eight other users (the caller is implicit)
 agent-slack user dm-open "@alice" "@bob" --workspace "https://workspace.slack.com" | jq .
 ```
+
+`user resolve` accepts at most 20 canonical U/W user IDs or email addresses. It verifies the authenticated workspace, deduplicates repeated identities, uses direct lookups, and emits mentions only when every input resolves to an active human; otherwise it exits nonzero and emits none.
 
 ### Unreads (inbox view)
 
