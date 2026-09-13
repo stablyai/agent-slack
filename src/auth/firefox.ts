@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { snappyUncompress } from "hysnappy";
 
 import {
   copySqliteForRead,
@@ -18,6 +19,35 @@ export type FirefoxExtracted = {
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHAR_RE = /[\u0000-\u001F]/g;
+
+function decodeStorageValue(value: unknown, compressionType: number): unknown {
+  if (compressionType === 0) {
+    return value;
+  }
+  if (compressionType !== 1 || !(value instanceof Uint8Array)) {
+    return null;
+  }
+
+  // Snappy starts with the uncompressed byte length as a uint32 varint.
+  let length = 0;
+  for (let i = 0; i < Math.min(value.length, 5); i++) {
+    const byte = value[i]!;
+    length += (byte & 0x7f) * 2 ** (7 * i);
+    if (byte & 0x80) {
+      continue;
+    }
+    // Bound allocations from corrupt profile data before invoking the decoder.
+    if (length > 64 * 1024 * 1024) {
+      return null;
+    }
+    try {
+      return snappyUncompress(value, length);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 function toStringValue(value: unknown): string {
   if (typeof value === "string") {
@@ -167,11 +197,15 @@ async function extractTeamsFromProfile(
     try {
       const rows = (await queryReadonlySqlite(
         copied.copyPath,
-        "select key, value from data where key in ('localConfig_v2', 'localConfig_v3') order by key desc",
-      )) as { key: string; value: unknown }[];
+        "select key, value, compression_type from data where key in ('localConfig_v2', 'localConfig_v3') order by key desc",
+      )) as { key: string; value: unknown; compression_type: number }[];
 
       for (const row of rows) {
-        const cfg = parseJsonObjectFromValue(row.value);
+        const value = decodeStorageValue(row.value, row.compression_type);
+        if (value === null) {
+          continue;
+        }
+        const cfg = parseJsonObjectFromValue(value);
         const teamsRaw =
           cfg && typeof cfg.teams === "object" && cfg.teams !== null ? cfg.teams : {};
         const parsedTeams = Object.values(teamsRaw)
@@ -181,7 +215,7 @@ async function extractTeamsFromProfile(
           return { teams: parsedTeams, sourcePath: dbPath };
         }
 
-        const rawTeams = extractTeamsFromRawText(toStringValue(row.value));
+        const rawTeams = extractTeamsFromRawText(toStringValue(value));
         if (rawTeams.length > 0) {
           return { teams: rawTeams, sourcePath: dbPath };
         }
