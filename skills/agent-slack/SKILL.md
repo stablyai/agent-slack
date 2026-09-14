@@ -47,6 +47,8 @@ deletes require the section ID returned by Slack's Canvas tooling, while `rename
 Content operations take exactly one `--file` or `--markdown` source. It requires a standard token
 with `canvases:write`; imported browser credentials can create standalone canvases but cannot edit.
 
+`workflow run <trigger>` trips a trigger. Add `--field "Title=Value"` (repeatable) to submit a workflow's form when one is presented; field titles are validated against the workflow schema. Form submission requires browser-style auth (xoxc/xoxd).
+
 ## Conditional references
 
 - Read [references/targets.md](references/targets.md) only when choosing between a message URL, channel, or user target, or when resolving multiple workspaces.
