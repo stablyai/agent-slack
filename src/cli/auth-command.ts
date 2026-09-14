@@ -78,7 +78,7 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     .description("Import xoxc/xoxd from a logged-in Slack tab in Google Chrome (macOS)")
     .action(async () => {
       try {
-        const extracted = input.ctx.importChrome();
+        const extracted = await input.ctx.importChrome();
         if (!extracted) {
           throw new Error(
             "Could not extract tokens from Chrome. Open Slack in Chrome and ensure you're logged in.",
