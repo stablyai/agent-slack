@@ -1,22 +1,11 @@
 import type { SlackApiClient } from "./client.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
+import { indexUsersInCache, lookupCachedUserId } from "./user-cache.ts";
 import { isUserId } from "./user-id.ts";
+import { toCompactUser, type CompactSlackUser } from "./compact-user.ts";
 
-export type CompactSlackUser = {
-  id: string;
-  name?: string; // handle
-  real_name?: string;
-  display_name?: string;
-  email?: string;
-  title?: string;
-  tz?: string;
-  is_bot?: boolean;
-  deleted?: boolean;
-  dm_id?: string;
-  status_text?: string;
-  status_emoji?: string;
-  status_expiration?: number;
-};
+export type { CompactSlackUser };
+export { toCompactUser };
 
 export async function listUsers(
   client: SlackApiClient,
@@ -24,40 +13,50 @@ export async function listUsers(
     limit?: number;
     cursor?: string;
     includeBots?: boolean;
+    refresh?: boolean;
   },
 ): Promise<{ users: CompactSlackUser[]; next_cursor?: string }> {
   const limit = Math.min(Math.max(options?.limit ?? 200, 1), 1000);
   const includeBots = options?.includeBots ?? false;
+  const refresh = options?.refresh ?? false;
+  const workspaceUrl = clientWorkspaceUrl(client);
 
   let next_cursor: string | undefined;
   const [out, dmMap] = await Promise.all([
     (async () => {
       const users: CompactSlackUser[] = [];
       let cursor = options?.cursor;
-      while (users.length < limit) {
-        const pageSize = Math.min(200, limit - users.length);
+      for (;;) {
+        const pageSize = refresh ? 200 : Math.min(200, Math.max(limit - users.length, 1));
         const resp = await client.api("users.list", { limit: pageSize, cursor });
         const members = asArray(resp.members).filter(isRecord);
+        const pageUsers: CompactSlackUser[] = [];
         for (const m of members) {
           const id = getString(m.id);
           if (!id) {
             continue;
           }
+          const compact = toCompactUser(m);
+          pageUsers.push(compact);
           if (!includeBots && m.is_bot) {
             continue;
           }
-          users.push(toCompactUser(m));
-          if (users.length >= limit) {
-            break;
+          if (users.length < limit) {
+            users.push(compact);
           }
         }
+        await indexUsersInCache({ workspaceUrl, users: pageUsers });
         const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
         const next = meta ? getString(meta.next_cursor) : undefined;
         if (!next) {
+          next_cursor = undefined;
           break;
         }
         cursor = next;
         next_cursor = next;
+        if (!refresh && users.length >= limit) {
+          break;
+        }
       }
       return users;
     })(),
@@ -74,13 +73,17 @@ export async function listUsers(
   return { users: out, next_cursor };
 }
 
-export async function getUser(client: SlackApiClient, input: string): Promise<CompactSlackUser> {
+export async function getUser(
+  client: SlackApiClient,
+  input: string,
+  options?: { forceRefresh?: boolean },
+): Promise<CompactSlackUser> {
   const trimmed = input.trim();
   if (!trimmed) {
     throw new Error("User is empty");
   }
 
-  const userId = await resolveUserId(client, trimmed);
+  const userId = await resolveUserId(client, trimmed, options);
   if (!userId) {
     throw new Error(`Could not resolve user: ${input}`);
   }
@@ -90,39 +93,70 @@ export async function getUser(client: SlackApiClient, input: string): Promise<Co
   if (!u || !getString(u.id)) {
     throw new Error("users.info returned no user");
   }
-  return toCompactUser(u);
+  const compact = toCompactUser(u);
+  await indexUsersInCache({
+    workspaceUrl: clientWorkspaceUrl(client),
+    users: [compact],
+  });
+  return compact;
 }
 
-export async function resolveUserId(client: SlackApiClient, input: string): Promise<string | null> {
+export async function resolveUserId(
+  client: SlackApiClient,
+  input: string,
+  options?: { forceRefresh?: boolean; workspaceUrl?: string },
+): Promise<string | null> {
   const trimmed = input.trim();
   if (isUserId(trimmed)) {
     return trimmed;
   }
 
+  const workspaceUrl = options?.workspaceUrl ?? clientWorkspaceUrl(client);
+  const forceRefresh = options?.forceRefresh ?? false;
   const looksLikeEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed) && !trimmed.startsWith("@");
-  if (looksLikeEmail) {
+  const handle = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (!handle) {
+    return null;
+  }
+
+  if (!forceRefresh) {
+    const cached = await lookupCachedUserId({
+      workspaceUrl,
+      handle: looksLikeEmail ? undefined : handle,
+      email: looksLikeEmail ? trimmed : undefined,
+    });
+    if (cached) {
+      return cached;
+    }
+  }
+
+  if (looksLikeEmail && !isBrowserAuth(client)) {
     try {
       const byEmail = await client.api("users.lookupByEmail", { email: trimmed });
       const user = isRecord(byEmail.user) ? byEmail.user : null;
-      const userId = user ? getString(user.id) : undefined;
-      if (userId) {
-        return userId;
+      if (user) {
+        const compact = toCompactUser(user);
+        const userId = compact.id || getString(user.id);
+        if (userId) {
+          await indexUsersInCache({ workspaceUrl, users: [{ ...compact, id: userId }] });
+          return userId;
+        }
       }
     } catch {
       // Fallback to users.list scan below.
     }
   }
 
-  const handle = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
-  if (!handle) {
-    return null;
-  }
-
   const handleLower = handle.toLowerCase();
+  const emailLower = trimmed.toLowerCase();
   let cursor: string | undefined;
   for (;;) {
     const resp = await client.api("users.list", { limit: 200, cursor });
     const members = asArray(resp.members).filter(isRecord);
+    await indexUsersInCache({
+      workspaceUrl,
+      users: members.map((m) => toCompactUser(m)),
+    });
     const found = members.find((m) => {
       if (getString(m.name)?.toLowerCase() === handleLower) {
         return true;
@@ -130,7 +164,7 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
       if (looksLikeEmail) {
         const profile = isRecord(m.profile) ? m.profile : null;
         const email = profile ? getString(profile.email) : undefined;
-        return Boolean(email) && email?.toLowerCase() === trimmed.toLowerCase();
+        return Boolean(email) && email?.toLowerCase() === emailLower;
       }
       return false;
     });
@@ -148,6 +182,44 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
     cursor = next;
   }
   return null;
+}
+
+export async function warmUserResolutionCache(
+  client: SlackApiClient,
+): Promise<{ users_indexed: number; pages: number }> {
+  const workspaceUrl = clientWorkspaceUrl(client);
+  let cursor: string | undefined;
+  let pages = 0;
+  let usersIndexed = 0;
+  for (;;) {
+    const resp = await client.api("users.list", { limit: 200, cursor });
+    pages += 1;
+    const members = asArray(resp.members).filter(isRecord);
+    const users = members.map((m) => toCompactUser(m));
+    usersIndexed += users.filter((u) => isUserId(u.id)).length;
+    await indexUsersInCache({ workspaceUrl, users });
+    const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
+    const next = meta ? getString(meta.next_cursor) : undefined;
+    if (!next) {
+      break;
+    }
+    cursor = next;
+  }
+  return { users_indexed: usersIndexed, pages };
+}
+
+function clientWorkspaceUrl(client: SlackApiClient): string | undefined {
+  if (typeof client.getWorkspaceUrl === "function") {
+    return client.getWorkspaceUrl();
+  }
+  return undefined;
+}
+
+function isBrowserAuth(client: SlackApiClient): boolean {
+  if (typeof client.getAuthType === "function") {
+    return client.getAuthType() === "browser";
+  }
+  return false;
 }
 
 async function fetchDmMap(client: SlackApiClient): Promise<Map<string, string>> {
@@ -220,24 +292,5 @@ export async function getDmChannelForUsers(
     user_ids: userIds,
     dm_channel_id: channelId,
     channel_type: channelType,
-  };
-}
-
-export function toCompactUser(u: Record<string, unknown>): CompactSlackUser {
-  const profile = isRecord(u.profile) ? u.profile : {};
-  return {
-    id: getString(u.id) ?? "",
-    name: getString(u.name) ?? undefined,
-    real_name: getString(u.real_name) ?? getString(profile.real_name) ?? undefined,
-    display_name: getString(profile.display_name) ?? undefined,
-    email: getString(profile.email) ?? undefined,
-    title: getString(profile.title) ?? undefined,
-    tz: getString(u.tz) ?? undefined,
-    is_bot: typeof u.is_bot === "boolean" ? u.is_bot : undefined,
-    deleted: typeof u.deleted === "boolean" ? u.deleted : undefined,
-    status_text: getString(profile.status_text) ?? undefined,
-    status_emoji: getString(profile.status_emoji) ?? undefined,
-    status_expiration:
-      typeof profile.status_expiration === "number" ? profile.status_expiration : undefined,
   };
 }

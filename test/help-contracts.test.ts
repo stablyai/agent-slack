@@ -112,4 +112,15 @@ describe("agent-facing help contracts", () => {
     expect(dmOpen.registeredArguments[0]?.description).toContain("One to 8 other user");
     expect(dmOpen.registeredArguments[0]?.description).toContain("caller is implicit");
   });
+
+  test("user cache warm and refresh flags document invalidation", () => {
+    const list = findCommand(buildProgram(), "user", "list");
+    expect(optionDescription(list, "--refresh")).toContain("full directory");
+
+    const get = findCommand(buildProgram(), "user", "get");
+    expect(optionDescription(get, "--refresh-users")).toContain("cache");
+
+    const warm = findCommand(buildProgram(), "user", "cache", "warm");
+    expect(warm.description()).toContain("handle/email");
+  });
 });

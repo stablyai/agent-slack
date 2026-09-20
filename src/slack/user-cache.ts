@@ -5,21 +5,29 @@ import { readJsonFile, writeJsonFile } from "../lib/fs.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 import type { SlackApiClient } from "./client.ts";
 import type { SlackMessageSummary } from "./messages.ts";
-import { toCompactUser, type CompactSlackUser } from "./users.ts";
+import { toCompactUser, type CompactSlackUser } from "./compact-user.ts";
 import { isUserId } from "./user-id.ts";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const USER_TTL_MS = 24 * 60 * 60 * 1000;
 const USER_MENTION_PATTERN = /<@([^>|]+)(?:\|[^>]*)?>/g;
+
+export { USER_TTL_MS as USER_CACHE_TTL_MS };
 
 type UserCacheEntry = {
   fetched_at: number;
   user: CompactSlackUser;
 };
 
+type UserAliasEntry = {
+  user_id: string;
+  fetched_at: number;
+};
+
 type UserCacheFile = {
   version: number;
   entries: Record<string, UserCacheEntry>;
+  aliases: Record<string, UserAliasEntry>;
 };
 
 export async function resolveUsersById(input: {
@@ -39,9 +47,7 @@ export async function resolveUsersById(input: {
   const isUnknownWorkspace = workspaceKey === "unknown";
   const cachePath = isUnknownWorkspace ? "" : join(getAppDir(), `users-cache-${workspaceKey}.json`);
 
-  const diskCache = cachePath
-    ? await loadCache(cachePath)
-    : { version: CACHE_VERSION, entries: {} };
+  const diskCache = cachePath ? await loadCache(cachePath) : emptyCache();
   const out = new Map<string, CompactSlackUser>();
   const missing: string[] = [];
 
@@ -71,11 +77,7 @@ export async function resolveUsersById(input: {
       if (!item.user) {
         continue;
       }
-      const entry: UserCacheEntry = {
-        fetched_at: now,
-        user: item.user,
-      };
-      diskCache.entries[item.userId] = entry;
+      upsertUser(diskCache, item.user, now);
       out.set(item.userId, item.user);
       cacheChanged = true;
     }
@@ -83,7 +85,10 @@ export async function resolveUsersById(input: {
 
   if (cachePath) {
     const prunedCache = pruneExpiredEntries(diskCache, now);
-    if (Object.keys(diskCache.entries).length !== Object.keys(prunedCache.entries).length) {
+    if (
+      Object.keys(diskCache.entries).length !== Object.keys(prunedCache.entries).length ||
+      Object.keys(diskCache.aliases).length !== Object.keys(prunedCache.aliases).length
+    ) {
       cacheChanged = true;
     }
 
@@ -93,6 +98,65 @@ export async function resolveUsersById(input: {
   }
 
   return out;
+}
+
+export function userCachePath(workspaceUrl: string): string {
+  const workspaceKey = hashWorkspaceUrl(workspaceUrl);
+  if (workspaceKey === "unknown") {
+    return "";
+  }
+  return join(getAppDir(), `users-cache-${workspaceKey}.json`);
+}
+
+export async function lookupCachedUserId(input: {
+  workspaceUrl?: string;
+  handle?: string;
+  email?: string;
+}): Promise<string | null> {
+  const cachePath = input.workspaceUrl ? userCachePath(input.workspaceUrl) : "";
+  if (!cachePath) {
+    return null;
+  }
+  const now = Date.now();
+  const diskCache = await loadCache(cachePath);
+  for (const key of aliasKeysFromQuery(input)) {
+    const alias = diskCache.aliases[key];
+    if (!alias) {
+      continue;
+    }
+    if (now - alias.fetched_at >= USER_TTL_MS) {
+      continue;
+    }
+    if (isUserId(alias.user_id)) {
+      return alias.user_id;
+    }
+  }
+  return null;
+}
+
+export async function indexUsersInCache(input: {
+  workspaceUrl?: string;
+  users: CompactSlackUser[];
+  fetchedAt?: number;
+}): Promise<void> {
+  const cachePath = input.workspaceUrl ? userCachePath(input.workspaceUrl) : "";
+  if (!cachePath || input.users.length === 0) {
+    return;
+  }
+  const now = input.fetchedAt ?? Date.now();
+  const diskCache = await loadCache(cachePath);
+  let changed = false;
+  for (const user of input.users) {
+    if (!isUserId(user.id)) {
+      continue;
+    }
+    upsertUser(diskCache, user, now);
+    changed = true;
+  }
+  if (!changed) {
+    return;
+  }
+  await writeCache(cachePath, pruneExpiredEntries(diskCache, now));
 }
 
 export function collectReferencedUserIds(
@@ -154,10 +218,14 @@ function hashWorkspaceUrl(workspaceUrl: string): string {
   return createHash("sha256").update(source).digest("hex").slice(0, 16);
 }
 
+function emptyCache(): UserCacheFile {
+  return { version: CACHE_VERSION, entries: {}, aliases: {} };
+}
+
 async function loadCache(path: string): Promise<UserCacheFile> {
   const file = await readJsonFile<UserCacheFile>(path);
-  if (!file || file.version !== CACHE_VERSION || !isRecord(file.entries)) {
-    return { version: CACHE_VERSION, entries: {} };
+  if (!file || !isRecord(file.entries) || (file.version !== 1 && file.version !== CACHE_VERSION)) {
+    return emptyCache();
   }
 
   const entries: Record<string, UserCacheEntry> = {};
@@ -173,9 +241,31 @@ async function loadCache(path: string): Promise<UserCacheFile> {
     entries[userId] = { fetched_at: fetchedAt, user };
   }
 
+  const aliases: Record<string, UserAliasEntry> = {};
+  if (isRecord(file.aliases)) {
+    for (const [alias, rawAlias] of Object.entries(file.aliases)) {
+      if (!isRecord(rawAlias)) {
+        continue;
+      }
+      const userId = getString(rawAlias.user_id);
+      const fetchedAt = typeof rawAlias.fetched_at === "number" ? rawAlias.fetched_at : undefined;
+      if (!userId || !isUserId(userId) || !fetchedAt) {
+        continue;
+      }
+      aliases[alias] = { user_id: userId, fetched_at: fetchedAt };
+    }
+  } else {
+    for (const entry of Object.values(entries)) {
+      for (const key of aliasKeysForUser(entry.user)) {
+        aliases[key] = { user_id: entry.user.id, fetched_at: entry.fetched_at };
+      }
+    }
+  }
+
   return {
     version: CACHE_VERSION,
     entries,
+    aliases,
   };
 }
 
@@ -188,14 +278,60 @@ async function writeCache(path: string, file: UserCacheFile): Promise<void> {
 }
 
 function pruneExpiredEntries(file: UserCacheFile, now: number): UserCacheFile {
-  const next: Record<string, UserCacheEntry> = {};
+  const nextEntries: Record<string, UserCacheEntry> = {};
   for (const [userId, entry] of Object.entries(file.entries)) {
     if (now - entry.fetched_at >= USER_TTL_MS) {
       continue;
     }
-    next[userId] = entry;
+    nextEntries[userId] = entry;
   }
-  return { version: CACHE_VERSION, entries: next };
+  const nextAliases: Record<string, UserAliasEntry> = {};
+  for (const [alias, entry] of Object.entries(file.aliases)) {
+    if (now - entry.fetched_at >= USER_TTL_MS) {
+      continue;
+    }
+    nextAliases[alias] = entry;
+  }
+  return { version: CACHE_VERSION, entries: nextEntries, aliases: nextAliases };
+}
+
+function upsertUser(file: UserCacheFile, user: CompactSlackUser, fetchedAt: number): void {
+  file.entries[user.id] = { fetched_at: fetchedAt, user };
+  const nextKeys = new Set(aliasKeysForUser(user));
+  for (const [alias, entry] of Object.entries(file.aliases)) {
+    if (entry.user_id === user.id && !nextKeys.has(alias)) {
+      delete file.aliases[alias];
+    }
+  }
+  for (const key of nextKeys) {
+    file.aliases[key] = { user_id: user.id, fetched_at: fetchedAt };
+  }
+}
+
+function aliasKeysForUser(user: CompactSlackUser): string[] {
+  const keys: string[] = [];
+  const handle = user.name?.trim().toLowerCase();
+  if (handle) {
+    keys.push(`name:${handle}`);
+  }
+  const email = user.email?.trim().toLowerCase();
+  if (email) {
+    keys.push(`email:${email}`);
+  }
+  return keys;
+}
+
+function aliasKeysFromQuery(input: { handle?: string; email?: string }): string[] {
+  const keys: string[] = [];
+  const handle = input.handle?.trim().replace(/^@/, "").toLowerCase();
+  if (handle) {
+    keys.push(`name:${handle}`);
+  }
+  const email = input.email?.trim().toLowerCase();
+  if (email) {
+    keys.push(`email:${email}`);
+  }
+  return keys;
 }
 
 async function fetchUserById(

@@ -1,7 +1,8 @@
 import type { SlackApiClient } from "./client.ts";
 import { normalizeChannelInput } from "./channels.ts";
-import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
+import { getString, isRecord } from "../lib/object-type-guards.ts";
 import { isUserId } from "./user-id.ts";
+import { resolveUserId as resolveDirectoryUserId } from "./users.ts";
 
 export async function buildSlackSearchQuery(
   client: SlackApiClient,
@@ -115,35 +116,5 @@ export async function resolveUserId(
   client: SlackApiClient,
   input: string,
 ): Promise<string | undefined> {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  if (isUserId(trimmed)) {
-    return trimmed;
-  }
-  const name = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
-
-  let cursor: string | undefined;
-  for (;;) {
-    const resp = await client.api("users.list", { limit: 200, cursor });
-    const members = isRecord(resp) ? asArray(resp.members).filter(isRecord) : [];
-    const found = members.find((m) => {
-      const mName = getString(m.name);
-      const profile = isRecord(m.profile) ? m.profile : null;
-      const display = profile ? getString(profile.display_name) : undefined;
-      return mName === name || display === name;
-    });
-    const foundId = found ? getString(found.id) : undefined;
-    if (foundId) {
-      return foundId;
-    }
-    const meta = isRecord(resp) ? resp.response_metadata : null;
-    const next = isRecord(meta) ? getString(meta.next_cursor) : undefined;
-    if (!next) {
-      break;
-    }
-    cursor = next;
-  }
-  return undefined;
+  return (await resolveDirectoryUserId(client, input)) ?? undefined;
 }

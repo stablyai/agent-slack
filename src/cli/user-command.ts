@@ -1,7 +1,12 @@
 import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
-import { getDmChannelForUsers, getUser, listUsers } from "../slack/users.ts";
+import {
+  getDmChannelForUsers,
+  getUser,
+  listUsers,
+  warmUserResolutionCache,
+} from "../slack/users.ts";
 
 export function registerUserCommand(input: { program: Command; ctx: CliContext }): void {
   const userCmd = input.program.command("user").description("Workspace user directory");
@@ -16,9 +21,19 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
     .option("--limit <n>", "Max users (default 200)", "200")
     .option("--cursor <cursor>", "Pagination cursor")
     .option("--include-bots", "Include bot users")
+    .option(
+      "--refresh",
+      "Rebuild the handle/email → user-id cache from the full directory (still returns --limit users)",
+    )
     .action(async (...args) => {
       const [options] = args as [
-        { workspace?: string; limit: string; cursor?: string; includeBots?: boolean },
+        {
+          workspace?: string;
+          limit: string;
+          cursor?: string;
+          includeBots?: boolean;
+          refresh?: boolean;
+        },
       ];
       try {
         const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
@@ -31,6 +46,7 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
               limit,
               cursor: options.cursor,
               includeBots: Boolean(options.includeBots),
+              refresh: Boolean(options.refresh),
             });
           },
         });
@@ -44,20 +60,23 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
   userCmd
     .command("get")
     .description("Get a single workspace user")
-    .argument("<user>", "User ID (U.../W...) or @handle/handle")
+    .argument("<user>", "User ID (U.../W...) or @handle/handle/email")
     .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
     )
+    .option("--refresh-users", "Bypass the handle/email → user-id cache and refresh it from Slack")
     .action(async (...args) => {
-      const [user, options] = args as [string, { workspace?: string }];
+      const [user, options] = args as [string, { workspace?: string; refreshUsers?: boolean }];
       try {
         const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
         const payload = await input.ctx.withAutoRefresh({
           workspaceUrl,
           work: async () => {
             const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
-            return await getUser(client, user);
+            return await getUser(client, user, {
+              forceRefresh: Boolean(options.refreshUsers),
+            });
           },
         });
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));
@@ -81,6 +100,33 @@ export function registerUserCommand(input: { program: Command; ctx: CliContext }
           work: async () => {
             const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
             return await getDmChannelForUsers(client, users);
+          },
+        });
+        console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  userCmd
+    .command("cache")
+    .description("Local per-workspace user resolution cache")
+    .command("warm")
+    .description("Prime the handle/email → user-id cache from the full directory")
+    .option(
+      "--workspace <url>",
+      "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
+    )
+    .action(async (...args) => {
+      const [options] = args as [{ workspace?: string }];
+      try {
+        const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
+        const payload = await input.ctx.withAutoRefresh({
+          workspaceUrl,
+          work: async () => {
+            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            return await warmUserResolutionCache(client);
           },
         });
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));

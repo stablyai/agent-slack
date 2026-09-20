@@ -86,6 +86,14 @@ export class SlackApiClient {
     }
   }
 
+  getAuthType(): SlackAuth["auth_type"] {
+    return this.auth.auth_type;
+  }
+
+  getWorkspaceUrl(): string | undefined {
+    return this.workspaceUrl;
+  }
+
   /**
    * Call a Slack API method using multipart/form-data encoding.
    * Some internal Slack APIs (e.g. saved.update) require multipart encoding

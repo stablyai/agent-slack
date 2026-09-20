@@ -96,8 +96,10 @@ agent-slack
 │   ├── new                         # create channel
 │   └── invite                      # invite users to channel
 ├── user
-│   ├── list
-│   └── get <user>
+│   ├── list                       # --refresh indexes the full directory
+│   ├── get <user>
+│   ├── dm-open <users...>
+│   └── cache warm                 # prime handle/email → user-id cache
 ├── search
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
@@ -474,13 +476,25 @@ Tips:
 
 Treat Slack user IDs beginning with `U` or `W` equivalently.
 
+Handle and email lookups (`user get`, `user dm-open`, `channel invite`, `search --user`) use a per-workspace reverse index stored alongside the id→profile cache:
+
+- Path: `$XDG_RUNTIME_DIR/agent-slack/users-cache-<sha256(hostname)[:16]>.json` when `XDG_RUNTIME_DIR` is set, otherwise `~/.agent-slack/users-cache-<sha256(hostname)[:16]>.json`
+- TTL: 24 hours. Expired aliases and profiles are ignored and pruned on write.
+- Warm: ordinary `users.list` / `users.info` traffic writes through the index. Prime the whole directory once with `agent-slack user cache warm` or `agent-slack user list --refresh`.
+- Invalidate: `user get --refresh-users` (and `--refresh-users` on message/search reads) bypasses TTL and refreshes from Slack. Browser (`xoxc`) auth never calls `users.lookupByEmail`.
+
 ```bash
 # List users (email requires appropriate Slack scopes; fields are pruned if missing)
 agent-slack user list --workspace "https://workspace.slack.com" --limit 200 | jq .
 
+# Prime handle/email → user-id resolution so later `user get @handle` skips users.list
+agent-slack user cache warm --workspace "https://workspace.slack.com"
+agent-slack user list --refresh --workspace "https://workspace.slack.com"
+
 # Get one user by id or handle
 agent-slack user get U12345678 --workspace "https://workspace.slack.com" | jq .
 agent-slack user get "@alice" --workspace "https://workspace.slack.com" | jq .
+agent-slack user get "@alice" --refresh-users --workspace "https://workspace.slack.com" | jq .
 
 # Open a DM or group DM with one to eight other users (the caller is implicit)
 agent-slack user dm-open "@alice" "@bob" --workspace "https://workspace.slack.com" | jq .
