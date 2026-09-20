@@ -137,7 +137,10 @@ agent-slack auth test
 ```
 
 > [!NOTE]
-> `import-brave` / `import-chrome` read tokens from a logged-in Slack tab via AppleScript. Both browsers ship with **Allow JavaScript from Apple Events** disabled by default — enable it in **View → Developer** before running these commands. macOS will prompt for your password the first time.
+> `import-brave` / `import-chrome` read tokens from a logged-in Slack tab via AppleScript. Both browsers ship with **Allow JavaScript from Apple Events** disabled by default — enable it in **View → Developer** before running these commands. macOS will prompt for your password the first time. The first run also needs Automation consent for your terminal (**System Settings → Privacy & Security → Automation**) and access to the browser's `Safe Storage` keychain entry, which holds the key for the HttpOnly `d` cookie.
+
+> [!NOTE]
+> Tokens are stored per workspace URL. On Enterprise Grid, import from a tab on the **workspace** URL (`https://<workspace>.slack.com`) rather than the org shell (`https://<org>.enterprise.slack.com`) so the stored entry matches the workspace you query. `agent-slack auth whoami` lists what each entry is keyed to.
 
 Alternatively, set env vars:
 

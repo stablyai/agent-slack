@@ -78,16 +78,18 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     .description("Import xoxc/xoxd from a logged-in Slack tab in Google Chrome (macOS)")
     .action(async () => {
       try {
-        const extracted = input.ctx.importChrome();
+        const extracted = await input.ctx.importChrome();
         if (!extracted) {
           throw new Error(
             "Could not extract tokens from Chrome. Open Slack in Chrome and ensure you're logged in.",
           );
         }
 
+        const importedUrls: string[] = [];
         for (const team of extracted.teams) {
+          const workspaceUrl = input.ctx.normalizeUrl(team.url);
           await upsertWorkspace({
-            workspace_url: input.ctx.normalizeUrl(team.url),
+            workspace_url: workspaceUrl,
             workspace_name: team.name,
             auth: {
               auth_type: "browser",
@@ -95,8 +97,13 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
               xoxd_cookie: extracted.cookie_d,
             },
           });
+          importedUrls.push(workspaceUrl);
         }
-        console.log(`Imported ${extracted.teams.length} workspace token(s) from Chrome.`);
+        // Print the URLs: tokens are keyed by workspace URL, and on Enterprise
+        // Grid an enterprise-scoped entry cannot serve workspace endpoints.
+        console.log(
+          `Imported ${extracted.teams.length} workspace token(s) from Chrome:\n  - ${importedUrls.join("\n  - ")}`,
+        );
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
         process.exitCode = 1;

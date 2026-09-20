@@ -140,9 +140,15 @@ export async function getClientForWorkspace(workspaceUrl?: string): Promise<{
     cookie_d: string;
     teams: { url: string; name?: string; token: string }[];
   }[] = [];
-  const chromeResult = extractFromChrome();
-  if (chromeResult && chromeResult.teams.length > 0) {
-    browserSources.push(chromeResult);
+  try {
+    const chromeResult = await extractFromChrome();
+    if (chromeResult && chromeResult.teams.length > 0) {
+      browserSources.push(chromeResult);
+    }
+  } catch {
+    // Chrome is an opportunistic fallback here: its setup errors (no Slack tab,
+    // Apple Events disabled, App-Bound Encryption) are actionable only for the
+    // explicit `auth import-chrome` command, not for every read command.
   }
   try {
     const braveResult = await extractFromBrave();
