@@ -1,4 +1,5 @@
 import type { SlackApiClient } from "./client.ts";
+import { isTeamRestrictedError } from "./api-errors.ts";
 import { renderSlackMessageContent } from "./render.ts";
 
 export type LaterItem = {
@@ -46,10 +47,23 @@ export async function fetchLaterItems(
   let nextCursor: string | undefined;
 
   while (true) {
-    const resp = await client.api("saved.list", {
-      limit: 50,
-      cursor: currentCursor,
-    });
+    let resp: Record<string, unknown>;
+    try {
+      resp = await client.api("saved.list", {
+        limit: 50,
+        cursor: currentCursor,
+      });
+    } catch (err) {
+      if (!isTeamRestrictedError(err) || currentCursor) {
+        throw err;
+      }
+      return fetchLaterItemsViaSearch(client, {
+        stateFilter,
+        limit,
+        maxBodyChars,
+        countsOnly,
+      });
+    }
 
     if (!currentCursor) {
       counts = isRecord(resp.counts) ? resp.counts : {};
@@ -193,6 +207,83 @@ export async function fetchLaterItems(
   );
 
   return result;
+}
+
+async function fetchLaterItemsViaSearch(
+  client: SlackApiClient,
+  options: {
+    stateFilter: "in_progress" | "archived" | "completed" | "all";
+    limit: number;
+    maxBodyChars: number;
+    countsOnly: boolean;
+  },
+): Promise<{
+  counts: {
+    in_progress: number;
+    archived: number;
+    completed: number;
+    total: number;
+  };
+  items: LaterItem[];
+  next_cursor?: string;
+}> {
+  const resp = await client.api("search.messages", {
+    query: "is:saved",
+    count: Math.min(Math.max(options.limit, 1), 100),
+    sort: "timestamp",
+    sort_dir: "desc",
+  });
+
+  const messages = isRecord(resp.messages) ? resp.messages : null;
+  const total = getNumber(messages?.total) ?? asArray(messages?.matches).length;
+  const counts = {
+    in_progress: total,
+    archived: 0,
+    completed: 0,
+    total,
+  };
+
+  if (
+    options.countsOnly ||
+    options.stateFilter === "archived" ||
+    options.stateFilter === "completed"
+  ) {
+    return { counts, items: [] };
+  }
+
+  const matches = messages ? asArray(messages.matches).filter(isRecord) : [];
+  const items: LaterItem[] = matches.slice(0, options.limit).map((match) => {
+    const channel = isRecord(match.channel) ? match.channel : null;
+    const rendered = renderSlackMessageContent(match);
+    const content =
+      options.maxBodyChars >= 0 && rendered.length > options.maxBodyChars
+        ? `${rendered.slice(0, options.maxBodyChars)}\n…`
+        : rendered;
+    const ts = getString(match.ts) ?? "";
+    return {
+      channel_id: channel ? (getString(channel.id) ?? "") : "",
+      channel_name: channel
+        ? (getString(channel.name) ?? getString(channel.name_normalized) ?? undefined)
+        : undefined,
+      ts,
+      state: "in_progress",
+      date_saved: ts ? Math.floor(Number.parseFloat(ts)) || 0 : 0,
+      message: {
+        author:
+          getString(match.user) || getString(match.bot_id)
+            ? {
+                user_id: getString(match.user) ?? undefined,
+                bot_id: getString(match.bot_id) ?? undefined,
+              }
+            : undefined,
+        content: content || undefined,
+        thread_ts: getString(match.thread_ts) ?? undefined,
+        reply_count: getNumber(match.reply_count) ?? undefined,
+      },
+    };
+  });
+
+  return { counts, items };
 }
 
 /**

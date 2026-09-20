@@ -525,7 +525,12 @@ Output includes channels sorted by mention count, then unread count:
 }
 ```
 
-Note: This feature uses the `client.counts` API which may be restricted in some Enterprise Grid workspaces (`team_is_restricted` error).
+Unreads prefer a single `client.counts` call. On Enterprise Grids where that method returns `team_is_restricted`, the CLI falls back automatically:
+
+- DMs / group DMs: `client.dms` with `count` 50 (the 50 most recently active conversations), then one `conversations.info` per id to compare `last_read` against the latest message ts. This stays bounded and does not walk the full IM list.
+- Channels: `users.conversations` (public/private, max 50, newest `updated` first when Slack provides it), then `conversations.info` plus `conversations.history` (limit 1, or since `last_read` when fetching bodies).
+- Thread unreads are omitted on the fallback path because they come from `client.counts`.
+- `channel list --via-counts` and `later list` use the same `team_is_restricted` trigger: channels fall back to `users.conversations`, Later falls back to `search.messages` with `is:saved`.
 
 ### Later (saved messages)
 
@@ -537,6 +542,8 @@ agent-slack later list
 
 # Show only counts per state
 agent-slack later list --counts-only
+
+# On grids where saved.list is team_is_restricted, later list falls back to search is:saved
 
 # Filter by state: in_progress, completed, archived, all
 agent-slack later list --state completed

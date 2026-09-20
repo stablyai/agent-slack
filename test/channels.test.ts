@@ -192,4 +192,42 @@ describe("conversations list helpers", () => {
     expect(infoCalls).toHaveLength(2);
     expect(page.channels.map((c) => c.id)).toEqual(["C1", "C2"]);
   });
+
+  test("listConversationsViaCounts falls back to users.conversations on team_is_restricted", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown>) => {
+        calls.push({ method, params });
+        if (method === "client.counts") {
+          throw new Error("team_is_restricted");
+        }
+        if (method === "users.conversations") {
+          return {
+            channels: [{ id: "C9", name: "fallback" }],
+            response_metadata: { next_cursor: "" },
+          };
+        }
+        throw new Error(`unexpected method: ${method}`);
+      },
+    } as unknown as SlackApiClient;
+
+    const page = await listConversationsViaCounts(client, { limit: 25 });
+    expect(calls[0]?.method).toBe("client.counts");
+    expect(calls[1]?.method).toBe("users.conversations");
+    expect(calls[1]?.params.limit).toBe(25);
+    expect(page.channels).toEqual([{ id: "C9", name: "fallback" }]);
+  });
+
+  test("listConversationsViaCounts does not fall back on other errors", async () => {
+    const client = {
+      api: async (method: string) => {
+        if (method === "client.counts") {
+          throw new Error("fatal_error");
+        }
+        throw new Error(`unexpected method: ${method}`);
+      },
+    } as unknown as SlackApiClient;
+
+    await expect(listConversationsViaCounts(client, { limit: 10 })).rejects.toThrow("fatal_error");
+  });
 });

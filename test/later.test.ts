@@ -287,6 +287,66 @@ describe("fetchLaterItems", () => {
 
     expect(result.items[0]?.message?.content?.length).toBeLessThanOrEqual(103); // 100 + "\n…"
   });
+
+  test("falls back to search is:saved when saved.list is team_is_restricted", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const client = {
+      api: async (method: string, params: Record<string, unknown> = {}) => {
+        calls.push({ method, params });
+        if (method === "saved.list") {
+          throw new Error("team_is_restricted");
+        }
+        if (method === "search.messages") {
+          return {
+            messages: {
+              total: 2,
+              matches: [
+                {
+                  ts: "9.1",
+                  text: "remember this",
+                  user: "U1",
+                  channel: { id: "C9", name: "later-channel" },
+                },
+              ],
+            },
+          };
+        }
+        throw new Error(`unexpected ${method}`);
+      },
+      apiMultipart: async () => ({ ok: true }),
+    } as unknown as SlackApiClient;
+
+    const result = await fetchLaterItems(client, { limit: 20 });
+
+    expect(calls[0]?.method).toBe("saved.list");
+    expect(calls[1]?.method).toBe("search.messages");
+    expect(calls[1]?.params.query).toBe("is:saved");
+    expect(result.counts.total).toBe(2);
+    expect(result.counts.in_progress).toBe(2);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.channel_id).toBe("C9");
+    expect(result.items[0]?.channel_name).toBe("later-channel");
+    expect(result.items[0]?.message?.content).toBe("remember this");
+  });
+
+  test("counts-only fallback still returns a usable payload on team_is_restricted", async () => {
+    const client = {
+      api: async (method: string) => {
+        if (method === "saved.list") {
+          throw new Error("team_is_restricted");
+        }
+        if (method === "search.messages") {
+          return { messages: { total: 4, matches: [] } };
+        }
+        throw new Error(`unexpected ${method}`);
+      },
+      apiMultipart: async () => ({ ok: true }),
+    } as unknown as SlackApiClient;
+
+    const result = await fetchLaterItems(client, { countsOnly: true });
+    expect(result.items).toHaveLength(0);
+    expect(result.counts.total).toBe(4);
+  });
 });
 
 describe("updateLaterMark", () => {

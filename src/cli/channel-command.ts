@@ -43,7 +43,7 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     .option("--all", "List all conversations (conversations.list); incompatible with --user")
     .option(
       "--via-counts",
-      "List joined conversations via client.counts (works on Enterprise Grid where users.conversations/conversations.list are restricted for browser tokens; incompatible with --all/--user)",
+      "List joined conversations via client.counts (or users.conversations when client.counts is team_is_restricted); incompatible with --all/--user",
     )
     .option("--limit <n>", "Max conversations in one page (default 100)", "100")
     .option("--cursor <cursor>", "Pagination cursor for the next page")

@@ -1,5 +1,6 @@
 import type { SlackApiClient } from "./client.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
+import { isTeamRestrictedError } from "./api-errors.ts";
 
 const DEFAULT_CONVERSATION_TYPES = "public_channel,private_channel,im,mpim";
 
@@ -191,6 +192,10 @@ export async function listAllConversations(
  * (`client.counts` returns everything at once and is sliced to `limit`
  * locally), `--cursor` is not supported, and only the current user's
  * conversations are available (`--user` is not supported).
+ *
+ * When `client.counts` returns `team_is_restricted` (org-level block on some
+ * Enterprise Grids), this falls back to `users.conversations`, which remains
+ * available on those same grids.
  */
 export async function listConversationsViaCounts(
   client: SlackApiClient,
@@ -198,9 +203,17 @@ export async function listConversationsViaCounts(
 ): Promise<ConversationsPage> {
   const limit = normalizeConversationsLimit(options?.limit);
 
-  const resp = await client.api("client.counts", {
-    thread_count_by_channel: true,
-  });
+  let resp: Record<string, unknown>;
+  try {
+    resp = await client.api("client.counts", {
+      thread_count_by_channel: true,
+    });
+  } catch (err) {
+    if (!isTeamRestrictedError(err)) {
+      throw err;
+    }
+    return listUserConversations(client, { limit, excludeArchived: true });
+  }
 
   const entries = [
     ...asArray(resp.channels).filter(isRecord),
