@@ -6,3 +6,14 @@ export function warnOnTruncatedSlackUrl(ref: { possiblyTruncated?: boolean }): v
     );
   }
 }
+
+const MARKDOWN_LINK_RE = /(^|[^!\\])\[[^\]\n]+\]\((?:https?:\/\/|mailto:)[^\s)]+/i;
+
+/** Warn when message text appears to use unsupported Markdown link syntax. */
+export function warnOnMarkdownLinkSyntax(text: string): void {
+  if (MARKDOWN_LINK_RE.test(text)) {
+    process.stderr.write(
+      "Warning: Markdown-style links are not converted. Use Slack link syntax: <https://example.com|label>.\n",
+    );
+  }
+}

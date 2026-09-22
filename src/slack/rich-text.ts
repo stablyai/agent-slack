@@ -42,12 +42,13 @@ const BLOCKQUOTE_RE = /^> (.*)$/;
 /**
  * Parse mrkdwn inline formatting into Slack rich_text inline elements.
  *
- * Handles: *bold*, _italic_, ~strike~, `code`, :emoji:, <url|label>, <url>
+ * Handles: *bold*, _italic_, ~strike~, `code`, :emoji:, <url|label>, <url>,
+ * and bare HTTP(S) URLs.
  */
 export function parseInlineElements(text: string): InlineElement[] {
   const elements: InlineElement[] = [];
   const re =
-    /`([^`]+)`|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
+    /`([^`]+)`|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?<!\]\()([Hh][Tt][Tt][Pp][Ss]?:\/\/[^\s<>]+)|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -76,6 +77,7 @@ export function parseInlineElements(text: string): InlineElement[] {
       linkUrl,
       linkText,
       bareUrl,
+      plainUrl,
       bareUserId,
       bareBroadcast,
     ] = match;
@@ -108,6 +110,10 @@ export function parseInlineElements(text: string): InlineElement[] {
       elements.push({ type: "link", url: bareUrl });
     } else if (bareUrl != null) {
       elements.push({ type: "text", text: `<${bareUrl}>` });
+    } else if (plainUrl != null) {
+      const { url, trailingText } = splitBareUrlTrailingText(plainUrl);
+      elements.push({ type: "link", url });
+      pushText(trailingText);
     } else if (bareUserId != null) {
       elements.push({ type: "user", user_id: bareUserId });
     } else if (bareBroadcast != null) {
@@ -129,6 +135,37 @@ export function parseInlineElements(text: string): InlineElement[] {
 
 function isSlackManualLinkUrl(value: string): boolean {
   return /^(?:https?:\/\/|mailto:)/i.test(value);
+}
+
+function splitBareUrlTrailingText(value: string): { url: string; trailingText: string } {
+  let urlEnd = value.length;
+
+  while (urlEnd > 0) {
+    const candidate = value.slice(0, urlEnd);
+    const lastCharacter = candidate.at(-1)!;
+    if (/[.,!?;:]/.test(lastCharacter)) {
+      urlEnd--;
+      continue;
+    }
+
+    const openingCharacter = ({ ")": "(", "]": "[", "}": "{" } as const)[lastCharacter];
+    if (openingCharacter != null) {
+      const openingCount = countCharacter(candidate, openingCharacter);
+      const closingCount = countCharacter(candidate, lastCharacter);
+      if (closingCount > openingCount) {
+        urlEnd--;
+        continue;
+      }
+    }
+
+    break;
+  }
+
+  return { url: value.slice(0, urlEnd), trailingText: value.slice(urlEnd) };
+}
+
+function countCharacter(value: string, character: string): number {
+  return value.split(character).length - 1;
 }
 
 /**

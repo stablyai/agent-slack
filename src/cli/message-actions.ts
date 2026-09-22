@@ -4,7 +4,7 @@ import { fetchMessage } from "../slack/messages.ts";
 import { parseMsgTarget } from "./targets.ts";
 import { resolveChannelId, openDmChannel } from "../slack/channels.ts";
 import { normalizeSlackReactionName } from "../slack/emoji.ts";
-import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
+import { warnOnMarkdownLinkSyntax, warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { textToRichTextBlocks } from "../slack/rich-text.ts";
 import { formatOutboundSlackText } from "../slack/format-outbound.ts";
 import type { SlackApiClient } from "../slack/client.ts";
@@ -135,6 +135,7 @@ export async function sendMessage(input: {
       "--no-unfurl cannot be combined with --attach (Slack file uploads do not accept unfurl parameters).",
     );
   }
+  warnOnMarkdownLinkSyntax(input.text);
   const formattedText = formatOutboundSlackText(input.text);
   const blocks = input.options.blocks
     ? loadBlocksFromPath(input.options.blocks)
@@ -332,6 +333,7 @@ export async function editMessage(input: {
     );
   }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
+  warnOnMarkdownLinkSyntax(input.text);
   const formattedText = formatOutboundSlackText(input.text);
   const blocks = input.options.blocks
     ? loadBlocksFromPath(input.options.blocks)

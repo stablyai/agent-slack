@@ -1,6 +1,6 @@
 import type { CliContext } from "./context.ts";
 import { parseMsgTarget, type MsgTarget } from "./targets.ts";
-import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
+import { warnOnMarkdownLinkSyntax, warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { normalizeChannelInput, openDmChannel, resolveChannelId } from "../slack/channels.ts";
 import type { SlackApiClient } from "../slack/client.ts";
 import {
@@ -42,6 +42,7 @@ export async function createDraftAction(input: {
   text: string;
   options: { workspace?: string; threadTs?: string; broadcast?: boolean; attach?: string[] };
 }): Promise<Record<string, unknown>> {
+  warnOnMarkdownLinkSyntax(input.text);
   const target = parseMsgTarget(String(input.targetInput));
   const workspaceUrl =
     target.kind === "url"
@@ -115,6 +116,7 @@ export async function updateDraftAction(input: {
     attach?: string[];
   };
 }): Promise<Record<string, unknown>> {
+  warnOnMarkdownLinkSyntax(input.text);
   const channelTarget = input.options.channel
     ? parseMsgTarget(String(input.options.channel))
     : undefined;

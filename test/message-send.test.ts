@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -592,6 +592,65 @@ describe("sendMessage", () => {
                   { type: "text", text: "Review " },
                   { type: "link", url: "https://example.com/pull/42", text: "PR #42" },
                 ],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+
+  test("warns about Markdown-style links without rewriting them", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const stderr = spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "Review [PR #42](https://example.com/pull/42)",
+        options: {},
+      });
+
+      expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Slack link syntax"));
+      expect(calls[0]?.params.text).toBe("Review [PR #42](https://example.com/pull/42)");
+      expect(calls[0]?.params.blocks).toBeUndefined();
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
+  test("sends bare URLs in lists as rich-text link blocks", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "I got another PR in: https://example.com/pull/42\n\n- Passenger one",
+      options: {},
+    });
+
+    expect(calls[0]?.params.blocks).toEqual([
+      {
+        type: "rich_text",
+        elements: [
+          {
+            type: "rich_text_section",
+            elements: [
+              { type: "text", text: "I got another PR in: " },
+              { type: "link", url: "https://example.com/pull/42" },
+              { type: "text", text: "\n" },
+            ],
+          },
+          {
+            type: "rich_text_list",
+            style: "bullet",
+            elements: [
+              {
+                type: "rich_text_section",
+                elements: [{ type: "text", text: "Passenger one" }],
               },
             ],
           },

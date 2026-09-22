@@ -74,6 +74,29 @@ describe("parseInlineElements", () => {
     ]);
   });
 
+  test("bare URLs are parsed as links", () => {
+    expect(parseInlineElements("Visit https://example.com/docs")).toEqual([
+      { type: "text", text: "Visit " },
+      { type: "link", url: "https://example.com/docs" },
+    ]);
+  });
+
+  test("bare URL punctuation and unmatched closing delimiters remain text", () => {
+    expect(parseInlineElements("See (https://example.com/docs), then continue.")).toEqual([
+      { type: "text", text: "See (" },
+      { type: "link", url: "https://example.com/docs" },
+      { type: "text", text: ")," },
+      { type: "text", text: " then continue." },
+    ]);
+  });
+
+  test("bare URLs inside code remain code", () => {
+    expect(parseInlineElements("Run `curl https://example.com/docs`")).toEqual([
+      { type: "text", text: "Run " },
+      { type: "text", text: "curl https://example.com/docs", style: { code: true } },
+    ]);
+  });
+
   test("non-url angle bracket text is preserved as text", () => {
     expect(parseInlineElements("Use <fix>")).toEqual([
       { type: "text", text: "Use " },
@@ -269,9 +292,9 @@ describe("textToRichTextBlocks", () => {
     ]);
   });
 
-  test("Slack manual links and CommonMark links remain distinct in list items", () => {
+  test("Slack manual, CommonMark, and bare links remain distinct in list items", () => {
     const result = textToRichTextBlocks(
-      "- Review <https://example.com/pull/42|PR #42>\n- Review [PR #43](https://example.com/pull/43)",
+      "- Review <https://example.com/pull/42|PR #42>\n- Review [PR #43](https://example.com/pull/43)\n- Review https://example.com/pull/44",
     )!;
     const list = result[0]!.elements.find((e) => e.type === "rich_text_list") as {
       elements: { elements: unknown[] }[];
@@ -282,6 +305,10 @@ describe("textToRichTextBlocks", () => {
     ]);
     expect(list.elements[1]!.elements).toEqual([
       { type: "text", text: "Review [PR #43](https://example.com/pull/43)" },
+    ]);
+    expect(list.elements[2]!.elements).toEqual([
+      { type: "text", text: "Review " },
+      { type: "link", url: "https://example.com/pull/44" },
     ]);
   });
 
