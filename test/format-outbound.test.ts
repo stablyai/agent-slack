@@ -28,6 +28,34 @@ describe("formatOutboundSlackText", () => {
     );
   });
 
+  test("rewrites CommonMark links as Slack manual links", () => {
+    expect(formatOutboundSlackText("see [PR #42](https://example.com/pull/42)")).toBe(
+      "see <https://example.com/pull/42|PR #42>",
+    );
+    expect(formatOutboundSlackText("mail [Bob](mailto:bob@example.com)")).toBe(
+      "mail <mailto:bob@example.com|Bob>",
+    );
+    expect(formatOutboundSlackText("[a <b> & c](https://example.com)")).toBe(
+      "<https://example.com|a &lt;b&gt; &amp; c>",
+    );
+  });
+
+  test("preserves balanced parentheses inside a CommonMark link URL", () => {
+    expect(formatOutboundSlackText("See [Foo](https://en.wikipedia.org/wiki/Foo_(bar)) now")).toBe(
+      "See <https://en.wikipedia.org/wiki/Foo_(bar)|Foo> now",
+    );
+  });
+
+  test("leaves CommonMark link syntax in code and non-http targets alone", () => {
+    expect(formatOutboundSlackText("run `[x](https://example.com)`")).toBe(
+      "run `[x](https://example.com)`",
+    );
+    expect(formatOutboundSlackText("```\n[x](https://example.com)\n```")).toBe(
+      "```\n[x](https://example.com)\n```",
+    );
+    expect(formatOutboundSlackText("see [notes](./notes.md)")).toBe("see [notes](./notes.md)");
+  });
+
   test("escapes bare < > & in literal text", () => {
     expect(formatOutboundSlackText("a < b && c > d")).toBe("a &lt; b &amp;&amp; c &gt; d");
   });

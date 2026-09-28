@@ -42,12 +42,13 @@ const BLOCKQUOTE_RE = /^> (.*)$/;
 /**
  * Parse mrkdwn inline formatting into Slack rich_text inline elements.
  *
- * Handles: *bold*, _italic_, ~strike~, `code`, :emoji:, <url|label>, <url>
+ * Handles: *bold*, _italic_, ~strike~, `code`, :emoji:, <url|label>, <url>,
+ * and CommonMark [label](url) links
  */
 export function parseInlineElements(text: string): InlineElement[] {
   const elements: InlineElement[] = [];
   const re =
-    /`([^`]+)`|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
+    /`([^`]+)`|\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)(?:\([^\s()]*\)|[^\s()])*)\)|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -65,6 +66,8 @@ export function parseInlineElements(text: string): InlineElement[] {
     const [
       ,
       code,
+      mdLinkText,
+      mdLinkUrl,
       emojiName,
       bold,
       italic,
@@ -81,6 +84,8 @@ export function parseInlineElements(text: string): InlineElement[] {
     ] = match;
     if (code != null) {
       elements.push({ type: "text", text: code, style: { code: true } });
+    } else if (mdLinkText != null && mdLinkUrl != null) {
+      elements.push({ type: "link", url: mdLinkUrl, text: mdLinkText });
     } else if (emojiName != null) {
       elements.push({ type: "emoji", name: emojiName });
     } else if (bold != null) {

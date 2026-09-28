@@ -333,10 +333,13 @@ export async function editMessage(input: {
   }
   const workspaceUrl = input.ctx.effectiveWorkspaceUrl(input.options.workspace);
   const formattedText = formatOutboundSlackText(input.text);
+  // Unlike chat.postMessage, chat.update escapes `<` and `>` in `text` when
+  // no blocks are given, so `<url|label>` and `<@U123>` render literally.
+  // Sending rich_text blocks whenever inline formatting is present avoids that.
   const blocks = input.options.blocks
     ? loadBlocksFromPath(input.options.blocks)
     : input.text
-      ? textToRichTextBlocks(input.text)
+      ? textToRichTextBlocks(input.text, { includeInlineFormatting: true })
       : null;
 
   await input.ctx.withAutoRefresh({

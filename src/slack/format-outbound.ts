@@ -7,18 +7,26 @@
  *    usergroup mentions as `<!subteam^S123>`, and broadcast mentions as
  *    `<!here>` / `<!channel>` / `<!everyone>`
  *
- * Humans (and LLMs piping text into the CLI) commonly write `@U123` and
- * raw `&`/`<`/`>` — this helper normalizes that to what Slack expects,
- * while leaving already-well-formed Slack tokens intact.
+ * Humans (and LLMs piping text into the CLI) commonly write `@U123`,
+ * CommonMark `[label](url)` links and raw `&`/`<`/`>` — this helper
+ * normalizes that to what Slack expects, while leaving already-well-formed
+ * Slack tokens intact.
  */
 export function formatOutboundSlackText(text: string): string {
   if (!text) {
     return "";
   }
 
+  // Rewrite CommonMark links as Slack manual links, leaving code untouched.
+  let out = text.replace(
+    /```[\s\S]*?```|`[^`\n]+`|\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)(?:\([^\s()]*\)|[^\s()])*)\)/g,
+    (m, label?: string, url?: string) =>
+      label != null && url != null ? `<${url}|${escapeMrkdwn(label)}>` : m,
+  );
+
   // Protect already-formatted Slack tokens so `<`/`>` inside them aren't escaped.
   const stash: string[] = [];
-  let out = text.replace(
+  out = out.replace(
     /<(?:@[UWB][A-Z0-9]+(?:\|[^>]*)?|#[CG][A-Z0-9]+(?:\|[^>]*)?|!subteam\^[A-Z0-9]+(?:\|[^>]*)?|![a-zA-Z]+(?:\|[^>]*)?|(?:https?:\/\/|mailto:)[^>]+)>/g,
     (m) => {
       stash.push(m);
@@ -27,7 +35,7 @@ export function formatOutboundSlackText(text: string): string {
   );
 
   // Escape literal HTML-ish characters per Slack's mrkdwn rules.
-  out = out.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  out = escapeMrkdwn(out);
 
   // Promote bare user IDs (`@U05BRPTKL6A`) to real mentions.
   out = out.replace(/(^|[^A-Za-z0-9_])@([UWB][A-Z0-9]{6,})\b/g, (_m, pre, id) => `${pre}<@${id}>`);
@@ -42,4 +50,8 @@ export function formatOutboundSlackText(text: string): string {
   out = out.replace(/\u0000(\d+)\u0000/g, (_m, idx) => stash[Number(idx)]!);
 
   return out;
+}
+
+function escapeMrkdwn(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
