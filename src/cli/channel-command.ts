@@ -16,7 +16,7 @@ import {
   splitEmailsFromInviteTargets,
 } from "../slack/channel-admin.ts";
 import { resolveUserId } from "../slack/users.ts";
-import { parseMsgTarget } from "./targets.ts";
+import { channelTarget } from "./targets.ts";
 
 type ChannelListOptions = {
   workspace?: string;
@@ -253,30 +253,21 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     .action(async (...args) => {
       const [targetArg, options] = args as [string, { ts?: string; workspace?: string }];
       try {
-        const target = parseMsgTarget(targetArg);
-        let channelId: string;
+        const target = channelTarget({
+          target: targetArg,
+          workspace: options.workspace,
+          command: "channel mark",
+        });
         let ts: string;
-        let workspaceUrl: string | undefined;
-
         if (target.kind === "url") {
-          if (options.workspace) {
-            throw new Error(
-              "--workspace cannot be used with a URL target; the workspace is derived from the URL",
-            );
-          }
-          channelId = target.ref.channel_id;
-          ts = options.ts ?? target.ref.message_ts;
-          workspaceUrl = input.ctx.effectiveWorkspaceUrl(target.ref.workspace_url);
-        } else if (target.kind === "channel") {
-          if (!options.ts) {
-            throw new Error("--ts is required when target is a channel name or ID");
-          }
+          ts = options.ts ?? target.messageTs;
+        } else if (options.ts) {
           ({ ts } = options);
-          workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
-          channelId = target.channel;
         } else {
-          throw new Error("User targets are not supported for channel mark");
+          throw new Error("--ts is required when target is a channel name or ID");
         }
+        const workspaceUrl = input.ctx.effectiveWorkspaceUrl(target.workspace);
+        const channelId = target.channel;
 
         await input.ctx.assertWorkspaceSpecifiedForChannelNames({
           workspaceUrl,
