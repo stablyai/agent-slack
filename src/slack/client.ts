@@ -1,4 +1,4 @@
-import { WebClient } from "@slack/web-api";
+import { ErrorCode, WebClient } from "@slack/web-api";
 import { getUserAgent } from "../lib/version.ts";
 
 export type SlackAuth =
@@ -67,6 +67,51 @@ function isAbortOrTimeoutError(error: unknown): boolean {
     code === "ABORT_ERR" ||
     code === "ECONNABORTED"
   );
+}
+
+/**
+ * Slack's answer to a call that failed with `ok: false`: the error code, and for
+ * `missing_scope` the scopes the method needs and the token has.
+ */
+export type SlackErrorResponse = { error: string; needed?: string; provided?: string };
+
+/** Slack answered `ok: false` with an error code, such as `channel_not_found`, as its message. */
+export class SlackPlatformError extends Error {
+  readonly response: SlackErrorResponse;
+
+  constructor(response: SlackErrorResponse) {
+    super(response.error);
+    this.response = response;
+  }
+}
+
+/** Slack's `ok: false` answer behind an error thrown by `SlackApiClient.api`, under either auth type. */
+export function slackErrorResponse(err: unknown): SlackErrorResponse | undefined {
+  if (err instanceof SlackPlatformError) {
+    return err.response;
+  }
+  if (isRecord(err) && err.code === ErrorCode.PlatformError) {
+    return parsedSlackErrorResponse(err.data);
+  }
+  return undefined;
+}
+
+function parsedSlackErrorResponse(data: unknown): SlackErrorResponse | undefined {
+  if (!isRecord(data) || typeof data.error !== "string" || !data.error) {
+    return undefined;
+  }
+  return {
+    error: data.error,
+    ...(typeof data.needed === "string" ? { needed: data.needed } : {}),
+    ...(typeof data.provided === "string" ? { provided: data.provided } : {}),
+  };
+}
+
+function slackResponseError(method: string, data: unknown): Error {
+  const response = parsedSlackErrorResponse(data);
+  return response
+    ? new SlackPlatformError(response)
+    : new Error(`Slack API error calling ${method}`);
 }
 
 export class SlackApiClient {
@@ -166,8 +211,7 @@ export class SlackApiClient {
       throw new Error(`Slack HTTP ${response.status} calling ${input.method}`);
     }
     if (!isRecord(data) || data.ok !== true) {
-      const error = isRecord(data) && typeof data.error === "string" ? data.error : null;
-      throw new Error(error || `Slack API error calling ${input.method}`);
+      throw slackResponseError(input.method, data);
     }
     return data;
   }
@@ -256,8 +300,7 @@ export class SlackApiClient {
       throw new Error(`Slack HTTP ${response.status} calling ${input.method}`);
     }
     if (!isRecord(data) || data.ok !== true) {
-      const error = isRecord(data) && typeof data.error === "string" ? data.error : null;
-      throw new Error(error || `Slack API error calling ${input.method}`);
+      throw slackResponseError(input.method, data);
     }
     return data;
   }
