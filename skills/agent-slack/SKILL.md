@@ -1,6 +1,6 @@
 ---
 name: agent-slack
-description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canvases/workflows, create/edit canvases from Markdown, search messages/files, download attachments, lookup users, list/create/invite channels, open DMs, compose messages, manage Slack-native drafts, schedule sends, and explicit sends/edits/deletes/reactions/mark-read/uploads."
+description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canvases/workflows, create/edit canvases from Markdown, search messages/files, download attachments, lookup users, list/create/join/invite channels, open DMs, compose messages, manage Slack-native drafts, schedule sends, and explicit sends/edits/deletes/reactions/mark-read/uploads."
 ---
 
 # agent-slack
@@ -19,7 +19,7 @@ If a capability named here is absent from installed help, report version skew in
 ## Safety
 
 - Read and search freely.
-- Perform write actions only when explicitly requested: sends, edits, deletes, reactions, invitations, channel or canvas creation/editing, mark-read operations, scheduling or canceling delivery, uploads, Later state/reminder changes, DM/group-DM creation, and `workflow run`. Workflow runs can execute downstream actions.
+- Perform write actions only when explicitly requested: sends, edits, deletes, reactions, invitations, joining channels, channel or canvas creation/editing, mark-read operations, scheduling or canceling delivery, uploads, Later state/reminder changes, DM/group-DM creation, and `workflow run`. Workflow runs can execute downstream actions.
 - For compose- or review-only requests, return proposed text without invoking Slack, or use `message draft create` to add a Slack-native draft the user can review and send (nothing is posted). `message compose` is send-capable; use it only when the user explicitly asks to open the interactive editor. In CI or another noninteractive environment, do not invoke it without separate authorization to send immediately: CI skips the editor and sends supplied text.
 - With `AGENT_SLACK_SAFE_MODE=1` (or the global `--safe-mode` flag) set, safe mode is enforced at the tool level: `message send` is redirected to the draft editor and `message edit`/`message delete` are blocked. Use it when nothing should post without human review.
 
@@ -38,6 +38,8 @@ Named `later remind --in` values such as `tomorrow` or `monday` also use the exe
 Use `--no-unfurl` with `message send` or `message compose` when the user wants Slack link and media previews suppressed. It cannot be combined with `message send --attach`.
 
 Ordinary `message send` and `message edit` calls auto-convert lists. `message send --blocks` and `message edit --blocks` use supplied Block Kit blocks, while `message send --attach` sends its initial comment without automatic list conversion. Inside auto-converted lists, use Slack's `<URL|label>` syntax because CommonMark `[label](URL)` links are not converted into labeled link elements.
+
+If `message send` fails with `not_in_channel` on a public channel, `channel join` with the same URL or channel adds the authenticated user. Private channels and DMs cannot be joined; they need an invite from a member.
 
 Slack-native drafts (`message draft list|create|update|delete`) manage drafts that appear in the user's Slack client; `create` posts nothing. `create` and `update` accept repeatable `--attach <path>`; on `update` the files are added to the draft's existing attachments rather than replacing them. They use undocumented session endpoints and require browser-style auth (xoxc/xoxd).
 

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Command } from "commander";
-import type { CliContext } from "../src/cli/context.ts";
 import { registerChannelCommand } from "../src/cli/channel-command.ts";
+import { cliContextFor } from "./helpers/cli-context.ts";
 
 function createContext() {
   const calls: { method: string; params: Record<string, unknown> }[] = [];
@@ -31,34 +31,10 @@ function createContext() {
     },
   };
 
-  const ctx: CliContext = {
-    effectiveWorkspaceUrl: (flag?: string) => flag,
-    assertWorkspaceSpecifiedForChannelNames: async () => {},
-    withAutoRefresh: async <T>(input: {
-      workspaceUrl: string | undefined;
-      work: () => Promise<T>;
-    }) => input.work(),
-    getClientForWorkspace: async () => ({
-      client: client as never,
-      auth: { auth_type: "standard", token: "x" },
-    }),
-    normalizeUrl: (u: string) => u,
-    errorMessage: (err: unknown) => (err instanceof Error ? err.message : String(err)),
-    parseContentType: () => "any",
-    parseCurl: (_curl: string) => ({
-      workspace_url: "https://workspace.slack.com",
-      xoxc_token: "xoxc-1",
-      xoxd_cookie: "xoxd-1",
-    }),
-    importDesktop: async () => ({
-      cookie_d: "",
-      teams: [],
-      source: { leveldb_path: "", cookies_path: "" },
-    }),
-    importChrome: () => ({ cookie_d: "", teams: [] }),
-    importBrave: async () => null,
-    importFirefox: async () => null,
-  };
+  const ctx = cliContextFor({
+    client: client as never,
+    auth: { auth_type: "standard", token: "x" },
+  });
 
   return { ctx, calls };
 }

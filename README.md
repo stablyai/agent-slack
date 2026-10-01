@@ -36,7 +36,7 @@ nix run github:stablyai/agent-slack
 - **Artifacts**: auto-download snippets/images/files to local paths for agents
 - **Write**: send now or schedule delivery, edit/delete messages, add reactions (bullet lists auto-render as native Slack rich text)
 - **Compose & drafts**: open a browser editor (`message compose`), or manage Slack-native drafts that show up in your Slack client (`message draft`)
-- **Channels**: list conversations, create channels, and invite users by id/handle/email
+- **Channels**: list conversations, create and join channels, and invite users by id/handle/email
 - **Canvas**: create, edit, and fetch Slack canvases as Markdown
 
 ## Agent skill
@@ -94,6 +94,7 @@ agent-slack
 ├── channel
 │   ├── list                        # list conversations (user-scoped or all)
 │   ├── new                         # create channel
+│   ├── join  <target>              # join a public channel
 │   └── invite                      # invite users to channel
 ├── user
 │   ├── list
@@ -275,7 +276,7 @@ While safe mode is active:
 
 - `message send` → redirected to the draft editor with the text pre-filled; you review and send from the browser. The output includes `"safe_mode": true` and `"redirected_from": "send"`, and a warning is printed to stderr. Flags the editor cannot represent (`--attach`, `--blocks`, `--schedule`, `--schedule-in`, `--reply-broadcast`) are rejected with an error instead of being silently dropped.
 - `message edit` and `message delete` → blocked with an error.
-- All read operations (`get`, `list`, `search`, etc.) and reactions are unchanged.
+- All read operations (`get`, `list`, `search`, etc.), reactions, and `channel join` are unchanged.
 
 The env var accepts `1`, `true`, `yes`, or `on` (case-insensitive); anything else leaves safe mode off.
 
@@ -377,7 +378,7 @@ When `--blocks` is used, the positional `<text>` argument (if provided) is still
 
 `message send` returns `channel_id` plus the posted `ts` and a `permalink` (for non-attachment sends). `thread_ts` appears only when replying in a thread. Scheduled sends return `scheduled_message_id` and `post_at` instead of `ts`/`permalink`.
 
-### List, create, and invite channels
+### List, create, join, and invite channels
 
 ```bash
 # List conversations for current user (users.conversations)
@@ -394,6 +395,11 @@ agent-slack channel new --name "incident-war-room"
 
 # Create a private channel
 agent-slack channel new --name "incident-leads" --private
+
+# Join a public channel yourself (on Enterprise Grid, use the channel ID or a message URL)
+agent-slack channel join "C0123ABCD"
+agent-slack channel join "#incident-war-room"
+agent-slack channel join "https://workspace.slack.com/archives/C0123ABCD/p1700000000000000"
 
 # Invite users by id, handle, or email
 agent-slack channel invite --channel "incident-war-room" --users "U01234567,@alice,bob@example.com"
@@ -412,6 +418,9 @@ Notes:
 - `--external` maps to `conversations.inviteShared` and expects email targets.
 - External invites default to restricted mode (`external_limited=true`); add `--allow-external-user-invites` to disable that restriction.
 - External invites require Slack Connect permissions/scopes in your workspace.
+- `channel join` maps to `conversations.join` and returns `channel: { id, name }` plus `status`: `joined`, or `already_in_channel` when you were already a member (still a success).
+- `channel join` works only for public channels; private channels and DMs fail with `method_not_supported_for_channel_type` and need an invite from a member. Slack's other refusals, such as `is_archived` or `missing_scope`, are explained in the error.
+- On Enterprise Grid, `#name` lookup can fail with `enterprise_is_restricted`; pass the channel ID or a message URL instead.
 
 ### Message get vs list
 

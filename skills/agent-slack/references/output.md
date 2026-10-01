@@ -12,6 +12,8 @@ Immediate non-attachment sends return `ts` and usually a `permalink`. Attachment
 `canvas create` returns `canvas: { id, title?, channel_id? }`. `canvas get` returns `canvas: { id, title?, markdown }`.
 `canvas edit` returns `ok: true` and `canvas: { id, operation }` after Slack accepts the change.
 
+`channel join` returns `channel: { id, name? }` and `status`: `joined`, or `already_in_channel` when the user was already a member. Both are successes.
+
 Message payloads keep canonical user IDs. Pass `--resolve-users` to add display metadata under `referenced_users`, or `--refresh-users` to refresh the 24-hour per-workspace cache before resolving.
 
 Use `--max-body-chars`, `--max-content-chars`, `--limit`, or a command's counts-only mode to keep results within the task's needs.

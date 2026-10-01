@@ -106,6 +106,13 @@ describe("agent-facing help contracts", () => {
     expect(optionDescription(mark, "--ts")).toContain("overrides a URL timestamp");
   });
 
+  test("channel join identifies joinable channels and Grid targeting", () => {
+    const join = findCommand(buildProgram(), "channel", "join");
+
+    expect(join.description()).toContain("public channel");
+    expect(join.registeredArguments[0]?.description).toContain("Enterprise Grid");
+  });
+
   test("DM help states Slack's group size limit", () => {
     const dmOpen = findCommand(buildProgram(), "user", "dm-open");
 

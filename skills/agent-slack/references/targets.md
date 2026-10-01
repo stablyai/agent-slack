@@ -12,12 +12,14 @@ A URL supplies the workspace, channel, and message timestamp. With a URL target:
 - `message list` returns the thread root and all replies.
 - `message send` replies in that message's thread. `message compose` and `message draft create` do the same unless `--thread-ts` explicitly overrides the URL-derived thread.
 - `channel mark` marks through that message timestamp; `--ts` explicitly overrides the timestamp. It rejects `--workspace` because the URL supplies it.
+- `channel join` joins that message's channel and likewise rejects `--workspace`.
 
 Use a channel name or a `C...`, `G...`, or `D...` channel ID only when no URL is available:
 
 - `message get`, `edit`, `delete`, and `react` require `--ts`.
 - `message list` reads channel history unless `--thread-ts` or `--ts` selects a thread.
 - `channel mark` requires `--ts`.
+- `channel join` needs no lookup for a channel ID. On Enterprise Grid, `#name` lookup can fail with `enterprise_is_restricted`; pass the channel ID or a message URL instead.
 
 Among `message` subcommands, `message send` and `message draft create` accept a `U...` or `W...` user ID as a target; it opens or reuses that user's direct-message channel. `message draft update --channel` can likewise re-address a draft to a DM. Treat `U`- and `W`-prefixed user IDs equivalently.
 

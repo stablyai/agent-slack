@@ -12,11 +12,12 @@ import {
   createChannel,
   inviteExternalUsersToChannel,
   inviteUsersToChannel,
+  joinChannel,
   parseInviteUsersCsv,
   splitEmailsFromInviteTargets,
 } from "../slack/channel-admin.ts";
 import { resolveUserId } from "../slack/users.ts";
-import { parseMsgTarget } from "./targets.ts";
+import { channelTarget } from "./targets.ts";
 
 type ChannelListOptions = {
   workspace?: string;
@@ -30,7 +31,7 @@ type ChannelListOptions = {
 export function registerChannelCommand(input: { program: Command; ctx: CliContext }): void {
   const channelCmd = input.program
     .command("channel")
-    .description("List conversations, create channels, and manage invites");
+    .description("List conversations, create and join channels, and manage invites");
 
   channelCmd
     .command("list")
@@ -127,6 +128,45 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
               name: options.name,
               isPrivate: Boolean(options.private),
             });
+          },
+        });
+        console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  channelCmd
+    .command("join")
+    .description("Join a public channel as the authenticated user")
+    .argument(
+      "<target>",
+      "Slack message URL, channel id, #channel, or channel; on Enterprise Grid pass an id or URL, since name lookup can be restricted",
+    )
+    .option(
+      "--workspace <url>",
+      "Workspace selector for channel name/ID targets; cannot be used with URL targets",
+    )
+    .action(async (...args) => {
+      const [targetArg, options] = args as [string, { workspace?: string }];
+      try {
+        const { channel, workspace } = channelTarget({
+          target: targetArg,
+          workspace: options.workspace,
+          command: "channel join",
+        });
+        const workspaceUrl = input.ctx.effectiveWorkspaceUrl(workspace);
+        await input.ctx.assertWorkspaceSpecifiedForChannelNames({
+          workspaceUrl,
+          channels: [channel],
+        });
+
+        const payload = await input.ctx.withAutoRefresh({
+          workspaceUrl,
+          work: async () => {
+            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            return await joinChannel(client, { channel });
           },
         });
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));
@@ -253,30 +293,21 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     .action(async (...args) => {
       const [targetArg, options] = args as [string, { ts?: string; workspace?: string }];
       try {
-        const target = parseMsgTarget(targetArg);
-        let channelId: string;
+        const target = channelTarget({
+          target: targetArg,
+          workspace: options.workspace,
+          command: "channel mark",
+        });
         let ts: string;
-        let workspaceUrl: string | undefined;
-
         if (target.kind === "url") {
-          if (options.workspace) {
-            throw new Error(
-              "--workspace cannot be used with a URL target; the workspace is derived from the URL",
-            );
-          }
-          channelId = target.ref.channel_id;
-          ts = options.ts ?? target.ref.message_ts;
-          workspaceUrl = input.ctx.effectiveWorkspaceUrl(target.ref.workspace_url);
-        } else if (target.kind === "channel") {
-          if (!options.ts) {
-            throw new Error("--ts is required when target is a channel name or ID");
-          }
+          ts = options.ts ?? target.messageTs;
+        } else if (options.ts) {
           ({ ts } = options);
-          workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
-          channelId = target.channel;
         } else {
-          throw new Error("User targets are not supported for channel mark");
+          throw new Error("--ts is required when target is a channel name or ID");
         }
+        const workspaceUrl = input.ctx.effectiveWorkspaceUrl(target.workspace);
+        const channelId = target.channel;
 
         await input.ctx.assertWorkspaceSpecifiedForChannelNames({
           workspaceUrl,
