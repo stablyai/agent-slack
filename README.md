@@ -541,6 +541,9 @@ agent-slack later list --counts-only
 # Filter by state: in_progress, completed, archived, all
 agent-slack later list --state completed
 
+# Only items whose reminder is overdue or due within the next 12 hours
+agent-slack later list --due-within 12h
+
 # Save a message for later
 agent-slack later save "https://workspace.slack.com/archives/C123/p1700000000000000"
 

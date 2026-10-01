@@ -8,6 +8,7 @@ export type LaterItem = {
   state: string;
   date_saved: number;
   date_completed?: number;
+  date_due?: number;
   message?: {
     author?: { user_id?: string; bot_id?: string };
     content?: string;
@@ -24,6 +25,7 @@ export async function fetchLaterItems(
     maxBodyChars?: number;
     countsOnly?: boolean;
     cursor?: string;
+    dueBefore?: number;
   },
 ): Promise<{
   counts: {
@@ -39,6 +41,20 @@ export async function fetchLaterItems(
   const limit = options?.limit ?? 20;
   const maxBodyChars = options?.maxBodyChars ?? 4000;
   const countsOnly = options?.countsOnly ?? false;
+  const dueBefore = options?.dueBefore;
+  const matches = (item: Record<string, unknown>): boolean => {
+    if (getString(item.item_type) !== "message") {
+      return false;
+    }
+    if (stateFilter !== "all" && getString(item.state) !== stateFilter) {
+      return false;
+    }
+    if (dueBefore === undefined) {
+      return true;
+    }
+    const dateDue = getNumber(item.date_due) ?? 0;
+    return dateDue > 0 && dateDue <= dueBefore;
+  };
 
   let currentCursor = options?.cursor;
   let allRawItems: Record<string, unknown>[] = [];
@@ -65,12 +81,7 @@ export async function fetchLaterItems(
       break;
     }
 
-    let filtered = allRawItems.filter((item) => getString(item.item_type) === "message");
-    if (stateFilter !== "all") {
-      filtered = filtered.filter((item) => getString(item.state) === stateFilter);
-    }
-
-    if (filtered.length >= limit || !nextCursor) {
+    if (allRawItems.filter(matches).length >= limit || !nextCursor) {
       break;
     }
     currentCursor = nextCursor;
@@ -91,14 +102,7 @@ export async function fetchLaterItems(
     return result;
   }
 
-  // Filter to messages only, then by state
-  let filtered = allRawItems.filter((item) => getString(item.item_type) === "message");
-  if (stateFilter !== "all") {
-    filtered = filtered.filter((item) => getString(item.state) === stateFilter);
-  }
-
-  // Limit results
-  filtered = filtered.slice(0, limit);
+  const filtered = allRawItems.filter(matches).slice(0, limit);
 
   // Hydrate items in parallel
   result.items = await Promise.all(
@@ -108,6 +112,7 @@ export async function fetchLaterItems(
       const state = getString(item.state) ?? "in_progress";
       const dateSaved = getNumber(item.date_created) ?? 0;
       const dateCompleted = getNumber(item.date_completed);
+      const dateDue = getNumber(item.date_due);
 
       let channelName: string | undefined;
       let message: LaterItem["message"];
@@ -187,6 +192,7 @@ export async function fetchLaterItems(
         state,
         date_saved: dateSaved,
         date_completed: dateCompleted && dateCompleted > 0 ? dateCompleted : undefined,
+        date_due: dateDue && dateDue > 0 ? dateDue : undefined,
         message,
       } satisfies LaterItem;
     }),

@@ -287,6 +287,95 @@ describe("fetchLaterItems", () => {
 
     expect(result.items[0]?.message?.content?.length).toBeLessThanOrEqual(103); // 100 + "\n…"
   });
+
+  test("returns date_due only for items with a reminder", async () => {
+    const { client } = createClient({
+      "saved.list": {
+        ok: true,
+        saved_items: [
+          {
+            item_id: "C1",
+            item_type: "message",
+            ts: "1.1",
+            state: "in_progress",
+            date_created: 100,
+            date_due: 500,
+          },
+          {
+            item_id: "C2",
+            item_type: "message",
+            ts: "2.2",
+            state: "in_progress",
+            date_created: 200,
+            date_due: 0,
+          },
+        ],
+        counts: { uncompleted_count: 2, archived_count: 0, completed_count: 0, total_count: 2 },
+      },
+      "conversations.info": { ok: true, channel: { name: "test" } },
+      "conversations.history": { ok: true, messages: [] },
+    });
+
+    const result = await fetchLaterItems(client);
+
+    expect(result.items.map((item) => item.date_due)).toEqual([500, undefined]);
+  });
+
+  test("dueBefore keeps overdue and due-by items, drops later and unscheduled ones", async () => {
+    const { client } = createClient({
+      "saved.list": {
+        ok: true,
+        saved_items: [
+          { item_id: "C1", item_type: "message", ts: "1.1", state: "in_progress", date_due: 100 },
+          { item_id: "C2", item_type: "message", ts: "2.2", state: "in_progress", date_due: 1000 },
+          { item_id: "C3", item_type: "message", ts: "3.3", state: "in_progress", date_due: 1001 },
+          { item_id: "C4", item_type: "message", ts: "4.4", state: "in_progress", date_due: 0 },
+          { item_id: "C5", item_type: "message", ts: "5.5", state: "in_progress" },
+        ],
+        counts: { uncompleted_count: 5, archived_count: 0, completed_count: 0, total_count: 5 },
+      },
+      "conversations.info": { ok: true, channel: { name: "test" } },
+      "conversations.history": { ok: true, messages: [] },
+    });
+
+    const result = await fetchLaterItems(client, { dueBefore: 1000 });
+
+    expect(result.items.map((item) => item.channel_id)).toEqual(["C1", "C2"]);
+  });
+
+  test("dueBefore applies before limit and keeps paging for matches", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const pages = [
+      {
+        ok: true,
+        saved_items: [
+          { item_id: "C1", item_type: "message", ts: "1.1", state: "in_progress", date_due: 9999 },
+        ],
+        counts: { uncompleted_count: 2, archived_count: 0, completed_count: 0, total_count: 2 },
+        response_metadata: { next_cursor: "page2" },
+      },
+      {
+        ok: true,
+        saved_items: [
+          { item_id: "C2", item_type: "message", ts: "2.2", state: "in_progress", date_due: 100 },
+        ],
+      },
+    ];
+    const client = {
+      api: async (method: string, params: Record<string, unknown> = {}) => {
+        if (method === "saved.list") {
+          calls.push(params);
+          return pages[calls.length - 1] ?? { ok: true };
+        }
+        return { ok: true };
+      },
+    } as unknown as SlackApiClient;
+
+    const result = await fetchLaterItems(client, { dueBefore: 1000, limit: 1 });
+
+    expect(calls.map((params) => params.cursor)).toEqual([undefined, "page2"]);
+    expect(result.items.map((item) => item.channel_id)).toEqual(["C2"]);
+  });
 });
 
 describe("updateLaterMark", () => {

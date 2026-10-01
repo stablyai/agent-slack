@@ -74,6 +74,10 @@ export function registerLaterCommand(input: { program: Command; ctx: CliContext 
       "4000",
     )
     .option("--counts-only", "Only show counts per state, skip message content")
+    .option(
+      "--due-within <duration>",
+      "Only items with a reminder due by then, including overdue ones: 30m, 12h, 2d, tomorrow, monday, or Unix timestamp",
+    )
     .action(
       async (options: {
         workspace?: string;
@@ -81,10 +85,13 @@ export function registerLaterCommand(input: { program: Command; ctx: CliContext 
         limit?: string;
         maxBodyChars?: string;
         countsOnly?: boolean;
+        dueWithin?: string;
       }) => {
         try {
           const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
           const state = parseState(options.state ?? "in_progress");
+          const dueBefore =
+            options.dueWithin === undefined ? undefined : parseReminderDuration(options.dueWithin);
 
           const payload = await input.ctx.withAutoRefresh({
             workspaceUrl,
@@ -95,6 +102,7 @@ export function registerLaterCommand(input: { program: Command; ctx: CliContext 
                 limit: Number.parseInt(options.limit ?? "20", 10),
                 maxBodyChars: Number.parseInt(options.maxBodyChars ?? "4000", 10),
                 countsOnly: options.countsOnly,
+                dueBefore,
               });
             },
           });
