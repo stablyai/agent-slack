@@ -41,7 +41,22 @@ export function normalizeChannelInput(input: string): {
 }
 
 export async function resolveChannelId(client: SlackApiClient, input: string): Promise<string> {
-  const normalized = normalizeChannelInput(input);
+  return await resolveChannelIdAmong(client, { input, archived: "excluded" });
+}
+
+/** Like `resolveChannelId`, but a name no live channel has can match an archived channel. */
+export async function resolveChannelIdIncludingArchived(
+  client: SlackApiClient,
+  input: string,
+): Promise<string> {
+  return await resolveChannelIdAmong(client, { input, archived: "after_live" });
+}
+
+async function resolveChannelIdAmong(
+  client: SlackApiClient,
+  options: { input: string; archived: "excluded" | "after_live" },
+): Promise<string> {
+  const normalized = normalizeChannelInput(options.input);
   if (normalized.kind === "id") {
     return normalized.value;
   }
@@ -76,17 +91,33 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
   }
 
   // Fallback: paginate conversations.list until we find a match
+  const listed =
+    (await listedChannelIdNamed(client, { name, excludeArchived: true })) ??
+    (options.archived === "after_live"
+      ? await listedChannelIdNamed(client, { name, excludeArchived: false })
+      : undefined);
+  if (listed) {
+    return listed;
+  }
+
+  throw new Error(`Could not resolve channel name: #${name}`);
+}
+
+async function listedChannelIdNamed(
+  client: SlackApiClient,
+  options: { name: string; excludeArchived: boolean },
+): Promise<string | undefined> {
   let cursor: string | undefined;
   for (;;) {
     const resp = await client.api("conversations.list", {
-      exclude_archived: true,
+      exclude_archived: options.excludeArchived,
       limit: 200,
       cursor,
       types: "public_channel,private_channel",
     });
     const chans = asArray(resp.channels).filter(isRecord);
     for (const c of chans) {
-      if (getString(c.name) === name && getString(c.id)) {
+      if (getString(c.name) === options.name && getString(c.id)) {
         return getString(c.id)!;
       }
     }
@@ -94,12 +125,10 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
     const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
     const next = meta ? getString(meta.next_cursor) : undefined;
     if (!next) {
-      break;
+      return undefined;
     }
     cursor = next;
   }
-
-  throw new Error(`Could not resolve channel name: #${name}`);
 }
 
 /**

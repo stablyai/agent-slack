@@ -20,7 +20,7 @@
 - Human-in-the-loop message composing via browser-based WYSIWYG rich text editor (`message compose`)
 - Slack-native drafts that appear in the user's Slack client via `message draft` (list/create/update/delete), with file attachments
 - Slack canvas creation and editing from Markdown files or inline content, plus export to Markdown
-- Slack channel creation, user invites, and Slack Connect external invites
+- Slack channel creation, joining public channels, user invites, and Slack Connect external invites
 
 ## Optional
 

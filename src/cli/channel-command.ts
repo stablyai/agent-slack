@@ -12,6 +12,7 @@ import {
   createChannel,
   inviteExternalUsersToChannel,
   inviteUsersToChannel,
+  joinChannel,
   parseInviteUsersCsv,
   splitEmailsFromInviteTargets,
 } from "../slack/channel-admin.ts";
@@ -30,7 +31,7 @@ type ChannelListOptions = {
 export function registerChannelCommand(input: { program: Command; ctx: CliContext }): void {
   const channelCmd = input.program
     .command("channel")
-    .description("List conversations, create channels, and manage invites");
+    .description("List conversations, create and join channels, and manage invites");
 
   channelCmd
     .command("list")
@@ -127,6 +128,45 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
               name: options.name,
               isPrivate: Boolean(options.private),
             });
+          },
+        });
+        console.log(JSON.stringify(pruneEmpty(payload), null, 2));
+      } catch (err: unknown) {
+        console.error(input.ctx.errorMessage(err));
+        process.exitCode = 1;
+      }
+    });
+
+  channelCmd
+    .command("join")
+    .description("Join a public channel as the authenticated user")
+    .argument(
+      "<target>",
+      "Slack message URL, channel id, #channel, or channel; on Enterprise Grid pass an id or URL, since name lookup can be restricted",
+    )
+    .option(
+      "--workspace <url>",
+      "Workspace selector for channel name/ID targets; cannot be used with URL targets",
+    )
+    .action(async (...args) => {
+      const [targetArg, options] = args as [string, { workspace?: string }];
+      try {
+        const { channel, workspace } = channelTarget({
+          target: targetArg,
+          workspace: options.workspace,
+          command: "channel join",
+        });
+        const workspaceUrl = input.ctx.effectiveWorkspaceUrl(workspace);
+        await input.ctx.assertWorkspaceSpecifiedForChannelNames({
+          workspaceUrl,
+          channels: [channel],
+        });
+
+        const payload = await input.ctx.withAutoRefresh({
+          workspaceUrl,
+          work: async () => {
+            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            return await joinChannel(client, { channel });
           },
         });
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));
