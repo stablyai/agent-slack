@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getPackageVersion } from "./lib/version.ts";
+import { shouldStartCommandWatchdog } from "./cli/command-watchdog.ts";
 import { createCliContext } from "./cli/context.ts";
 import { registerAuthCommand } from "./cli/auth-command.ts";
 import { registerCanvasCommand } from "./cli/canvas-command.ts";
@@ -26,17 +27,6 @@ function getCommandTimeoutMs(): number {
     return DEFAULT_COMMAND_TIMEOUT_MS;
   }
   return Math.floor(parsed);
-}
-
-function shouldStartCommandWatchdog(args: string[]): boolean {
-  const [command, subcommand] = args;
-  if (!command || command === "update") {
-    return false;
-  }
-  if (command === "message" && subcommand === "draft") {
-    return false;
-  }
-  return true;
 }
 
 function startCommandWatchdog(args: string[]): void {

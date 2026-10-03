@@ -110,7 +110,7 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     )
     .action(async () => {
       try {
-        const extracted = await input.ctx.importBrave();
+        const extracted = await input.ctx.importBrave({ interactive: true });
         if (!extracted) {
           throw new Error(
             "Could not extract tokens from Brave. Open Slack in Brave and ensure you're logged in. " +
@@ -198,7 +198,7 @@ export function registerAuthCommand(input: { program: Command; ctx: CliContext }
     )
     .action(async () => {
       try {
-        const extracted = await input.ctx.importDesktop();
+        const extracted = await input.ctx.importDesktop({ interactive: true });
         await upsertWorkspaces(
           extracted.teams.map((team) => ({
             workspace_url: input.ctx.normalizeUrl(team.url),

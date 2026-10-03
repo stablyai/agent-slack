@@ -10,6 +10,7 @@ import { isRecord } from "../lib/object-type-guards.ts";
 import { queryReadonlySqlite } from "./firefox-profile.ts";
 import { decryptChromiumCookieValue } from "./chromium-cookie.ts";
 import { getSafeStoragePasswords, decryptCookieWindows } from "./desktop-crypto.ts";
+import { KeychainAccessError, type KeychainOptions } from "./keychain.ts";
 
 type DesktopTeam = { url: string; name?: string; token: string };
 
@@ -264,8 +265,8 @@ async function extractTeamsFromSlackLevelDb(leveldbDir: string): Promise<Desktop
 }
 
 async function extractCookieDFromSlackCookiesDb(
-  cookiesPath: string,
-  slackDataDir: string,
+  { cookiesPath, slackDataDir }: { cookiesPath: string; slackDataDir: string },
+  options: KeychainOptions,
 ): Promise<string> {
   if (!existsSync(cookiesPath)) {
     throw new Error(`Slack Cookies DB not found: ${cookiesPath}`);
@@ -332,7 +333,7 @@ async function extractCookieDFromSlackCookiesDb(
 
   // macOS / Linux: password-based AES-128-CBC
   const data = prefix === "v10" || prefix === "v11" ? encrypted.subarray(3) : encrypted;
-  const passwords = getSafeStoragePasswords(prefix);
+  const passwords = getSafeStoragePasswords(prefix, options);
 
   for (const password of passwords) {
     try {
@@ -352,7 +353,13 @@ async function extractCookieDFromSlackCookiesDb(
   throw new Error("Could not locate xoxd-* in decrypted Slack cookie");
 }
 
-export async function extractFromSlackDesktop(): Promise<DesktopExtracted> {
+function formatDesktopExtractionErrors(errors: string[]): string {
+  return `Could not extract Slack Desktop credentials from any location:\n  - ${errors.join("\n  - ")}`;
+}
+
+export async function extractFromSlackDesktop(
+  options: KeychainOptions = {},
+): Promise<DesktopExtracted> {
   const allPaths = getAllSlackPaths();
 
   // Try each candidate path; use the first one where both LevelDB and cookie extraction succeed.
@@ -360,7 +367,10 @@ export async function extractFromSlackDesktop(): Promise<DesktopExtracted> {
   for (const { leveldbDir, cookiesDb, baseDir } of allPaths) {
     try {
       const teams = await extractTeamsFromSlackLevelDb(leveldbDir);
-      const cookie_d = await extractCookieDFromSlackCookiesDb(cookiesDb, baseDir);
+      const cookie_d = await extractCookieDFromSlackCookiesDb(
+        { cookiesPath: cookiesDb, slackDataDir: baseDir },
+        options,
+      );
       return {
         cookie_d,
         teams,
@@ -368,10 +378,13 @@ export async function extractFromSlackDesktop(): Promise<DesktopExtracted> {
       };
     } catch (err: unknown) {
       errors.push(`${baseDir}: ${err instanceof Error ? err.message : String(err)}`);
+      // Every profile reads the same keychain items: after a timeout or
+      // denial, trying the next one would only prompt (and wait) again.
+      if (err instanceof KeychainAccessError) {
+        throw new KeychainAccessError(formatDesktopExtractionErrors(errors));
+      }
     }
   }
 
-  throw new Error(
-    `Could not extract Slack Desktop credentials from any location:\n  - ${errors.join("\n  - ")}`,
-  );
+  throw new Error(formatDesktopExtractionErrors(errors));
 }
