@@ -236,6 +236,95 @@ describe("textToRichTextBlocks", () => {
     expect((list as { style: string }).style).toBe("ordered");
   });
 
+  test("keeps ordered numbering across nested sub-bullets", () => {
+    const result = textToRichTextBlocks(
+      "Intro line\n\n1. Point one?\n   • sub a\n   • sub b\n2. Point two?\n   - sub c",
+    )!;
+    const lists = result[0]!.elements.filter((e) => e.type === "rich_text_list");
+    expect(lists).toEqual([
+      {
+        type: "rich_text_list",
+        style: "ordered",
+        elements: [{ type: "rich_text_section", elements: [{ type: "text", text: "Point one?" }] }],
+      },
+      {
+        type: "rich_text_list",
+        style: "bullet",
+        indent: 1,
+        elements: [
+          { type: "rich_text_section", elements: [{ type: "text", text: "sub a" }] },
+          { type: "rich_text_section", elements: [{ type: "text", text: "sub b" }] },
+        ],
+      },
+      {
+        type: "rich_text_list",
+        style: "ordered",
+        offset: 1,
+        elements: [{ type: "rich_text_section", elements: [{ type: "text", text: "Point two?" }] }],
+      },
+      {
+        type: "rich_text_list",
+        style: "bullet",
+        indent: 1,
+        elements: [{ type: "rich_text_section", elements: [{ type: "text", text: "sub c" }] }],
+      },
+    ]);
+  });
+
+  test("flat ordered lists do not add an offset", () => {
+    const result = textToRichTextBlocks("1. First\n2. Second\n3. Third")!;
+    expect(result[0]!.elements).toEqual([
+      {
+        type: "rich_text_list",
+        style: "ordered",
+        elements: [
+          { type: "rich_text_section", elements: [{ type: "text", text: "First" }] },
+          { type: "rich_text_section", elements: [{ type: "text", text: "Second" }] },
+          { type: "rich_text_section", elements: [{ type: "text", text: "Third" }] },
+        ],
+      },
+    ]);
+  });
+
+  test("ordered lists restart after an intervening paragraph", () => {
+    const result = textToRichTextBlocks("1. First\nParagraph\n1. Restart")!;
+    const lists = result[0]!.elements.filter((e) => e.type === "rich_text_list");
+    expect(lists).toEqual([
+      {
+        type: "rich_text_list",
+        style: "ordered",
+        elements: [{ type: "rich_text_section", elements: [{ type: "text", text: "First" }] }],
+      },
+      {
+        type: "rich_text_list",
+        style: "ordered",
+        elements: [{ type: "rich_text_section", elements: [{ type: "text", text: "Restart" }] }],
+      },
+    ]);
+  });
+
+  test("uses the number the author wrote", () => {
+    const offsets = (text: string) =>
+      textToRichTextBlocks(text)![0]!
+        .elements.filter(
+          (e) => e.type === "rich_text_list" && (e as { style: string }).style === "ordered",
+        )
+        .map((l) => (l as { offset?: number }).offset);
+    expect(offsets("1. a\n2. b\n\n1. c")).toEqual([undefined, undefined]);
+    // A "1." after a blank line is read as a restart, like the base behavior.
+    expect(offsets("1. A\n\n1. B\n\n1. C")).toEqual([undefined, undefined, undefined]);
+    expect(offsets("1. A\n\n2. B\n\n3. C")).toEqual([undefined, 1, 2]);
+    expect(offsets("3. a\n   - x\n4. b")).toEqual([2, 3]);
+    expect(offsets("1. a\n   - x\n1. b")).toEqual([undefined, 1]);
+    expect(offsets("1. a\n- b\n1. c")).toEqual([undefined, undefined]);
+    expect(offsets("1. A\n\n   1. sub\n\n2. B")).toEqual([undefined, undefined, 1]);
+    expect(offsets("1. First\n   - detail\n\n2. Second")).toEqual([undefined, 1]);
+    expect(offsets("- Parent one\n  1. One\n  2. Two\n- Parent two\n  1. One")).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
   test("bold text in list items is parsed", () => {
     const result = textToRichTextBlocks("- *Bold item*\n- Normal item")!;
     expect(result).not.toBeNull();

@@ -15,6 +15,7 @@ type RichTextElement =
       type: "rich_text_list";
       style: "bullet" | "ordered";
       indent?: number;
+      offset?: number;
       elements: RichTextListItem[];
     }
   | { type: "rich_text_preformatted"; elements: InlineElement[] }
@@ -145,12 +146,14 @@ export function textToRichTextBlocks(
   let hasLists = false;
   let hasFormatting = false;
   let idx = 0;
+  const orderedCounts = new Map<number, number>();
 
   while (idx < lines.length) {
     const line = lines[idx]!;
 
     // Code block
     if (CODE_BLOCK_START.test(line)) {
+      orderedCounts.clear();
       idx++; // skip opening ```
       const codeLines: string[] = [];
       while (idx < lines.length && !CODE_BLOCK_START.test(lines[idx]!)) {
@@ -171,6 +174,7 @@ export function textToRichTextBlocks(
     // Blockquote
     const quoteMatch = line.match(BLOCKQUOTE_RE);
     if (quoteMatch) {
+      orderedCounts.clear();
       const quoteLines: string[] = [];
       while (idx < lines.length) {
         const qm = lines[idx]!.match(BLOCKQUOTE_RE);
@@ -188,17 +192,10 @@ export function textToRichTextBlocks(
       continue;
     }
 
-    // Bullet list
-    if (BULLET_RE.test(line)) {
+    // List
+    if (BULLET_RE.test(line) || ORDERED_RE.test(line)) {
       hasLists = true;
-      idx = collectList({ lines, startIdx: idx, style: "bullet", pattern: BULLET_RE, elements });
-      continue;
-    }
-
-    // Ordered list
-    if (ORDERED_RE.test(line)) {
-      hasLists = true;
-      idx = collectList({ lines, startIdx: idx, style: "ordered", pattern: ORDERED_RE, elements });
+      idx = collectList({ lines, startIdx: idx, elements, orderedCounts });
       continue;
     }
 
@@ -219,6 +216,8 @@ export function textToRichTextBlocks(
     }
     const content = textLines.join("\n");
     if (content.trim()) {
+      // Blank lines between items keep a loose list going. Real text ends it.
+      orderedCounts.clear();
       const inlineElements = parseInlineElements(content.endsWith("\n") ? content : `${content}\n`);
       if (hasRichInlineFormatting(inlineElements)) {
         hasFormatting = true;
@@ -244,56 +243,86 @@ function hasRichInlineFormatting(elements: InlineElement[]): boolean {
 function collectList(input: {
   lines: string[];
   startIdx: number;
-  style: "bullet" | "ordered";
-  pattern: RegExp;
   elements: RichTextElement[];
+  orderedCounts: Map<number, number>;
 }): number {
-  const { lines, startIdx, style, pattern, elements } = input;
+  const { lines, startIdx, elements, orderedCounts } = input;
   let idx = startIdx;
-
-  // Determine base indent from the first bullet in this group
-  const firstMatch = lines[startIdx]!.match(pattern)!;
+  const firstMatch = lines[startIdx]!.match(BULLET_RE) ?? lines[startIdx]!.match(ORDERED_RE)!;
   const baseIndent = firstMatch[1]!.length;
-
+  let currentStyle: "bullet" | "ordered" | null = null;
   let currentIndent = -1;
   let currentItems: RichTextListItem[] = [];
+  // The number the author wrote on the first item of the current ordered group.
+  let currentStart = 1;
+  // True until the first group of this run is flushed. A run starts after a
+  // blank line, so a "1." there is a deliberate restart.
+  let firstGroup = true;
+
+  const flush = (): void => {
+    if (currentStyle == null || currentItems.length === 0) {
+      return;
+    }
+
+    // Prefer the number the author wrote. A "1." only continues the count when
+    // it follows a nested list in the same run, as in lazily numbered Markdown.
+    let offset = 0;
+    if (currentStyle === "ordered") {
+      if (currentStart > 1) {
+        offset = currentStart - 1;
+      } else if (!firstGroup) {
+        offset = orderedCounts.get(currentIndent) ?? 0;
+      }
+    }
+
+    const list: RichTextElement = {
+      type: "rich_text_list",
+      style: currentStyle,
+      ...(currentIndent > 0 ? { indent: currentIndent } : {}),
+      ...(offset > 0 ? { offset } : {}),
+      elements: currentItems,
+    };
+    elements.push(list);
+    // Items at this level end any deeper list, so nested numbering restarts.
+    for (const level of orderedCounts.keys()) {
+      if (level > currentIndent) {
+        orderedCounts.delete(level);
+      }
+    }
+    if (currentStyle === "ordered") {
+      orderedCounts.set(currentIndent, offset + currentItems.length);
+    } else {
+      // A bullet list at the same level ends the ordered list there.
+      orderedCounts.delete(currentIndent);
+    }
+    currentItems = [];
+    firstGroup = false;
+  };
 
   while (idx < lines.length) {
-    const match = lines[idx]!.match(pattern);
-    if (!match) {
+    const line = lines[idx]!;
+    const bulletMatch = line.match(BULLET_RE);
+    const orderedMatch = line.match(ORDERED_RE);
+    if (bulletMatch == null && orderedMatch == null) {
       break;
     }
 
-    // Anything significantly deeper (>= baseIndent + 2) is a sub-bullet
+    const style = orderedMatch != null ? "ordered" : "bullet";
+    const match = orderedMatch ?? bulletMatch!;
     const indent = match[1]!.length >= baseIndent + 2 ? 1 : 0;
-    const content = match[2]!;
-
-    if (currentIndent !== -1 && indent !== currentIndent) {
-      elements.push({
-        type: "rich_text_list",
-        style,
-        ...(currentIndent > 0 ? { indent: currentIndent } : {}),
-        elements: currentItems,
-      });
-      currentItems = [];
+    if (currentStyle !== style || currentIndent !== indent) {
+      flush();
+      currentStyle = style;
+      currentIndent = indent;
+      currentStart = orderedMatch != null ? Number.parseInt(line.trim(), 10) : 1;
     }
-
-    currentIndent = indent;
     currentItems.push({
       type: "rich_text_section",
-      elements: parseInlineElements(content),
+      elements: parseInlineElements(match[2]!),
     });
     idx++;
   }
 
-  if (currentItems.length > 0) {
-    elements.push({
-      type: "rich_text_list",
-      style,
-      ...(currentIndent > 0 ? { indent: currentIndent } : {}),
-      elements: currentItems,
-    });
-  }
-
+  flush();
   return idx;
 }
