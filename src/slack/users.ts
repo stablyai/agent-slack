@@ -99,8 +99,8 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
     return trimmed;
   }
 
-  const looksLikeEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed) && !trimmed.startsWith("@");
-  if (looksLikeEmail) {
+  const isEmail = looksLikeEmail(trimmed);
+  if (isEmail) {
     try {
       const byEmail = await client.api("users.lookupByEmail", { email: trimmed });
       const user = isRecord(byEmail.user) ? byEmail.user : null;
@@ -109,7 +109,11 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
         return userId;
       }
     } catch {
-      // Fallback to users.list scan below.
+      // Fall back to search.modules / users.list below.
+    }
+    const bySearch = await searchUserIdByEmail(client, trimmed);
+    if (bySearch) {
+      return bySearch;
     }
   }
 
@@ -127,7 +131,7 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
       if (getString(m.name)?.toLowerCase() === handleLower) {
         return true;
       }
-      if (looksLikeEmail) {
+      if (isEmail) {
         const profile = isRecord(m.profile) ? m.profile : null;
         const email = profile ? getString(profile.email) : undefined;
         return Boolean(email) && email?.toLowerCase() === trimmed.toLowerCase();
@@ -148,6 +152,79 @@ export async function resolveUserId(client: SlackApiClient, input: string): Prom
     cursor = next;
   }
   return null;
+}
+
+export function looksLikeEmail(input: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input) && !input.startsWith("@");
+}
+
+// Enterprise Grid browser tokens get not_allowed_token_type from users.lookupByEmail, and
+// users.list over a whole org hits rate limits; search.modules works, but only with the org's own token.
+async function searchUserIdByEmail(
+  client: SlackApiClient,
+  email: string,
+): Promise<string | undefined> {
+  try {
+    return await searchPeopleByEmail(client, email);
+  } catch (err) {
+    // Expected "this token/workspace cannot use search" errors fall through to the users.list scan;
+    // anything else (invalid_auth, rate limits, timeouts) is a real failure and must surface.
+    if (err instanceof Error && SEARCH_UNAVAILABLE_ERRORS.some((e) => err.message.includes(e))) {
+      return undefined;
+    }
+    throw err;
+  }
+}
+
+const SEARCH_UNAVAILABLE_ERRORS = [
+  "team_is_restricted",
+  "not_allowed_token_type",
+  "missing_scope",
+  "unknown_method",
+];
+
+async function searchPeopleByEmail(
+  client: SlackApiClient,
+  email: string,
+): Promise<string | undefined> {
+  const search = (c: SlackApiClient) =>
+    c.api("search.modules", { module: "people", query: email, count: 5 });
+  let resp: Record<string, unknown>;
+  try {
+    resp = await search(client);
+  } catch (err) {
+    if (!(err instanceof Error) || !err.message.includes("team_is_restricted")) {
+      throw err;
+    }
+    let orgClient: SlackApiClient | null = null;
+    try {
+      const info = await client.api("team.info", {});
+      const team = isRecord(info.team) ? info.team : null;
+      const domain = team ? getString(team.enterprise_domain) : undefined;
+      orgClient = domain
+        ? await client.forWorkspace(`https://${domain}.enterprise.slack.com`)
+        : null;
+    } catch {
+      // A recovery failure (team.info, URL, credential store) says nothing about the email;
+      // rethrow the original error so resolution degrades to the users.list scan.
+      throw err;
+    }
+    if (!orgClient) {
+      throw err;
+    }
+    resp = await search(orgClient);
+  }
+  const wanted = email.toLowerCase();
+  const found = asArray(resp.items)
+    .filter(isRecord)
+    .find((u) => {
+      const profile = isRecord(u.profile) ? u.profile : null;
+      return (
+        Boolean(getString(u.id)) &&
+        (profile ? getString(profile.email) : undefined)?.toLowerCase() === wanted
+      );
+    });
+  return found ? getString(found.id) : undefined;
 }
 
 async function fetchDmMap(client: SlackApiClient): Promise<Map<string, string>> {

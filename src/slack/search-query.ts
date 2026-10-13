@@ -2,6 +2,7 @@ import type { SlackApiClient } from "./client.ts";
 import { normalizeChannelInput } from "./channels.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 import { isUserId } from "./user-id.ts";
+import { looksLikeEmail, resolveUserId as resolveUserIdByLookup } from "./users.ts";
 
 export async function buildSlackSearchQuery(
   client: SlackApiClient,
@@ -121,6 +122,9 @@ export async function resolveUserId(
   }
   if (isUserId(trimmed)) {
     return trimmed;
+  }
+  if (looksLikeEmail(trimmed)) {
+    return (await resolveUserIdByLookup(client, trimmed)) ?? undefined;
   }
   const name = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
 

@@ -1,5 +1,6 @@
 import { WebClient } from "@slack/web-api";
 import { getUserAgent } from "../lib/version.ts";
+import { resolveWorkspaceForUrl } from "../auth/store.ts";
 
 export type SlackAuth =
   | { auth_type: "standard"; token: string }
@@ -84,6 +85,16 @@ export class SlackApiClient {
         rejectRateLimitedCalls: true,
       });
     }
+  }
+
+  /** Client for another stored workspace, e.g. an Enterprise Grid org that needs its own token. */
+  async forWorkspace(workspaceUrl: string): Promise<SlackApiClient | null> {
+    // SLACK_TOKEN overrides stored credentials everywhere else; do not swap identities behind it.
+    if (process.env.SLACK_TOKEN?.trim()) {
+      return null;
+    }
+    const ws = await resolveWorkspaceForUrl(workspaceUrl);
+    return ws ? new SlackApiClient(ws.auth as SlackAuth, { workspaceUrl: ws.workspace_url }) : null;
   }
 
   /**
