@@ -1,6 +1,6 @@
 ---
 name: agent-slack
-description: "Slack CLI for agents: read URLs/threads/history/unreads/later/canvases/workflows, create/edit canvases from Markdown, search messages/files, download attachments, lookup users, list/create/invite channels, open DMs, compose messages, manage Slack-native drafts, schedule sends, and explicit sends/edits/deletes/reactions/mark-read/uploads."
+description: "Slack CLI for agents: read URLs/threads/history/unreads/later/to-dos/canvases/workflows, create/edit canvases from Markdown, search messages/files, download attachments, lookup users, list/create/invite channels, open DMs, compose messages, manage Slack-native drafts, schedule sends, and explicit sends/edits/deletes/reactions/mark-read/uploads."
 ---
 
 # agent-slack
@@ -19,7 +19,7 @@ If a capability named here is absent from installed help, report version skew in
 ## Safety
 
 - Read and search freely.
-- Perform write actions only when explicitly requested: sends, edits, deletes, reactions, invitations, channel or canvas creation/editing, mark-read operations, scheduling or canceling delivery, uploads, Later state/reminder changes, DM/group-DM creation, and `workflow run`. Workflow runs can execute downstream actions.
+- Perform write actions only when explicitly requested: sends, edits, deletes, reactions, invitations, channel or canvas creation/editing, mark-read operations, scheduling or canceling delivery, uploads, Later or To-do changes (adds, completions, reminders, removals), DM/group-DM creation, and `workflow run`. Workflow runs can execute downstream actions.
 - For compose- or review-only requests, return proposed text without invoking Slack, or use `message draft create` to add a Slack-native draft the user can review and send (nothing is posted). `message compose` is send-capable; use it only when the user explicitly asks to open the interactive editor. In CI or another noninteractive environment, do not invoke it without separate authorization to send immediately: CI skips the editor and sends supplied text.
 - With `AGENT_SLACK_SAFE_MODE=1` (or the global `--safe-mode` flag) set, safe mode is enforced at the tool level: `message send` is redirected to the draft editor and `message edit`/`message delete` are blocked. Use it when nothing should post without human review.
 
@@ -33,7 +33,7 @@ If a capability named here is absent from installed help, report version skew in
 
 For scheduled writes, prefer `--schedule` with an ISO 8601 timestamp and explicit offset when timezone matters. Named `--schedule-in` phrases use the executing environment's local timezone; confirm that it matches the user's intent.
 
-Named `later remind --in` values such as `tomorrow` or `monday` also use the executing environment's local timezone at 9:00. Confirm that timezone or pass an explicit Unix timestamp.
+Named `later remind --in`, `todo remind --in`, and `todo add --remind` values such as `tomorrow` or `monday` also use the executing environment's local timezone at 9:00. Confirm that timezone or pass an explicit Unix timestamp.
 
 Use `--no-unfurl` with `message send` or `message compose` when the user wants Slack link and media previews suppressed. It cannot be combined with `message send --attach`.
 

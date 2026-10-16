@@ -38,6 +38,7 @@ nix run github:stablyai/agent-slack
 - **Compose & drafts**: open a browser editor (`message compose`), or manage Slack-native drafts that show up in your Slack client (`message draft`)
 - **Channels**: list conversations, create channels, and invite users by id/handle/email
 - **Canvas**: create, edit, and fetch Slack canvases as Markdown
+- **To-dos**: list, add, complete, and set reminders on your Slack To-dos, as plain text or a message
 
 ## Agent skill
 
@@ -102,6 +103,13 @@ agent-slack
 │   ├── all      <query>           # messages + files
 │   ├── messages <query>
 │   └── files    <query>
+├── todo
+│   ├── list                       # open to-dos (--all adds completed)
+│   ├── add <text-or-message-url>  # add a to-do (supports --remind)
+│   ├── complete <id-or-url>
+│   ├── reopen   <id-or-url>
+│   ├── remind   <id-or-url>       # set a reminder (--in)
+│   └── remove   <id-or-url>
 ├── workflow
 │   ├── list    <channel>          # workflows bookmarked in a channel
 │   ├── preview <trigger-id>       # trigger metadata (no side effects)
@@ -562,6 +570,17 @@ agent-slack later remind "https://workspace.slack.com/archives/C123/p17000000000
 ```
 
 Named reminder days such as `tomorrow` and `monday` mean 9:00 in the CLI process's local timezone. Use a Unix timestamp when timezone precision matters.
+
+### To-dos
+
+`todo list` shows open to-dos (`--all` adds completed ones). Each has an `id` the other commands take: `Sa...` for a text to-do, the message URL for a message. `--remind` and `--in` take the same values as `later remind --in`.
+
+```bash
+agent-slack todo add "Review the launch plan" --remind tomorrow
+agent-slack todo add "https://workspace.slack.com/archives/C123/p1700000000000000"
+agent-slack todo complete Sa0123456789
+agent-slack todo remind Sa0123456789 --in 3h
+```
 
 ### Create, edit, or fetch a Canvas as Markdown
 
