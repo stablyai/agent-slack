@@ -16,6 +16,25 @@ describe("renderSlackMessageContent", () => {
     expect(rendered).toBe("*Hi*\n[View](https://example.com)");
   });
 
+  test("includes header block text", () => {
+    const msg = {
+      text: "Deploy failed",
+      blocks: [
+        {
+          type: "header",
+          text: { type: "plain_text", text: "Deploy failed: api-server" },
+        },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: "Step *migrate* exited with code 1" },
+        },
+      ],
+    };
+    expect(renderSlackMessageContent(msg)).toBe(
+      "Deploy failed: api-server\n\nStep *migrate* exited with code 1",
+    );
+  });
+
   test("preserves usergroup and broadcast elements from rich text", () => {
     const msg = {
       blocks: [

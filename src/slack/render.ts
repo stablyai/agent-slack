@@ -36,6 +36,13 @@ function extractMrkdwnFromBlocks(blocks: unknown): string {
       continue;
     }
     const type = getString(b.type);
+    if (type === "header") {
+      const text = isRecord(b.text) ? getString(b.text.text) : "";
+      if (text.trim()) {
+        out.push(text);
+      }
+      continue;
+    }
     if (type === "section") {
       const text = isRecord(b.text) ? b.text : null;
       const textType = text ? getString(text.type) : "";
