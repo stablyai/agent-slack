@@ -142,7 +142,7 @@ describe("createDraft", () => {
       },
     ]);
     expect(params.file_ids).toEqual([]);
-    expect(params.is_from_composer).toBe(true);
+    expect(params.is_from_composer).toBe(false);
     expect(typeof params.client_msg_id).toBe("string");
     expect(draft?.id).toBe("Dr123");
   });

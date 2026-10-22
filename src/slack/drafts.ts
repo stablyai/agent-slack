@@ -188,8 +188,10 @@ export async function createDraft(
 ): Promise<SlackDraft | null> {
   const resp = await client.api("drafts.create", {
     ...buildDraftBody(input),
-    // Sent on create only, matching the official client's behavior.
-    is_from_composer: true,
+    // Sent on create only. Slack's message box sends `false`, which ties the
+    // draft to its channel or thread; `true` puts a thread reply in the
+    // channel's main message box.
+    is_from_composer: false,
   });
   ensureDraftOk("drafts.create", resp);
   return parseDraftRecord(resp.draft);
