@@ -1745,7 +1745,7 @@
         try {
           const resp = await fetch("/send", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-Draft-Token": CONFIG.sessionToken },
             body: JSON.stringify({ text }),
           });
           const data = await resp.json();
@@ -1777,7 +1777,7 @@
         try {
           await fetch("/cancel", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-Draft-Token": CONFIG.sessionToken },
             body: "{}",
           });
         } catch (_) {}

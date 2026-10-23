@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { execFile } from "node:child_process";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 // @ts-ignore — import attributes need module:"esnext" in tsconfig; Bun handles this fine
 import _editorHtmlContent from "./draft-editor.html" with { type: "text" };
 
@@ -18,15 +19,51 @@ export function openDraftEditor(config: DraftEditorConfig): Promise<DraftResult>
   return new Promise<DraftResult>((resolve, reject) => {
     let settled = false;
 
+    // Why: the editor can post to Slack as the user, and it listens on
+    // loopback with no other caller authentication. Any local process, and
+    // any web page that can reach loopback, could otherwise POST /send.
+    // A per-session token keeps the capability with the browser tab the
+    // CLI opened: the page gets the token in its injected config and
+    // presents it as a header, which a cross-origin page cannot read or
+    // forge. Origin is checked as a second layer when the browser sends it.
+    const sessionToken = randomBytes(32).toString("base64url");
+    const tokenMatches = (candidate: string | null | undefined): boolean => {
+      if (!candidate) {
+        return false;
+      }
+      const a = Buffer.from(candidate);
+      const b = Buffer.from(sessionToken);
+      return a.length === b.length && timingSafeEqual(a, b);
+    };
+    const originAllowed = (req: IncomingMessage): boolean => {
+      const origin = req.headers.origin;
+      if (!origin) {
+        return true;
+      }
+      return origin === `http://${req.headers.host ?? ""}`;
+    };
+
     const server: Server = createServer(async (req, res) => {
-      if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
-        const html = buildEditorHtml(config);
+      const requestUrl = new URL(req.url ?? "/", "http://127.0.0.1");
+
+      if (req.method === "GET" && (requestUrl.pathname === "/" || requestUrl.pathname === "/index.html")) {
+        if (!tokenMatches(requestUrl.searchParams.get("t"))) {
+          res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end("Forbidden");
+          return;
+        }
+        const html = buildEditorHtml(config, sessionToken);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(html);
         return;
       }
 
-      if (req.method === "POST" && req.url === "/send") {
+      if (req.method === "POST" && requestUrl.pathname === "/send") {
+        if (!originAllowed(req) || !tokenMatches(req.headers["x-draft-token"] as string | undefined)) {
+          res.writeHead(403, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: "forbidden" }));
+          return;
+        }
         try {
           const body = await readBody(req);
           const data = JSON.parse(body) as { text: string };
@@ -52,7 +89,12 @@ export function openDraftEditor(config: DraftEditorConfig): Promise<DraftResult>
         return;
       }
 
-      if (req.method === "POST" && req.url === "/cancel") {
+      if (req.method === "POST" && requestUrl.pathname === "/cancel") {
+        if (!originAllowed(req) || !tokenMatches(req.headers["x-draft-token"] as string | undefined)) {
+          res.writeHead(403, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: "forbidden" }));
+          return;
+        }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
         settled = true;
@@ -91,7 +133,7 @@ export function openDraftEditor(config: DraftEditorConfig): Promise<DraftResult>
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address();
       const port = typeof addr === "object" && addr ? addr.port : 0;
-      const url = `http://127.0.0.1:${port}`;
+      const url = `http://127.0.0.1:${port}/?t=${sessionToken}`;
       process.stderr.write(`Draft editor: ${url}\n`);
       openBrowser(url);
     });
@@ -148,10 +190,11 @@ function extractWorkspaceName(url?: string): string | null {
   }
 }
 
-function buildEditorHtml(config: DraftEditorConfig): string {
+function buildEditorHtml(config: DraftEditorConfig, sessionToken: string): string {
   const threadUrl = buildSlackThreadUrl(config);
   const workspaceName = extractWorkspaceName(config.workspaceUrl);
   const injectedConfig = JSON.stringify({
+    sessionToken,
     channelName: config.channelName,
     channelId: config.channelId || null,
     workspaceUrl: config.workspaceUrl || null,
