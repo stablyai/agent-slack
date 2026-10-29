@@ -214,6 +214,12 @@ describe("textToRichTextBlocks", () => {
     expect((lists[1] as { indent?: number }).indent).toBe(1);
   });
 
+  test("sub-bullets nest one level per two spaces", () => {
+    const result = textToRichTextBlocks("- A\n  - B\n    - C\n- D")!;
+    const lists = result[0]!.elements.filter((e) => e.type === "rich_text_list");
+    expect(lists.map((list) => (list as { indent?: number }).indent ?? 0)).toEqual([0, 1, 2, 0]);
+  });
+
   test("white bullet sub-bullets under bullet", () => {
     const result = textToRichTextBlocks("• Top level\n  ◦ Sub-bullet\n  ◦ Another sub")!;
     expect(result).not.toBeNull();

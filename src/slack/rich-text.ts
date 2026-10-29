@@ -34,6 +34,8 @@ type TextToRichTextBlocksOptions = {
   includeInlineFormatting?: boolean;
 };
 
+// Deepest nesting Slack's list blocks are given, below the top level.
+const MAX_LIST_INDENT = 6;
 const BULLET_RE = /^(\s*)[•◦▪▫▸‣●○◆◇\-*]\s+(.*)$/;
 const ORDERED_RE = /^(\s*)\d+[.)]\s+(.*)$/;
 const CODE_BLOCK_START = /^```/;
@@ -264,8 +266,11 @@ function collectList(input: {
       break;
     }
 
-    // Anything significantly deeper (>= baseIndent + 2) is a sub-bullet
-    const indent = match[1]!.length >= baseIndent + 2 ? 1 : 0;
+    // Each two more spaces than the group's first bullet is one level deeper.
+    const indent = Math.min(
+      MAX_LIST_INDENT,
+      Math.max(0, Math.floor((match[1]!.length - baseIndent) / 2)),
+    );
     const content = match[2]!;
 
     if (currentIndent !== -1 && indent !== currentIndent) {
