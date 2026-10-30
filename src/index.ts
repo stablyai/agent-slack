@@ -11,6 +11,7 @@ import { registerUpdateCommand } from "./cli/update-command.ts";
 import { registerUserCommand } from "./cli/user-command.ts";
 import { registerChannelCommand } from "./cli/channel-command.ts";
 import { registerWorkflowCommand } from "./cli/workflow-command.ts";
+import { registerApiCommand } from "./cli/api-command.ts";
 import { backgroundUpdateCheck } from "./lib/update.ts";
 
 const program = new Command();
@@ -76,6 +77,7 @@ registerUpdateCommand({ program });
 registerUserCommand({ program, ctx });
 registerChannelCommand({ program, ctx });
 registerWorkflowCommand({ program, ctx });
+registerApiCommand({ program, ctx });
 
 program.parse(process.argv);
 if (!process.argv.slice(2).length) {

@@ -527,6 +527,18 @@ Output includes channels sorted by mention count, then unread count:
 
 Note: This feature uses the `client.counts` API which may be restricted in some Enterprise Grid workspaces (`team_is_restricted` error).
 
+### Raw API calls
+
+For Slack Web API methods without a dedicated command, `api` calls the method with the configured auth and prints Slack's JSON unchanged (like `gh api`):
+
+```bash
+agent-slack api client.counts -f thread_count_by_channel=true
+agent-slack api conversations.replies -f channel=C123 -f ts=1770165109.628379 -f limit=1
+agent-slack api chat.getPermalink --params '{"channel":"C123","message_ts":"1770165109.628379"}'
+```
+
+`-f key=value` adds a string argument (repeatable, wins over `--params`); `--params` takes a JSON object for non-string values. `--multipart` sends form-data for internal methods that need it (e.g. `saved.update`). A Slack error still prints its JSON to stdout and exits 1. In safe mode only read methods (`*.list`, `*.info`, `*.history`, `*.replies`, `get*`, `search.*`) are allowed.
+
 ### Later (saved messages)
 
 Manage your saved-for-later messages (Slack's Later tab):
