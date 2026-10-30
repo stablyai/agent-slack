@@ -36,6 +36,7 @@ export type SendOptionsForRedirect = {
   schedule?: string;
   scheduleIn?: string;
   unfurl?: boolean;
+  ephemeral?: string;
 };
 
 /**
@@ -68,6 +69,9 @@ export async function redirectSendToDraft(
   }
   if (input.options.replyBroadcast) {
     unsupported.push("--reply-broadcast");
+  }
+  if (input.options.ephemeral !== undefined) {
+    unsupported.push("--ephemeral");
   }
   if (unsupported.length > 0) {
     throw new Error(

@@ -201,6 +201,10 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "Schedule delivery within 120 days after a duration or future phrase, e.g. 3h or monday 9am. Named phrases use this process's local timezone. Cannot be combined with --attach.",
     )
     .option("--no-unfurl", "Suppress link and media previews. Cannot be combined with --attach.")
+    .option(
+      "--ephemeral <user>",
+      "Post an ephemeral message only this user sees (user ID, or 'me' for the authenticated user). Slack does not store it: it disappears on reload. Cannot be combined with --attach, --schedule/--schedule-in or --reply-broadcast.",
+    )
     .action(async (...args) => {
       const [targetInput, text, options] = args as [
         string,
@@ -214,6 +218,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
           schedule?: string;
           scheduleIn?: string;
           unfurl?: boolean;
+          ephemeral?: string;
         },
       ];
       const hasAttach = (options.attach ?? []).length > 0;
@@ -247,6 +252,18 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
         );
         process.exitCode = 1;
         return;
+      }
+      if (options.ephemeral !== undefined) {
+        const conflicts = [
+          hasAttach ? "--attach" : undefined,
+          hasSchedule ? "--schedule/--schedule-in" : undefined,
+          options.replyBroadcast ? "--reply-broadcast" : undefined,
+        ].filter(Boolean);
+        if (conflicts.length > 0) {
+          console.error(`Error: --ephemeral cannot be combined with ${conflicts.join(", ")}.`);
+          process.exitCode = 1;
+          return;
+        }
       }
       try {
         const payload = safeModeActive()

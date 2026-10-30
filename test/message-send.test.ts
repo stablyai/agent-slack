@@ -29,6 +29,12 @@ function createContext(
       if (method === "chat.postMessage") {
         return { ok: true, channel: String(params.channel), ts: "1770165109.628379" };
       }
+      if (method === "chat.postEphemeral") {
+        return { ok: true, message_ts: "1770165200.000100" };
+      }
+      if (method === "auth.test") {
+        return { ok: true, user_id: "U0SELF0001" };
+      }
       if (method === "chat.scheduleMessage") {
         return {
           ok: true,
@@ -106,6 +112,76 @@ describe("sendMessage", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+  });
+
+  test("posts an ephemeral thread reply visible only to the given user", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    const result = await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "only you",
+      options: {
+        workspace: "https://workspace.slack.com",
+        threadTs: "1770165109.628379",
+        ephemeral: "U0OTHER001",
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "chat.postEphemeral",
+        params: {
+          channel: "C12345678",
+          user: "U0OTHER001",
+          text: "only you",
+          thread_ts: "1770165109.628379",
+        },
+      },
+    ]);
+    expect(result).toEqual({
+      ok: true,
+      ephemeral: true,
+      channel_id: "C12345678",
+      user: "U0OTHER001",
+      message_ts: "1770165200.000100",
+      thread_ts: "1770165109.628379",
+    });
+  });
+
+  test("resolves --ephemeral me to the authenticated user", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await sendMessage({
+      ctx,
+      targetInput: "C12345678",
+      text: "note to self",
+      options: { workspace: "https://workspace.slack.com", ephemeral: "me" },
+    });
+
+    expect(calls.map((c) => c.method)).toEqual(["auth.test", "chat.postEphemeral"]);
+    expect(calls[1]?.params.user).toBe("U0SELF0001");
+  });
+
+  test.each([
+    [{ attach: ["./a.md"] }, "--attach"],
+    [{ replyBroadcast: true, threadTs: "1770165109.628379" }, "--reply-broadcast"],
+    [{ scheduleIn: "3h" }, "--schedule"],
+  ])("rejects --ephemeral combined with %p", async (extra, flag) => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+
+    await expect(
+      sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text: "x",
+        options: { workspace: "https://workspace.slack.com", ephemeral: "me", ...extra },
+      }),
+    ).rejects.toThrow(flag);
+    expect(calls.filter((c) => c.method === "chat.postEphemeral")).toEqual([]);
   });
 
   test("posts a normal message when no attachments are passed", async () => {
