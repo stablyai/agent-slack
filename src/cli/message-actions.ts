@@ -117,9 +117,20 @@ export async function sendMessage(input: {
     schedule?: string;
     scheduleIn?: string;
     unfurl?: boolean;
+    ephemeral?: string;
   };
 }): Promise<Record<string, unknown>> {
   const target = parseMsgTarget(String(input.targetInput));
+  const ephemeralUser = input.options.ephemeral?.trim();
+  if (input.options.ephemeral !== undefined && !ephemeralUser) {
+    throw new Error("--ephemeral requires a user ID or 'me'");
+  }
+  if (
+    ephemeralUser &&
+    (attachPathsRequested(input.options.attach) || input.options.replyBroadcast)
+  ) {
+    throw new Error("--ephemeral cannot be combined with --attach or --reply-broadcast");
+  }
   const attachPaths = normalizeAttachPaths(input.options.attach);
   const postAt = resolveSchedulePostAt({
     schedule: input.options.schedule,
@@ -162,6 +173,7 @@ export async function sendMessage(input: {
           attachPaths,
           postAt,
           unfurl: input.options.unfurl,
+          ephemeralUser,
         });
       },
     });
@@ -186,6 +198,7 @@ export async function sendMessage(input: {
           attachPaths,
           postAt,
           unfurl: input.options.unfurl,
+          ephemeralUser,
         });
       },
     });
@@ -215,9 +228,26 @@ export async function sendMessage(input: {
         attachPaths,
         postAt,
         unfurl: input.options.unfurl,
+        ephemeralUser,
       });
     },
   });
+}
+
+function attachPathsRequested(attach: string[] | undefined): boolean {
+  return (attach ?? []).length > 0;
+}
+
+async function resolveEphemeralUser(client: SlackApiClient, user: string): Promise<string> {
+  if (user.toLowerCase() !== "me") {
+    return user;
+  }
+  const resp = await client.api("auth.test", {});
+  const userId = typeof resp.user_id === "string" ? resp.user_id : undefined;
+  if (!userId) {
+    throw new Error("Could not resolve 'me': auth.test returned no user_id");
+  }
+  return userId;
 }
 
 async function sendMessageToChannel(input: {
@@ -231,7 +261,40 @@ async function sendMessageToChannel(input: {
   attachPaths: string[];
   postAt?: number;
   unfurl?: boolean;
+  ephemeralUser?: string;
 }): Promise<Record<string, unknown>> {
+  if (input.ephemeralUser) {
+    if (input.postAt !== undefined) {
+      throw new Error("--ephemeral cannot be combined with --schedule/--schedule-in");
+    }
+    const user = await resolveEphemeralUser(input.client, input.ephemeralUser);
+    let resp: Record<string, unknown>;
+    try {
+      resp = await input.client.api("chat.postEphemeral", {
+        channel: input.channelId,
+        user,
+        text: input.text,
+        thread_ts: input.threadTs,
+        ...(input.blocks ? { blocks: input.blocks } : {}),
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("not_allowed_token_type")) {
+        throw new Error(
+          "--ephemeral needs a Slack app token (xoxp user or xoxb bot, with chat:write); browser session tokens (xoxc) are rejected by chat.postEphemeral. Pass one via SLACK_TOKEN.",
+        );
+      }
+      throw err;
+    }
+    return {
+      ok: true,
+      ephemeral: true,
+      channel_id: input.channelId,
+      user,
+      message_ts: typeof resp.message_ts === "string" ? resp.message_ts : undefined,
+      thread_ts: input.threadTs,
+    };
+  }
+
   if (input.postAt !== undefined) {
     const resp = await input.client.api("chat.scheduleMessage", {
       channel: input.channelId,

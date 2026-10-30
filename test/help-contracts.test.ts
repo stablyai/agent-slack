@@ -48,6 +48,7 @@ describe("agent-facing help contracts", () => {
     expect(optionDescription(send, "--thread-ts")).toContain("channel targets");
     expect(optionDescription(send, "--reply-broadcast")).toContain("DM targets");
     expect(optionDescription(send, "--no-unfurl")).toContain("link and media previews");
+    expect(optionDescription(send, "--ephemeral")).toContain("disappears on reload");
   });
 
   test("message compose identifies its CI send behavior", () => {

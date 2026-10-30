@@ -42,6 +42,7 @@ describe("redirectSendToDraft", () => {
     [{ schedule: "2030-01-01T00:00:00Z" }, "--schedule"],
     [{ scheduleIn: "3h" }, "--schedule-in"],
     [{ replyBroadcast: true }, "--reply-broadcast"],
+    [{ ephemeral: "me" }, "--ephemeral"],
   ])("rejects unsupported send option %p", async (options, flag) => {
     await expect(
       redirectSendToDraft({ ctx: stubCtx, targetInput: "#general", text: "hi", options }),
