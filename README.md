@@ -537,7 +537,7 @@ agent-slack api conversations.replies -f channel=C123 -f ts=1770165109.628379 -f
 agent-slack api chat.getPermalink --params '{"channel":"C123","message_ts":"1770165109.628379"}'
 ```
 
-`-f key=value` adds a string argument (repeatable, wins over `--params`); `--params` takes a JSON object for non-string values.
+`-f key=value` adds a string argument (repeatable, wins over `--params`); `--params` takes a JSON object for non-string values. `--multipart` sends form-data for internal methods that need it (e.g. `saved.update`). A Slack error still prints its JSON to stdout and exits 1. In safe mode only read methods (`*.list`, `*.info`, `*.history`, `*.replies`, `get*`, `search.*`) are allowed.
 
 ### Later (saved messages)
 
