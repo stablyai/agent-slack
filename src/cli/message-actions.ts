@@ -40,6 +40,7 @@ function loadBlocksFromPath(path: string): unknown[] {
 
 export type MessageCommandOptions = {
   maxBodyChars: string;
+  format?: string;
   workspace?: string;
   ts?: string;
   threadTs?: string;

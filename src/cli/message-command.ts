@@ -1,3 +1,4 @@
+import { parseOutputFormat, renderMessagePayload } from "../lib/message-text-format.ts";
 import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
 import {
@@ -37,6 +38,11 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "Max content characters to include (default 8000, -1 for unlimited)",
       "8000",
     )
+    .option(
+      "--format <format>",
+      "Output format: json (default) or text (one line per message: time, author, text)",
+      "json",
+    )
     .option("--include-reactions", "Include reactions + reacting users")
     .option("--resolve-users", "Resolve user IDs to user profiles")
     .option(
@@ -46,8 +52,9 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .action(async (...args) => {
       const [targetInput, options] = args as [string, MessageCommandOptions];
       try {
+        const format = parseOutputFormat(options.format);
         const payload = await handleMessageGet({ ctx: input.ctx, targetInput, options });
-        console.log(JSON.stringify(payload, null, 2));
+        console.log(renderMessagePayload(payload, format));
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
         process.exitCode = 1;
@@ -87,6 +94,11 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
       "Max content characters to include (default 8000, -1 for unlimited)",
       "8000",
     )
+    .option(
+      "--format <format>",
+      "Output format: json (default) or text (one line per message: time, author, text)",
+      "json",
+    )
     .option("--include-reactions", "Include reactions + reacting users")
     .option("--resolve-users", "Resolve user IDs to user profiles")
     .option(
@@ -96,8 +108,9 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     .action(async (...args) => {
       const [targetInput, options] = args as [string, MessageCommandOptions];
       try {
+        const format = parseOutputFormat(options.format);
         const payload = await handleMessageList({ ctx: input.ctx, targetInput, options });
-        console.log(JSON.stringify(payload, null, 2));
+        console.log(renderMessagePayload(payload, format));
       } catch (err: unknown) {
         console.error(input.ctx.errorMessage(err));
         process.exitCode = 1;

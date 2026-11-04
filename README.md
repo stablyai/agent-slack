@@ -196,6 +196,9 @@ agent-slack message list "https://workspace.slack.com/archives/C123/p17000000000
 # Recent channel messages (browse channel history)
 agent-slack message list "#general" --limit 20
 
+# One line per message (time, author, text) instead of JSON; works with message get too
+agent-slack message list "#general" --limit 20 --format text --resolve-users
+
 # Recent channel messages that are marked with :eyes:
 agent-slack message list "#general" --with-reaction eyes --oldest "1770165109.000000" --limit 20
 
