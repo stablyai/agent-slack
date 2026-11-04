@@ -15,6 +15,7 @@ export type ProfileCandidate = {
 const PLATFORM = platform();
 const IS_MACOS = PLATFORM === "darwin";
 const IS_LINUX = PLATFORM === "linux";
+const IS_WINDOWS = PLATFORM === "win32";
 
 export function isMissingBunSqliteModule(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -67,6 +68,9 @@ export function getFirefoxBaseDir(): string {
   }
   if (IS_MACOS) {
     return join(homedir(), "Library", "Application Support", "Firefox");
+  }
+  if (IS_WINDOWS) {
+    return join(homedir(), "AppData", "Roaming", "Mozilla", "Firefox");
   }
   throw new Error(`Firefox extraction is not supported on ${PLATFORM}.`);
 }
