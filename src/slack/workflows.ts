@@ -174,34 +174,6 @@ export async function previewWorkflow(
   };
 }
 
-export type WorkflowRunResult = {
-  function_execution_id: string;
-  trigger_execution_id: string;
-  is_slow_workflow: boolean;
-};
-
-export async function runWorkflow(
-  client: SlackApiClient,
-  input: { shortcutUrl: string; channelId: string; triggerId: string },
-): Promise<WorkflowRunResult> {
-  const clientToken = `cli-${Date.now()}`;
-  const resp = await client.api("workflows.triggers.trip", {
-    url: input.shortcutUrl,
-    client_token: clientToken,
-    context: JSON.stringify({
-      location: "bookmark",
-      channel_id: input.channelId,
-      trigger_id: input.triggerId,
-    }),
-    run_precheck: true,
-  });
-  return {
-    function_execution_id: getString(resp.function_execution_id) ?? "",
-    trigger_execution_id: getString(resp.trigger_execution_id) ?? "",
-    is_slow_workflow: resp.is_slow_workflow === true,
-  };
-}
-
 export async function resolveShortcutUrl(
   client: SlackApiClient,
   input: { channelId: string; triggerId: string },
@@ -230,6 +202,8 @@ export type FormField = {
   description: string;
   required: boolean;
   long?: boolean;
+  /** Allowed option labels for dropdown fields. */
+  options?: string[];
 };
 
 export type WorkflowSchema = {
@@ -283,6 +257,7 @@ export async function getWorkflowSchema(
         description: getString(el.description) ?? "",
         required: required.has(getString(el.name) ?? ""),
         long: el.long === true ? true : undefined,
+        options: parseChoiceTitles(el.choices),
       }));
     }
   }
@@ -295,6 +270,14 @@ export async function getWorkflowSchema(
     fields,
     steps: stepSummaries,
   };
+}
+
+function parseChoiceTitles(choices: unknown): string[] | undefined {
+  const titles = asArray(choices)
+    .filter(isRecord)
+    .map((c) => getString(c.title) ?? "")
+    .filter(Boolean);
+  return titles.length > 0 ? titles : undefined;
 }
 
 function extractTriggerId(link: string | undefined): string | undefined {

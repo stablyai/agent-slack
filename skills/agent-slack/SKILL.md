@@ -31,6 +31,8 @@ If a capability named here is absent from installed help, report version skew in
 4. Use output limits such as `--limit`, `--max-body-chars`, and `--max-content-chars` to avoid unnecessary context.
 5. For a requested write, execute only the requested mutation and verify the resulting JSON metadata.
 
+For `workflow run`, read the form with `workflow get <Ft...>`, check the resolved payload with `--dry-run --input "<field title>=<value>"`, and submit only on an explicit request; the run fills in and submits the form, which triggers its downstream steps.
+
 For scheduled writes, prefer `--schedule` with an ISO 8601 timestamp and explicit offset when timezone matters. Named `--schedule-in` phrases use the executing environment's local timezone; confirm that it matches the user's intent.
 
 Named `later remind --in` values such as `tomorrow` or `monday` also use the executing environment's local timezone at 9:00. Confirm that timezone or pass an explicit Unix timestamp.
