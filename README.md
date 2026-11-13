@@ -106,7 +106,7 @@ agent-slack
 │   ├── list    <channel>          # workflows bookmarked in a channel
 │   ├── preview <trigger-id>       # trigger metadata (no side effects)
 │   ├── get     <id>               # workflow definition + form fields
-│   └── run     <trigger-id>       # trip a workflow trigger
+│   └── run     <trigger-id>       # trip a trigger, fill in + submit its form
 └── canvas
     ├── create                     # markdown file/blob → canvas
     ├── edit <canvas-url-or-id>    # replace/insert/delete/rename a canvas
@@ -604,6 +604,32 @@ canvases; `--channel` requires a standard Slack token with Slack's `canvases:wri
 provided. Content operations require exactly one Markdown source; `delete` requires a section ID;
 `rename` requires `--title`. Editing requires a standard token with Slack's `canvases:write` scope;
 imported browser credentials cannot edit canvases.
+
+### Run a workflow and fill in its form
+
+```bash
+# See the form fields (title, required, dropdown options) of a workflow trigger
+agent-slack workflow get Ft0123456789 --workspace "https://workspace.slack.com"
+
+# Preview the resolved payload without running anything
+agent-slack workflow run Ft0123456789 --workspace "https://workspace.slack.com" \
+  --input "Summary=Printer is offline" --input "Urgency=High" --dry-run
+
+# Run the workflow and submit the form
+agent-slack workflow run Ft0123456789 --workspace "https://workspace.slack.com" \
+  --input "Summary=Printer is offline" --input "Urgency=High"
+
+# Read the values from a JSON file (or - for stdin)
+agent-slack workflow run Ft0123456789 --workspace "https://workspace.slack.com" --inputs-json ./request.json
+```
+
+`--input "<field>=<value>"` is repeatable and matches a field by its title (case-insensitive) or by
+its name from `workflow get`; split on the first `=`. Dropdown fields take the option label.
+`--inputs-json` takes an object of field to value; `--input` overrides it. Required fields are
+checked against the workflow definition before anything is sent, and `--dry-run` prints the
+resolved inputs without tripping the trigger. Submitting a form needs imported browser credentials,
+because Slack delivers the opened form over the same realtime stream the web client uses. Running a
+workflow executes its downstream steps, so check the form with `--dry-run` first.
 
 ## Developing / Contributing
 

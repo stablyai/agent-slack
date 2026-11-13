@@ -1,14 +1,11 @@
+import { readFileSync } from "node:fs";
 import type { Command } from "commander";
 import type { CliContext } from "./context.ts";
+import { collectOptionValue } from "./options.ts";
 import { pruneEmpty } from "../lib/compact-json.ts";
 import { resolveChannelId } from "../slack/channels.ts";
-import {
-  getWorkflowSchema,
-  listChannelWorkflows,
-  previewWorkflow,
-  resolveShortcutUrl,
-  runWorkflow,
-} from "../slack/workflows.ts";
+import { runWorkflow } from "../slack/workflow-run.ts";
+import { getWorkflowSchema, listChannelWorkflows, previewWorkflow } from "../slack/workflows.ts";
 
 type WorkspaceOption = {
   workspace?: string;
@@ -105,24 +102,42 @@ export function registerWorkflowCommand(input: { program: Command; ctx: CliConte
 
   workflowCmd
     .command("run")
-    .description("Trip a workflow trigger")
+    .description(
+      "Trip a workflow trigger and, if it opens a form, fill in and submit it (use --dry-run to preview)",
+    )
     .argument("<trigger-id>", "Trigger ID (Ft...)")
-    .requiredOption("--channel <id-or-name>", "Channel where the workflow is bookmarked")
+    .option("--channel <id-or-name>", "Channel where the workflow is shown (optional context)")
+    .option(
+      "--input <field=value>",
+      "Form field value, matched by field title (case-insensitive) or name; repeatable. Dropdowns take the option label",
+      collectOptionValue,
+      [],
+    )
+    .option("--inputs-json <file>", "JSON file (or - for stdin) mapping field title/name to value")
+    .option("--dry-run", "Resolve and print the form payload without running the workflow")
     .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
     )
     .action(async (...args) => {
-      const [triggerId, options] = args as [string, WorkspaceOption & { channel: string }];
+      const [triggerId, options] = args as [string, WorkspaceOption & RunOptions];
       try {
         const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
+        const json = options.inputsJson ? readJsonInputs(options.inputsJson) : undefined;
         const payload = await input.ctx.withAutoRefresh({
           workspaceUrl,
           work: async () => {
-            const { client } = await input.ctx.getClientForWorkspace(workspaceUrl);
-            const channelId = await resolveChannelId(client, options.channel);
-            const shortcutUrl = await resolveShortcutUrl(client, { channelId, triggerId });
-            return await runWorkflow(client, { shortcutUrl, channelId, triggerId });
+            const { client, auth } = await input.ctx.getClientForWorkspace(workspaceUrl);
+            const channelId = options.channel
+              ? await resolveChannelId(client, options.channel)
+              : undefined;
+            return await runWorkflow(client, {
+              triggerId,
+              channelId,
+              inputs: { pairs: options.input, json },
+              dryRun: options.dryRun === true,
+              auth,
+            });
           },
         });
         console.log(JSON.stringify(pruneEmpty(payload), null, 2));
@@ -131,4 +146,20 @@ export function registerWorkflowCommand(input: { program: Command; ctx: CliConte
         process.exitCode = 1;
       }
     });
+}
+
+type RunOptions = {
+  channel?: string;
+  input?: string[];
+  inputsJson?: string;
+  dryRun?: boolean;
+};
+
+function readJsonInputs(path: string): unknown {
+  const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`--inputs-json ${path} is not valid JSON.`);
+  }
 }
