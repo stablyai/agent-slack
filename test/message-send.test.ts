@@ -401,7 +401,7 @@ describe("sendMessage", () => {
     expect(calls).toHaveLength(0);
   });
 
-  test("sends initial comment only for the first attachment", async () => {
+  test("posts the text and every attachment as one message", async () => {
     const calls: { method: string; params: Record<string, unknown> }[] = [];
     const ctx = createContext(calls);
     const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
@@ -418,6 +418,49 @@ describe("sendMessage", () => {
         ctx,
         targetInput: "C12345678",
         text: "see files",
+        options: { attach: [first, second], threadTs: "1770165109.000001" },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+
+    // Both files stage before the single completion that posts the message.
+    expect(calls.map((c) => c.method)).toEqual([
+      "files.getUploadURLExternal",
+      "files.getUploadURLExternal",
+      "files.completeUploadExternal",
+    ]);
+    const complete = calls[2]!;
+    expect((complete.params.files as { title: string }[]).map((f) => f.title)).toEqual([
+      "report.md",
+      "log.txt",
+    ]);
+    expect(complete.params.channel_id).toBe("C12345678");
+    expect(complete.params.thread_ts).toBe("1770165109.000001");
+    expect(complete.params.initial_comment).toBe("see files");
+    expect(complete.params).not.toHaveProperty("blocks");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("keeps list formatting by sending rich text blocks instead of an initial comment", async () => {
+    const calls: { method: string; params: Record<string, unknown> }[] = [];
+    const ctx = createContext(calls);
+    const dir = await mkdtemp(join(tmpdir(), "agent-slack-send-test-"));
+    const first = join(dir, "a.png");
+    const second = join(dir, "b.png");
+    await writeFile(first, "a");
+    await writeFile(second, "b");
+
+    globalThis.fetch = mock(
+      async () => new Response("", { status: 200 }),
+    ) as unknown as typeof fetch;
+
+    const text = "Screens:\n- before\n- after";
+    try {
+      await sendMessage({
+        ctx,
+        targetInput: "C12345678",
+        text,
         options: { attach: [first, second] },
       });
     } finally {
@@ -425,10 +468,25 @@ describe("sendMessage", () => {
     }
 
     const completes = calls.filter((c) => c.method === "files.completeUploadExternal");
-    expect(completes).toHaveLength(2);
-    expect(completes[0]?.params.initial_comment).toBe("see files");
-    expect(completes[1]?.params.initial_comment).toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(completes).toHaveLength(1);
+    // Slack ignores blocks whenever initial_comment is present, so only blocks go out.
+    expect(completes[0]?.params).not.toHaveProperty("initial_comment");
+    expect(completes[0]?.params.blocks).toEqual([
+      {
+        type: "rich_text",
+        elements: [
+          { type: "rich_text_section", elements: [{ type: "text", text: "Screens:\n" }] },
+          {
+            type: "rich_text_list",
+            style: "bullet",
+            elements: [
+              { type: "rich_text_section", elements: [{ type: "text", text: "before" }] },
+              { type: "rich_text_section", elements: [{ type: "text", text: "after" }] },
+            ],
+          },
+        ],
+      },
+    ]);
   });
 
   test("uploads attachment without text when text is empty", async () => {

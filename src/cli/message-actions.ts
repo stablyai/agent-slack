@@ -8,7 +8,7 @@ import { warnOnTruncatedSlackUrl } from "./message-url-warning.ts";
 import { textToRichTextBlocks } from "../slack/rich-text.ts";
 import { formatOutboundSlackText } from "../slack/format-outbound.ts";
 import type { SlackApiClient } from "../slack/client.ts";
-import { uploadLocalFileToSlack } from "../slack/upload.ts";
+import { uploadLocalFilesToSlack } from "../slack/upload.ts";
 import { buildSlackMessageUrl } from "../slack/url.ts";
 import { normalizeAttachPaths } from "./options.ts";
 import { resolveSchedulePostAt } from "../slack/scheduled-messages.ts";
@@ -283,23 +283,14 @@ async function sendMessageToChannel(input: {
     };
   }
 
-  if (input.blocks) {
-    process.stderr.write(
-      "Warning: rich text formatting is not supported with file attachments; sending as plain text.\n",
-    );
-  }
-
-  let initialComment = input.text;
-  for (const filePath of input.attachPaths) {
-    await uploadLocalFileToSlack({
-      client: input.client,
-      channelId: input.channelId,
-      filePath,
-      threadTs: input.threadTs,
-      initialComment,
-    });
-    initialComment = "";
-  }
+  await uploadLocalFilesToSlack({
+    client: input.client,
+    channelId: input.channelId,
+    filePaths: input.attachPaths,
+    threadTs: input.threadTs,
+    initialComment: input.text,
+    blocks: input.blocks,
+  });
 
   return {
     ok: true,

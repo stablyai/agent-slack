@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { SlackApiClient } from "../src/slack/client.ts";
-import { uploadFilesForDraft, uploadLocalFileToSlack } from "../src/slack/upload.ts";
+import { uploadFilesForDraft, uploadLocalFilesToSlack } from "../src/slack/upload.ts";
 
 type Call = { method: string; params: Record<string, unknown> };
 
@@ -213,7 +213,7 @@ describe("uploadFilesForDraft", () => {
   });
 });
 
-describe("uploadLocalFileToSlack (shared-helper regression)", () => {
+describe("uploadLocalFilesToSlack", () => {
   let tempDir: string;
   const originalFetch = globalThis.fetch;
 
@@ -237,17 +237,97 @@ describe("uploadLocalFileToSlack (shared-helper regression)", () => {
     await writeFile(filePath, "# r\n");
     mockFetchOk();
 
-    await uploadLocalFileToSlack({
+    await uploadLocalFilesToSlack({
       client,
       channelId: "C1",
       threadTs: "123.000100",
       initialComment: "hi",
-      filePath,
+      filePaths: [filePath],
     });
 
     const complete = calls[1]!;
     expect(complete.params.channel_id).toBe("C1");
     expect(complete.params.thread_ts).toBe("123.000100");
     expect(complete.params.initial_comment).toBe("hi");
+  });
+
+  test("stages every file, then posts them all in one completion call", async () => {
+    const { client, calls } = createClient({
+      "files.getUploadURLExternal": (p) => ({
+        ok: true,
+        upload_url: "https://upload.example/f",
+        file_id: `F-${p.filename}`,
+      }),
+    });
+    const a = join(tempDir, "a.png");
+    const b = join(tempDir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
+    const fetchMock = mockFetchOk();
+
+    await uploadLocalFilesToSlack({
+      client,
+      channelId: "C1",
+      initialComment: "two files",
+      filePaths: [a, b],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(completeCalls(calls)).toHaveLength(1);
+    const complete = completeCalls(calls)[0]!;
+    expect(complete.params.files).toEqual([
+      { id: "F-a.png", title: "a.png" },
+      { id: "F-b.pdf", title: "b.pdf" },
+    ]);
+    expect(complete.params.channel_id).toBe("C1");
+    expect(complete.params.initial_comment).toBe("two files");
+  });
+
+  test("sends blocks without initial_comment, since Slack ignores blocks next to it", async () => {
+    const { client, calls } = createClient({
+      "files.getUploadURLExternal": {
+        ok: true,
+        upload_url: "https://upload.example/f",
+        file_id: "F1",
+      },
+    });
+    const filePath = join(tempDir, "r.md");
+    await writeFile(filePath, "# r\n");
+    mockFetchOk();
+    const blocks = [{ type: "rich_text", elements: [] }];
+
+    await uploadLocalFilesToSlack({
+      client,
+      channelId: "C1",
+      initialComment: "- a\n- b",
+      blocks,
+      filePaths: [filePath],
+    });
+
+    const complete = completeCalls(calls)[0]!;
+    expect(complete.params.blocks).toEqual(blocks);
+    expect(complete.params).not.toHaveProperty("initial_comment");
+  });
+
+  test("a later staging failure posts nothing", async () => {
+    let n = 0;
+    const { client, calls } = createClient({
+      "files.getUploadURLExternal": () => {
+        n += 1;
+        return n === 1
+          ? { ok: true, upload_url: "https://upload.example/f", file_id: "F1" }
+          : { ok: false, error: "ratelimited" };
+      },
+    });
+    const a = join(tempDir, "a.png");
+    const b = join(tempDir, "b.pdf");
+    await writeFile(a, "x");
+    await writeFile(b, "y");
+    mockFetchOk();
+
+    await expect(
+      uploadLocalFilesToSlack({ client, channelId: "C1", initialComment: "hi", filePaths: [a, b] }),
+    ).rejects.toThrow(/getUploadURLExternal failed/);
+    expect(completeCalls(calls)).toHaveLength(0);
   });
 });

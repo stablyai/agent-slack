@@ -89,27 +89,34 @@ function completedFileIds(resp: unknown): (string | undefined)[] | undefined {
 }
 
 /**
- * Upload a local file and attach it to a Slack message in one shot. The
- * completion call binds the file to `channelId` (and optionally the thread),
- * so the file posts with `initialComment` immediately.
+ * Upload local files and post them to Slack as a single message. Every file
+ * is staged first; one `files.completeUploadExternal` call then binds them all
+ * to `channelId` (and optionally the thread), so Slack posts one message
+ * carrying the text and every file. A staging failure posts nothing.
+ *
+ * Slack ignores `blocks` whenever `initial_comment` is also sent, so rich text
+ * blocks (lists etc.) replace the plain initial comment rather than ride along.
  */
-export async function uploadLocalFileToSlack(input: {
+export async function uploadLocalFilesToSlack(input: {
   client: SlackApiClient;
   channelId: string;
-  filePath: string;
+  filePaths: string[];
   threadTs?: string;
   initialComment?: string;
+  blocks?: unknown[] | null;
 }): Promise<void> {
-  const { fileId, filename } = await stageFileUpload({
-    client: input.client,
-    filePath: input.filePath,
-  });
+  const staged: { fileId: string; filename: string }[] = [];
+  for (const filePath of input.filePaths) {
+    staged.push(await stageFileUpload({ client: input.client, filePath }));
+  }
 
   const completeResp = await input.client.api("files.completeUploadExternal", {
-    files: [{ id: fileId, title: filename }],
+    files: staged.map((s) => ({ id: s.fileId, title: s.filename })),
     channel_id: input.channelId,
     thread_ts: input.threadTs,
-    initial_comment: input.initialComment?.trim() || undefined,
+    ...(input.blocks
+      ? { blocks: input.blocks }
+      : { initial_comment: input.initialComment?.trim() || undefined }),
   });
 
   ensureCompleteOk(completeResp);

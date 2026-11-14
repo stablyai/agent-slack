@@ -42,7 +42,7 @@ describe("agent-facing help contracts", () => {
   test("message send documents non-obvious formatting and scheduling behavior", () => {
     const send = findCommand(buildProgram(), "message", "send");
 
-    expect(optionDescription(send, "--attach")).toContain("without automatic list conversion");
+    expect(optionDescription(send, "--attach")).toContain("one message");
     expect(optionDescription(send, "--schedule")).toContain("within 120 days");
     expect(optionDescription(send, "--schedule-in")).toContain("local timezone");
     expect(optionDescription(send, "--thread-ts")).toContain("channel targets");
