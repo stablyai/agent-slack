@@ -184,7 +184,7 @@ export function registerMessageCommand(input: { program: Command; ctx: CliContex
     )
     .option(
       "--attach <path>",
-      "Attach a local file path (repeatable); text becomes an initial comment without automatic list conversion",
+      "Attach a local file path (repeatable); text and all files post as one message",
       collectOptionValue,
       [],
     )
