@@ -47,7 +47,7 @@ const BLOCKQUOTE_RE = /^> (.*)$/;
 export function parseInlineElements(text: string): InlineElement[] {
   const elements: InlineElement[] = [];
   const re =
-    /`([^`]+)`|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
+    /`([^`]+)`|(?:^|(?<=[^A-Za-z0-9_])):([a-zA-Z0-9_+-]+):(?![A-Za-z0-9_+-])|(?:^|(?<=[^A-Za-z0-9]))\*([^*\s](?:[^*]*[^*\s])?)\*(?![A-Za-z0-9])|(?:^|(?<=[^A-Za-z0-9_]))_([^_\s](?:[^_]*[^_\s])?)_(?![A-Za-z0-9_])|(?:^|(?<=[^A-Za-z0-9]))~([^~\s](?:[^~]*[^~\s])?)~(?![A-Za-z0-9])|<@([UWB][A-Z0-9]+)(?:\|[^>]*)?>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>|<([^>|]+)\|([^>]+)>|<([^>|]+)>|(?:^|(?<=[^A-Za-z0-9_]))@([UWB][A-Z0-9]{6,})\b|(?:^|(?<=[^A-Za-z0-9_]))@(here|channel|everyone)\b/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
