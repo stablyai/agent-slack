@@ -27,6 +27,33 @@ describe("parseInlineElements", () => {
     ]);
   });
 
+  test("tildes used as 'approximately' are not parsed as strike", () => {
+    const text = "Checked (~775k rows, ~11.9k users) and ~6,900 accounts, all ~19,250";
+    expect(parseInlineElements(text)).toEqual([{ type: "text", text }]);
+  });
+
+  test("underscores inside words are not parsed as italic", () => {
+    const text = "ACTIVE_FLAG and user_id stay literal, as does snake_case_name";
+    expect(parseInlineElements(text)).toEqual([{ type: "text", text }]);
+  });
+
+  test("asterisks inside words or next to spaces are not parsed as bold", () => {
+    const text = "2*3*4 and a * b * c";
+    expect(parseInlineElements(text)).toEqual([{ type: "text", text }]);
+  });
+
+  test("formatting next to punctuation is still parsed", () => {
+    expect(parseInlineElements("(_note_), *done*. ~old~!")).toEqual([
+      { type: "text", text: "(" },
+      { type: "text", text: "note", style: { italic: true } },
+      { type: "text", text: "), " },
+      { type: "text", text: "done", style: { bold: true } },
+      { type: "text", text: ". " },
+      { type: "text", text: "old", style: { strike: true } },
+      { type: "text", text: "!" },
+    ]);
+  });
+
   test("`code` is parsed with code style", () => {
     expect(parseInlineElements("Run `npm install`")).toEqual([
       { type: "text", text: "Run " },
