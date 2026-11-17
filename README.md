@@ -395,6 +395,9 @@ agent-slack channel new --name "incident-war-room"
 # Create a private channel
 agent-slack channel new --name "incident-leads" --private
 
+# Enterprise Grid org-level session with several workspaces: pick one by team id
+agent-slack channel new --name "incident-leads" --team T01234567
+
 # Invite users by id, handle, or email
 agent-slack channel invite --channel "incident-war-room" --users "U01234567,@alice,bob@example.com"
 

@@ -1,18 +1,70 @@
 import type { SlackApiClient } from "./client.ts";
 import { asArray, getString, isRecord } from "../lib/object-type-guards.ts";
 
+/**
+ * On Enterprise Grid an org-level token (`auth.test` reports
+ * `is_enterprise_install`) must name the workspace to create the channel in
+ * via `team_id`; Slack otherwise answers `cannot_create_channel`. Returns the
+ * explicit id, or the user's only workspace in the org, or throws listing the
+ * candidates. Returns undefined for workspace-level tokens.
+ */
+export async function resolveCreateTeamId(
+  client: SlackApiClient,
+  explicitTeamId?: string,
+): Promise<string | undefined> {
+  const explicit = explicitTeamId?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const auth = await client.api("auth.test", {});
+  if (auth.is_enterprise_install !== true) {
+    return undefined;
+  }
+
+  const userId = getString(auth.user_id);
+  const info = userId ? await client.api("users.info", { user: userId }) : {};
+  const enterpriseUser =
+    isRecord(info.user) && isRecord(info.user.enterprise_user) ? info.user.enterprise_user : null;
+  const teamIds = enterpriseUser
+    ? asArray(enterpriseUser.teams).filter((t): t is string => typeof t === "string")
+    : [];
+
+  if (teamIds.length === 1) {
+    return teamIds[0];
+  }
+
+  const labels = await Promise.all(
+    teamIds.map(async (id) => {
+      try {
+        const resp = await client.api("team.info", { team: id });
+        const name = isRecord(resp.team) ? getString(resp.team.name) : undefined;
+        return name ? `${id} (${name})` : id;
+      } catch {
+        return id;
+      }
+    }),
+  );
+  const choices = labels.length > 0 ? `one of: ${labels.join(", ")}` : "team id starts with T";
+  throw new Error(
+    `This is an Enterprise Grid org-level session: pass --team <team-id> to choose the workspace (${choices})`,
+  );
+}
+
 export async function createChannel(
   client: SlackApiClient,
-  input: { name: string; isPrivate?: boolean },
+  input: { name: string; isPrivate?: boolean; teamId?: string },
 ): Promise<{ channel: { id: string; name: string; is_private: boolean } }> {
   const name = input.name.trim();
   if (!name) {
     throw new Error("Channel name is empty");
   }
 
+  const teamId = await resolveCreateTeamId(client, input.teamId);
   const resp = await client.api("conversations.create", {
     name,
     is_private: Boolean(input.isPrivate),
+    ...(teamId ? { team_id: teamId } : {}),
   });
   const channel = isRecord(resp.channel) ? resp.channel : null;
   const id = channel ? getString(channel.id) : undefined;
