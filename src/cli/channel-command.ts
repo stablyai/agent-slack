@@ -112,11 +112,17 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
     .requiredOption("--name <name>", "Channel name")
     .option("--private", "Create as a private channel")
     .option(
+      "--team <team-id>",
+      "Workspace team id (T...) to create the channel in; needed on Enterprise Grid org-level sessions with several workspaces",
+    )
+    .option(
       "--workspace <url>",
       "Workspace selector (full URL or unique substring; required if you have multiple workspaces)",
     )
     .action(async (...args) => {
-      const [options] = args as [{ name: string; private?: boolean; workspace?: string }];
+      const [options] = args as [
+        { name: string; private?: boolean; team?: string; workspace?: string },
+      ];
       try {
         const workspaceUrl = input.ctx.effectiveWorkspaceUrl(options.workspace);
         const payload = await input.ctx.withAutoRefresh({
@@ -126,6 +132,7 @@ export function registerChannelCommand(input: { program: Command; ctx: CliContex
             return await createChannel(client, {
               name: options.name,
               isPrivate: Boolean(options.private),
+              teamId: options.team,
             });
           },
         });
