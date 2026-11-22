@@ -5,6 +5,7 @@
 import { isRecord } from "../lib/object-type-guards.ts";
 
 const ENCODED_ID_PATTERN = /^[A-Z0-9]+$/;
+const SAFE_URL_PATTERN = /^https:\/\/[^\s<>|]+$/;
 
 function getString(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -138,6 +139,12 @@ function extractMrkdwnFromRichTextElement(el: unknown): string {
   if (t === "broadcast") {
     const range = getString(el.range);
     return range === "here" || range === "channel" || range === "everyone" ? `<!${range}>` : "";
+  }
+
+  // A pasted Slack message permalink.
+  if (t === "message_mention") {
+    const url = getString(el.url);
+    return SAFE_URL_PATTERN.test(url) ? `<${url}>` : "";
   }
 
   return "";
