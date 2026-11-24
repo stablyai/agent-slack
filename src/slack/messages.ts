@@ -28,6 +28,12 @@ export type SlackMessageSummary = {
   reply_count?: number;
   user?: string;
   bot_id?: string;
+  // Set by Slack clients when a person types the message; absent for API posts.
+  client_msg_id?: string;
+  edited_ts?: string;
+  subtype?: string;
+  // Newest reply ts on a thread root, as conversations.history reports it.
+  latest_reply?: string;
   text: string;
   markdown: string;
   blocks?: unknown[];
@@ -206,6 +212,9 @@ export async function fetchChannelHistory(
         reply_count: getNumber(m.reply_count),
         user: getString(m.user),
         bot_id: getString(m.bot_id),
+        edited_ts: isRecord(m.edited) ? getString(m.edited.ts) : undefined,
+        subtype: getString(m.subtype),
+        client_msg_id: getString(m.client_msg_id),
         text,
         markdown: slackMrkdwnToMarkdown(text),
         blocks: Array.isArray(m.blocks) ? (m.blocks as unknown[]) : undefined,
@@ -266,7 +275,15 @@ export function passesReactionNameFilters(
 
 export async function fetchThread(
   client: SlackApiClient,
-  input: { channelId: string; threadTs: string; includeReactions?: boolean },
+  input: {
+    channelId: string;
+    threadTs: string;
+    includeReactions?: boolean;
+    // Exclusive lower bound on reply ts; Slack still returns the root first.
+    oldest?: string;
+    // false skips files.info lookups; callers enrich only what they output.
+    enrichFiles?: boolean;
+  },
 ): Promise<SlackMessageSummary[]> {
   const out: SlackMessageSummary[] = [];
   let cursor: string | undefined;
@@ -278,6 +295,7 @@ export async function fetchThread(
       limit: 200,
       cursor,
       include_all_metadata: input.includeReactions ? true : undefined,
+      ...(input.oldest ? { oldest: input.oldest, inclusive: false } : {}),
     });
     const messages = asArray(resp.messages);
     for (const m of messages) {
@@ -287,23 +305,14 @@ export async function fetchThread(
       const files = asArray(m.files)
         .map((f) => toSlackFileSummary(f))
         .filter((f): f is SlackFileSummary => f !== null);
-      const enrichedFiles = files.length > 0 ? await enrichFiles(client, files) : undefined;
+      const enrichedFiles =
+        files.length === 0
+          ? undefined
+          : input.enrichFiles === false
+            ? files
+            : await enrichFiles(client, files);
 
-      const text = getString(m.text) ?? "";
-      out.push({
-        channel_id: input.channelId,
-        ts: getString(m.ts) ?? "",
-        thread_ts: getString(m.thread_ts),
-        reply_count: getNumber(m.reply_count),
-        user: getString(m.user),
-        bot_id: getString(m.bot_id),
-        text,
-        markdown: slackMrkdwnToMarkdown(text),
-        blocks: Array.isArray(m.blocks) ? (m.blocks as unknown[]) : undefined,
-        attachments: Array.isArray(m.attachments) ? (m.attachments as unknown[]) : undefined,
-        files: enrichedFiles,
-        reactions: Array.isArray(m.reactions) ? (m.reactions as unknown[]) : undefined,
-      });
+      out.push(summarizeRaw({ m, channelId: input.channelId, files: enrichedFiles }));
     }
     const meta = isRecord(resp.response_metadata) ? resp.response_metadata : null;
     const next = meta ? getString(meta.next_cursor) : undefined;
@@ -316,6 +325,33 @@ export async function fetchThread(
   // Slack returns newest-first for some methods; normalize to chronological.
   out.sort((a, b) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts));
   return out;
+}
+
+export function summarizeRaw(input: {
+  m: Record<string, unknown>;
+  channelId: string;
+  files: SlackFileSummary[] | undefined;
+}): SlackMessageSummary {
+  const { m, channelId, files } = input;
+  const text = getString(m.text) ?? "";
+  return {
+    channel_id: channelId,
+    ts: getString(m.ts) ?? "",
+    thread_ts: getString(m.thread_ts),
+    edited_ts: isRecord(m.edited) ? getString(m.edited.ts) : undefined,
+    subtype: getString(m.subtype),
+    reply_count: getNumber(m.reply_count),
+    latest_reply: getString(m.latest_reply),
+    user: getString(m.user),
+    bot_id: getString(m.bot_id),
+    client_msg_id: getString(m.client_msg_id),
+    text,
+    markdown: slackMrkdwnToMarkdown(text),
+    blocks: Array.isArray(m.blocks) ? (m.blocks as unknown[]) : undefined,
+    attachments: Array.isArray(m.attachments) ? (m.attachments as unknown[]) : undefined,
+    files,
+    reactions: Array.isArray(m.reactions) ? (m.reactions as unknown[]) : undefined,
+  };
 }
 
 export { toCompactMessage, type CompactSlackMessage } from "./message-compact.ts";

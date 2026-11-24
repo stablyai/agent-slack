@@ -76,6 +76,7 @@ agent-slack
 ├── message
 │   ├── get   <target>             # fetch 1 message (+ thread meta )
 │   ├── list  <target>             # fetch thread or recent channel messages
+│   ├── watch <targets...>         # follow threads: report new/edited/deleted replies
 │   ├── send  <target> [text]      # send / reply / schedule (supports --attach, --blocks)
 │   ├── scheduled
 │   │   ├── list                   # list pending scheduled messages
@@ -201,6 +202,25 @@ agent-slack message list "#general" --with-reaction eyes --oldest "1770165109.00
 
 # Recent channel messages that do not have :dart:
 agent-slack message list "#general" --without-reaction dart --oldest "1770165109.000000" --limit 20
+```
+
+Follow threads instead of re-reading them by hand. `message watch` polls each thread and prints one JSON line per batch of changes (`event: "update"`, with `new`, `edited` and `deleted` per thread), framed by a `watching` line and a final `done` line (`reason: "once"` or `"timeout"`).
+
+- **One wake per burst.** A batch waits `--settle` (default 15s) of quiet, so several quick replies arrive together. Polls back off from `--interval` (15s) to `--max-interval` (2m) while threads are quiet and snap back on any change.
+- **Edits and deletes.** Threads up to 200 messages are read in full each poll and diffed, so edited (with `before` text) and deleted replies are reported; reactions and link unfurls are not. Larger threads read only new replies, with a full sweep every 10th poll. `--no-edits` reads only new replies.
+- **Resumable.** State is saved under `~/.agent-slack/watch/`, so re-running the same command reports everything that changed while nothing was watching, without repeats. `--fresh` starts from now; `--no-state` saves nothing; `--since <ts>` starts fresh from that ts.
+- **Your own agent-slack posts and edits are skipped** (API posts carry no `client_msg_id`), so an agent is not woken by its own sends; changes you make in Slack still report. `--include-self` reports both.
+- **Whole conversations.** Pass a DM or channel ID, a `#channel` or a user ID (opens your DM with them) instead of a message URL to follow everything in it: new top-level messages, edits and deletes among the newest 20, and new replies in any thread whose root is among them (each reply carries its `thread_ts`). Most polls read only messages after the cursor (about 140 bytes when quiet); edits, deletes and thread replies are picked up by a sweep of the tracked window (about 5 KB per message), which runs on the first poll, right after new messages, and at least every `--max-interval`. A thread that moved costs one `conversations.replies` call.
+
+```bash
+# Wake on the next batch of changes, then exit (run as a background task; re-run to resume)
+agent-slack message watch "https://workspace.slack.com/archives/C123/p1700000000000000" --once --timeout 2h
+
+# Follow two threads for a day as one stream
+agent-slack message watch "<thread-url-1>" "<thread-url-2>" --timeout 1d
+
+# Follow a DM with someone (user ID or DM channel ID), including thread replies in it
+agent-slack message watch U0123456789 --once --timeout 2h
 ```
 
 Optional:

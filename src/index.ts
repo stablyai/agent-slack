@@ -33,7 +33,8 @@ function shouldStartCommandWatchdog(args: string[]): boolean {
   if (!command || command === "update") {
     return false;
   }
-  if (command === "message" && subcommand === "draft") {
+  // draft runs an editor; watch is long-lived and bounds itself with --timeout.
+  if (command === "message" && (subcommand === "draft" || subcommand === "watch")) {
     return false;
   }
   return true;
