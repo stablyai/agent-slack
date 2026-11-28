@@ -40,6 +40,10 @@ export function normalizeChannelInput(input: string): {
   return { kind: "name", value: trimmed };
 }
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function resolveChannelId(client: SlackApiClient, input: string): Promise<string> {
   const normalized = normalizeChannelInput(input);
   if (normalized.kind === "id") {
@@ -55,6 +59,7 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
   // workspace (200 at a time), which is O(channels) API calls — 3+ minutes in
   // large workspaces. search.messages with `in:#name` resolves it in one call
   // by returning a message whose metadata includes the channel ID.
+  let searchNote = "";
   try {
     const searchResp = await client.api("search.messages", {
       query: `in:#${name}`,
@@ -71,19 +76,33 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
         return channelId;
       }
     }
-  } catch {
-    // search may fail (e.g. token lacks search:read scope) — fall through to pagination
+  } catch (error) {
+    // search may fail (e.g. token lacks search:read scope) — fall through to
+    // pagination, but keep the reason in case the fallback fails too
+    searchNote = ` (search.messages failed: ${errorText(error)})`;
   }
+
+  const notFound = `Could not resolve channel name: #${name}`;
 
   // Fallback: paginate conversations.list until we find a match
   let cursor: string | undefined;
   for (;;) {
-    const resp = await client.api("conversations.list", {
-      exclude_archived: true,
-      limit: 200,
-      cursor,
-      types: "public_channel,private_channel",
-    });
+    let resp: Record<string, unknown>;
+    try {
+      resp = await client.api("conversations.list", {
+        exclude_archived: true,
+        limit: 200,
+        cursor,
+        types: "public_channel,private_channel",
+      });
+    } catch (error) {
+      // e.g. `enterprise_is_restricted` for browser tokens on Enterprise Grid.
+      // On its own that error hides that this was a channel-name lookup and
+      // why the search above did not settle it.
+      throw new Error(`${notFound}${searchNote}; conversations.list failed: ${errorText(error)}`, {
+        cause: error,
+      });
+    }
     const chans = asArray(resp.channels).filter(isRecord);
     for (const c of chans) {
       if (getString(c.name) === name && getString(c.id)) {
@@ -99,7 +118,7 @@ export async function resolveChannelId(client: SlackApiClient, input: string): P
     cursor = next;
   }
 
-  throw new Error(`Could not resolve channel name: #${name}`);
+  throw new Error(`${notFound}${searchNote}`);
 }
 
 /**
