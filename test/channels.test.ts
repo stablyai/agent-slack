@@ -4,6 +4,7 @@ import {
   listConversationsViaCounts,
   listUserConversations,
   normalizeConversationsPage,
+  resolveChannelId,
 } from "../src/slack/channels.ts";
 import type { SlackApiClient } from "../src/slack/client.ts";
 
@@ -191,5 +192,84 @@ describe("conversations list helpers", () => {
     const infoCalls = calls.filter((c) => c.method === "conversations.info");
     expect(infoCalls).toHaveLength(2);
     expect(page.channels.map((c) => c.id)).toEqual(["C1", "C2"]);
+  });
+});
+
+describe("resolveChannelId", () => {
+  type Handler = () => Record<string, unknown>;
+
+  function createScriptedClient(handlers: Record<string, Handler>) {
+    const calls: string[] = [];
+    const client = {
+      api: async (method: string) => {
+        calls.push(method);
+        const handler = handlers[method];
+        if (!handler) {
+          throw new Error(`unexpected method: ${method}`);
+        }
+        return handler();
+      },
+    } as unknown as SlackApiClient;
+    return { client, calls };
+  }
+
+  const fail = (message: string) => () => {
+    throw new Error(message);
+  };
+  const noMatch = () => ({ messages: { matches: [] } });
+
+  test("resolves a name from the first search.messages match", async () => {
+    const { client, calls } = createScriptedClient({
+      "search.messages": () => ({ messages: { matches: [{ channel: { id: "C12345678" } }] } }),
+    });
+
+    expect(await resolveChannelId(client, "#general")).toBe("C12345678");
+    expect(calls).toEqual(["search.messages"]);
+  });
+
+  test("falls back to conversations.list when search fails", async () => {
+    const { client } = createScriptedClient({
+      "search.messages": fail("missing_scope"),
+      "conversations.list": () => ({ channels: [{ id: "C99999999", name: "general" }] }),
+    });
+
+    expect(await resolveChannelId(client, "#general")).toBe("C99999999");
+  });
+
+  test("names the channel when search finds nothing and conversations.list is restricted", async () => {
+    const { client } = createScriptedClient({
+      "search.messages": noMatch,
+      "conversations.list": fail("enterprise_is_restricted"),
+    });
+
+    await expect(resolveChannelId(client, "#general")).rejects.toThrow(
+      "Could not resolve channel name: #general; conversations.list failed: enterprise_is_restricted",
+    );
+  });
+
+  test("reports the search error when the conversations.list fallback also fails", async () => {
+    const { client } = createScriptedClient({
+      "search.messages": fail("missing_scope"),
+      "conversations.list": fail("enterprise_is_restricted"),
+    });
+
+    const error = await resolveChannelId(client, "#general").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(
+      "Could not resolve channel name: #general (search.messages failed: missing_scope); conversations.list failed: enterprise_is_restricted",
+    );
+    expect(((error as Error).cause as Error).message).toBe("enterprise_is_restricted");
+  });
+
+  test("reports the search error when conversations.list has no match either", async () => {
+    const { client } = createScriptedClient({
+      "search.messages": fail("missing_scope"),
+      "conversations.list": () => ({ channels: [] }),
+    });
+
+    await expect(resolveChannelId(client, "#general")).rejects.toThrow(
+      "Could not resolve channel name: #general (search.messages failed: missing_scope)",
+    );
   });
 });
